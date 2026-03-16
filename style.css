@@ -291,6 +291,7 @@ h1.glitch {
     flex: 0 1 250px;
     text-align: center;
     transition: transform 0.3s ease;
+    min-height: 220px;
 }
 
 .soft-skill-card:hover {
