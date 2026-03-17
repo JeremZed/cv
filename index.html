@@ -76,12 +76,20 @@
                         </div>
                         <p class="company">CGI | Alternance</p>
                         <ul class="task-list">
-                            <li>Cadrage d'use cases métier avec les parties prenantes et traduction en solutions
-                                techniques.</li>
-                            <li>Définition d’architectures IA et arbitrage des choix technologiques.</li>
-                            <li>Animation d'ateliers techniques et présentation des résultats aux décideurs.</li>
-                            <li>Évaluation de la faisabilité technique et estimation des charges projet.</li>
-                            <li>Sélection des stacks technologiques adaptées.</li>
+                            <li>Conception et développement de systèmes IA avancés basés sur des LLM (RAG, agents,
+                                pipelines d’orchestration)</li>
+                            <li>Implémentation de solutions intégrant retrieval, mémoire et exécution d’actions (ReAct,
+                                MCP)</li>
+                            <li>Optimisation des performances des systèmes RAG (chunking, embeddings, stratégies de
+                                recherche)</li>
+                            <li>Développement d’outils et d’interfaces orientés usage (extensions, assistants métiers,
+                                POC → industrialisation)</li>
+                            <li>Cadrage des cas d’usage IA avec les équipes métier et traduction en solutions techniques
+                                concrètes</li>
+                            <li>Définition d’architectures techniques et choix des stacks adaptées aux contraintes
+                                projet</li>
+                            <li>Présentation des résultats, vulgarisation des concepts IA et accompagnement des parties
+                                prenantes</li>
                             <li>Veille technologique continue.</li>
                         </ul>
                     </div>
@@ -110,8 +118,86 @@
             </div>
         </section>
 
+        <section id="portfolio" class="section">
+            <h2 class="section-title">Portfolio IA</h2>
+            <div class="portfolio-grid">
+                <div class="project-card card" data-project="rag-tma">
+                    <span class="project-icon">🔍</span>
+                    <h3>RAG TMA</h3>
+                    <p>Assistant d'Analyse de Code & Spécifications (Assistant de maintenance applicative).</p>
+                    <div class="project-tags">
+                        <span class="tag">Python</span>
+                        <span class="tag">FastAPI</span>
+                        <span class="tag">Vue.js</span>
+                        <span class="tag">LLM</span>
+                    </div>
+                    <div class="project-cta">Détails <span>&rarr;</span></div>
+                </div>
+
+                <div class="project-card card" data-project="agents">
+                    <span class="project-icon">🤖</span>
+                    <h3>Agents Autonomes</h3>
+                    <p>Exploration et développement d'un agent autonome.</p>
+                    <div class="project-tags">
+                        <span class="tag">Python</span>
+                        <span class="tag">LLM</span>
+                        <span class="tag">Pattern ReAct</span>
+                        <span class="tag">Tools</span>
+                    </div>
+                    <div class="project-cta">Détails <span>&rarr;</span></div>
+                </div>
+
+                <div class="project-card card" data-project="rag-nlp">
+                    <span class="project-icon">📚</span>
+                    <h3>RAG & NLP</h3>
+                    <p>Mise en place de systèmes RAG from scratch et extensions personnalisées.</p>
+                    <div class="project-tags">
+                        <span class="tag">PgVector</span>
+                        <span class="tag">OpenWebUI</span>
+                        <span class="tag">Streamlit</span>
+                    </div>
+                    <div class="project-cta">Détails <span>&rarr;</span></div>
+                </div>
+
+                <div class="project-card card" data-project="automation">
+                    <span class="project-icon">⚙️</span>
+                    <h3>Automatisation & Qualité</h3>
+                    <p>Génération de tests GHERKIN et pipelines de contrôle de qualité de données.</p>
+                    <div class="project-tags">
+                        <span class="tag">Playwright</span>
+                        <span class="tag">Gherkin</span>
+                        <span class="tag">Pandas</span>
+                    </div>
+                    <div class="project-cta">Détails <span>&rarr;</span></div>
+                </div>
+
+                <div class="project-card card" data-project="vision-ml">
+                    <span class="project-icon">👁️</span>
+                    <h3>Computer Vision & ML</h3>
+                    <p>Génération de médias via ComfyUI et classification d'impact de tickets.</p>
+                    <div class="project-tags">
+                        <span class="tag">ComfyUI</span>
+                        <span class="tag">Scikit-learn</span>
+                        <span class="tag">XGBoost</span>
+                    </div>
+                    <div class="project-cta">Détails <span>&rarr;</span></div>
+                </div>
+                <div class="project-card card" data-project="alternance-ml">
+                    <span class="project-icon">🚒</span>
+                    <h3>Alternance</h3>
+                    <p>Prédiction des Temps d’Intervention – London Fire Brigade</p>
+                    <div class="project-tags">
+                        <span class="tag">MLOps</span>
+                        <span class="tag">Data Science</span>
+                        <span class="tag">Feature Engineering</span>
+                    </div>
+                    <div class="project-cta">Détails <span>&rarr;</span></div>
+                </div>
+            </div>
+        </section>
+
         <section id="skills" class="section skills-section">
-            <h2 class="section-title">Expertise</h2>
+            <h2 class="section-title">Compétences</h2>
             <div class="skills-grid">
                 <div class="skill-category card">
                     <h3>🤖 Intelligence Artificielle</h3>
@@ -124,7 +210,7 @@
                 <div class="skill-category card">
                     <h3>📊 Data Engineering & Dev</h3>
                     <ul>
-                        <li><strong>Langages</strong> : Python (Expert), SQL, JavaScript, PHP</li>
+                        <li><strong>Langages</strong> : Python, SQL, JavaScript, PHP</li>
                         <li><strong>Bases de données</strong> : PostgreSQL, MySQL, MongoDB</li>
                         <li><strong>Visualisation</strong> : Plotly, Streamlit, Matplotlib, Seaborn</li>
                     </ul>
@@ -227,6 +313,15 @@
             </div>
         </section>
 
+        <div id="project-modal" class="modal">
+            <div class="modal-content">
+                <span class="close-modal">&times;</span>
+                <div id="modal-content-body" class="modal-body">
+                    <!-- Dynamic Content -->
+                </div>
+            </div>
+        </div>
+
         <footer class="footer">
             <p>&copy; 2026 THULLIEZ Jérémy - CV </p>
         </footer>
@@ -247,7 +342,6 @@
             localStorage.setItem('theme', theme);
         };
 
-        // Initial set
         body.className = getPreferredTheme();
 
         themeToggle.addEventListener('click', () => {
@@ -255,11 +349,170 @@
             setTheme(newTheme);
         });
 
-        // Listen for system changes if no saved preference
-        window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', e => {
-            if (!localStorage.getItem('theme')) {
-                setTheme(e.matches ? 'dark-theme' : 'light-theme');
+        // Portfolio Data
+        const projects = {
+            'rag-tma': {
+                title: "RAG TMA - Assistant d'Analyse de Code",
+                images: [
+                    "assets/projects/graph_resume.png",
+                    "assets/projects/spec_done.png",
+                    "assets/projects/impact_score.png",
+                    "assets/projects/analyse_termine.png"
+                ],
+                description: "RAG TMA est une plateforme avancée de support à la maintenance applicative (TMA). Elle combine l'analyse structurelle de code (AST), l'analyse d'impact et le Retrieval-Augmented Generation (RAG) pour offrir aux développeurs une compréhension profonde et interactive de bases de code complexes.",
+                details: [
+                    "<b>Analyse Multi-Langage</b> : Extraction intelligente de la structure du code (Python, PL/SQL, JS) via AST.",
+                    "<b>Analyse d'Impact</b> : Visualisation des dépendances et calcul de scores d'impact, de sensibilité et d'exposition pour chaque composant.",
+                    "<b>Audit de Spécifications</b> : Vérification automatique de la conformité du code par rapport aux exigences fonctionnelles et techniques. ",
+                    "<b>Chat Intelligent (RAG)</b> : Posez des questions sur votre codebase et obtenez des réponses contextuelles basées sur l'analyse technique et les métriques d'impact.",
+                    "<b>Graphe de Dépendances</b> : Exploration interactive des relations entre les fichiers, classes et fonctions.",
+                    "<b>Traitement Asynchrone</b> : Pipeline d'analyse robuste utilisant Celery et Redis pour gérer les gros volumes de code."
+                ],
+                stack: ["FastAPI", "Python", "Vue.js", "D3.js", "ChromaDB", "Ollama"]
+            },
+            'agents': {
+                title: "Exploration des Agents Autonomes",
+                description: `Travaux de recherche et développement autour de la conception d’agents véritablement autonomes, basés sur le pattern ReAct. L’objectif était de concevoir des systèmes capables de résoudre des tâches complexes à partir d’un objectif général et de règles de sécurité, sans orchestration explicite ni enchaînement d’actions prédéfini.<br /><br />Ces agents reposent sur une architecture intégrant plusieurs formes de mémoire (mémoire de travail, mémoire épisodique et mémoire long terme), permettant l’apprentissage à partir des exécutions passées, incluant aussi bien les succès que les échecs. Un mécanisme de génération de “leçons” post-exécution, produit par un LLM, alimente en continu cette mémoire afin d’améliorer les performances lors de runs ultérieurs.<br />
+<br />L’approche inclut également l’utilisation d’un LLM en tant que juge pour l’évaluation des actions, ainsi qu’une capacité dynamique à sélectionner et exploiter des outils sans dépendre d’un contexte statique préinjecté. Les prompts sont volontairement minimalistes et orientés vers la délégation de la prise de décision, afin de favoriser un comportement réellement autonome plutôt qu’exécutif.`,
+                details: [
+                    "Agents autonomes guidés par objectifs, sans scénarios prédéfinis",
+                    "Architecture mémoire (travail, épisodique, long terme) pour apprentissage continu",
+                    "Pattern ReAct avec sélection dynamique et découverte d’outils",
+                    "LLM comme juge pour l’évaluation des actions et génération de leçons post-exécution"
+                ],
+                stack: ["Python", "Tools", "Ollama", "LLM", "Pattern ReAct"]
+            },
+            'rag-nlp': {
+                title: "Solutions RAG & Extensions NLP",
+                description: "Mise en œuvre de systèmes RAG",
+                details: [
+                    "Initialisation d’un RAG from scratch (PgVector), puis évolution vers une solution orientée UX basée sur OpenWebUI",
+                    "Développement d’une extension de génération de présentations PPT via LLM",
+                    "Optimisation du retrieval et des stratégies de chunking pour améliorer la pertinence",
+                    "Mise en place de pipelines d’agents avec MCP permettant aux LLM d’exécuter des actions et d’orchestrer des tâches métier"
+                ],
+                stack: ["MCP", "PgVector", "Python", "OpenWebUI", "Streamlit"]
+            },
+            'automation': {
+                title: "Automatisation & Qualité de Données",
+                description: "Projets axés sur l'automatisation des tests et le contrôle continu de la qualité des données.",
+                details: [
+                    "Génération de scénarios GHERKIN à partir de code source ou de specs fonctionnelles (FIORI).",
+                    "Exécution automatisée via Playwright pour validation d'interface.",
+                    "Pipeline de profiling et de correction automatique de données KO.",
+                    "Mise en place de règles de contrôle intelligentes."
+                ],
+                stack: ["Python", "Playwright", "Gherkin", "Pandas", "Scikit-learn"]
+            },
+            'vision-ml': {
+                title: "Computer Vision & Modélisation ML",
+                description: "Utilisation de techniques de vision par ordinateur et de machine learning classique pour résoudre des problématiques métier.",
+                details: [
+                    "Déploiement de ComfyUI pour la génération assistée d'images et de contenus vidéo.",
+                    "Développement d'un classifieur d'impact sur tickets support (jeu de données TAWOS).",
+                    "Identification des features clés via SHAP et optimisation des modèles XGBoost."
+                ],
+                stack: ["ComfyUI", "XGBoost", "Scikit-learn", "Pandas", "SHAP"]
+            },
+            'alternance-ml': {
+                title: "Prédiction des Temps d’Intervention – London Fire Brigade",
+                description: `Projet de data science et d’ingénierie visant à modéliser et prédire les temps d’intervention de la London Fire Brigade à partir de données historiques d’incidents et de mobilisation.<br />
+<br />
+L’approche couvre l’ensemble du cycle de vie d’un projet ML : ingestion et transformation de données à grande échelle, construction de features, entraînement et évaluation de modèles, ainsi que déploiement d’une API et d’une interface interactive.<br />
+<br />
+Une application permet de simuler un incident en sélectionnant une localisation via carte (OpenStreetMap), ainsi que des paramètres temporels, afin d’estimer le temps d’arrivée des secours. Le projet intègre également des pipelines de traitement orchestrés et versionnés, garantissant la reproductibilité et l’industrialisation des workflows.`,
+                details: [
+                    "Construction d’un pipeline data complet (ingestion, nettoyage, feature engineering, dataset training)",
+                    "Modélisation des temps de réponse (régression) avec comparaison et optimisation de modèles",
+                    "Mise en place de pipelines reproductibles avec DVC et orchestration via Airflow",
+                    "Suivi des expérimentations et des performances avec MLflow",
+                    "Déploiement d’une API de prédiction et d’une interface interactive (Streamlit + OpenStreetMap)",
+                    "Structuration du projet en architecture modulaire orientée production"
+                ],
+                stack: ["Python", "DVC", "Airflow", "MLflow", "Streamlit", "OpenStreetMap"]
             }
+        };
+
+        const modal = document.getElementById('project-modal');
+        const modalBody = document.getElementById('modal-content-body');
+        const closeBtn = document.querySelector('.close-modal');
+        let currentSlide = 0;
+
+        const showSlide = (n) => {
+            const slides = document.querySelectorAll('.carousel-slide');
+            const indicators = document.querySelectorAll('.indicator');
+            if (!slides.length) return;
+
+            slides[currentSlide].classList.remove('active');
+            indicators[currentSlide].classList.remove('active');
+
+            currentSlide = (n + slides.length) % slides.length;
+
+            slides[currentSlide].classList.add('active');
+            indicators[currentSlide].classList.add('active');
+        };
+
+        document.querySelectorAll('.project-card').forEach(card => {
+            card.addEventListener('click', () => {
+                const projectId = card.getAttribute('data-project');
+                const project = projects[projectId];
+                currentSlide = 0;
+
+                let imageHtml = '';
+                if (project.images && project.images.length > 0) {
+                    imageHtml = `
+                        <div class="carousel-container">
+                            ${project.images.map((img, idx) => `
+                                <div class="carousel-slide ${idx === 0 ? 'active' : ''}">
+                                    <img src="${img}" alt="${project.title} screenshot ${idx + 1}">
+                                </div>
+                            `).join('')}
+                            ${project.images.length > 1 ? `
+                                <button class="carousel-btn prev" onclick="moveSlide(-1)">&#10094;</button>
+                                <button class="carousel-btn next" onclick="moveSlide(1)">&#10095;</button>
+                                <div class="carousel-indicators">
+                                    ${project.images.map((_, idx) => `
+                                        <span class="indicator ${idx === 0 ? 'active' : ''}" onclick="goToSlide(${idx})"></span>
+                                    `).join('')}
+                                </div>
+                            ` : ''}
+                        </div>
+                    `;
+                }
+
+                modalBody.innerHTML = `
+                    ${imageHtml}
+                    <h2>${project.title}</h2>
+                    <p>${project.description}</p>
+                    <h3>Points clés :</h3>
+                    <ul>
+                        ${project.details.map(detail => `<li>${detail}</li>`).join('')}
+                    </ul>
+                    <h3>Technologies :</h3>
+                    <div class="project-tags">
+                        ${project.stack.map(s => `<span class="tag">${s}</span>`).join('')}
+                    </div>
+                `;
+
+                modal.classList.add('show');
+                document.body.classList.add('modal-open');
+            });
+        });
+
+        window.moveSlide = (n) => showSlide(currentSlide + n);
+        window.goToSlide = (n) => showSlide(n);
+
+        const closeModal = () => {
+            modal.classList.remove('show');
+            document.body.classList.remove('modal-open');
+        };
+
+        closeBtn.addEventListener('click', closeModal);
+        window.addEventListener('click', (e) => {
+            if (e.target === modal) closeModal();
+        });
+        window.addEventListener('keydown', (e) => {
+            if (e.key === 'Escape') closeModal();
         });
     </script>
 </body>
