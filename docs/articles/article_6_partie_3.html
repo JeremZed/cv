@@ -1,0 +1,189 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Le Guide du Praticien — Partie 3 : Hyperparamètres & Extensions | Tinkerer's Lab</title>
+    
+    <!-- Stylesheets -->
+    <link rel="stylesheet" href="../css/style.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.8.0/styles/github-dark.min.css">
+    
+    <!-- Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    
+    <!-- MathJax Configuration -->
+    <script>
+        window.MathJax = {
+            tex: {
+                inlineMath: [['$', '$'], ['\\(', '\\)']],
+                displayMath: [['$$', '$$'], ['\\[', '\\]']],
+                processEscapes: true
+            },
+            options: {
+                ignoreHtmlClass: 'tex2jax_ignore',
+                processHtmlClass: 'tex2jax_process'
+            }
+        };
+    </script>
+    <script id="MathJax-script" async src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
+    <script src="../js/sidebar.js" defer></script>
+</head>
+<body class="tex2jax_process">
+
+    <!-- Reading Progress Bar -->
+    <div class="progress-bar-container">
+        <div class="progress-bar" id="reading-progress"></div>
+    </div>
+
+    <div class="app-container">
+    
+        <!-- Mobile Navigation Header -->
+        <header class="mobile-header">
+            <button class="menu-toggle" id="menu-open-btn">
+                <svg width="24" height="24" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M4 6h16M4 12h16M4 18h16"/></svg>
+            </button>
+            <div class="sidebar-title">Tinkerer's Lab</div>
+            <div></div> <!-- spacer -->
+        </header>
+
+        <!-- Persistent Sidebar -->
+        <aside class="sidebar" id="app-sidebar"></aside>
+
+        <!-- Main Content -->
+        <main class="main-content">
+            <div class="article-layout">
+                <article class="article-container">
+                    <header class="article-header">
+                        <span class="article-category jepa-1-6">Série I-JEPA</span>
+                        <h1>Le Guide du Praticien — Partie 3 : Hyperparamètres & Extensions</h1>
+                        <p class="article-subtitle">Diagnostics de collapse, ratios et hyperparamètres</p>
+                    </header>
+                    
+                    <div class="article-body">
+                        <blockquote>
+<p><strong>Série I-JEPA — Article 6 : Le Guide du Praticien</strong>
+<em>Dans cette troisième et dernière partie de notre série d'articles, nous levons les yeux vers l'horizon. L'architecture Joint Embedding Predictive Architecture (JEPA) ne se limite pas aux images statiques en 2D. Découvrez comment cette philosophie s'étend au mouvement temporel avec V-JEPA, aux données hétérogènes avec Tab-JEPA, et comment elle prépare le terrain pour les agents autonomes intelligents.</em></p>
+</blockquote>
+<hr />
+<h2 id="1-v-jepa-video-jepa-apprendre-la-physique-du-monde">📹 1. V-JEPA (Video-JEPA) : Apprendre la physique du monde</h2>
+<p>Dans son manifeste pour une IA autonome, Yann LeCun souligne que le <strong>World Model</strong> (Modèle du Monde) d'un agent intelligent doit être capable de simuler les conséquences de ses actions dans le temps. Pour cela, la vidéo est le support d'apprentissage idéal.</p>
+<p>C'est là qu'intervient <strong>V-JEPA</strong> (Video-JEPA) :</p>
+<ul>
+<li><strong>Des patches en 3D (Tubes spatio-temporels)</strong> : Au lieu de découper une image en carrés 2D, la vidéo est découpée en "tubes" tridimensionnels (ex. blocs de $2$ images consécutives par $4\times 4$ pixels).</li>
+<li><strong>Masquage temporel</strong> : Le modèle reçoit uniquement quelques portions éparses de la vidéo (contexte visible) et doit prédire les représentations des blocs temporels masqués (par exemple, ce qui se passe 1 seconde plus tard).</li>
+<li><strong>Pourquoi c'est révolutionnaire ?</strong> : V-JEPA apprend les lois physiques de notre monde. En prédisant dans l'espace latent (et non au niveau des pixels), il n'a pas besoin de gaspiller de la capacité à calculer le mouvement chaotique des feuilles sous le vent. En revanche, il apprend les notions de gravité, d'inertie, de collision et de permanence des objets (savoir qu'un objet masqué par un autre continue d'exister).</li>
+</ul>
+<pre><code>         Vidéo (Trames temporelles) ──► Découpage en tubes 3D ──► Masquage
+                                                                     │
+         [ Predictor ] ◄── Devine la sémantique de l'action futur ◄──┘
+</code></pre>
+<hr />
+<h2 id="2-tab-jepa-r-volutionner-les-donn-es-tabulaires">📊 2. Tab-JEPA : Révolutionner les données tabulaires</h2>
+<p>Les données tabulaires (lignes et colonnes de bases de données, par exemple en finance ou en médecine) sont le format de données le plus répandu en entreprise. Cependant, les Transformers ont souvent du mal à s'y adapter en raison de la nature hétérogène des colonnes (mélange de nombres, de catégories, de dates).</p>
+<p><strong>Tab-JEPA</strong> applique la philosophie JEPA à ces structures :</p>
+<ul>
+<li><strong>Chaque colonne comme un patch</strong> : Les variables de la table sont encodées sous forme d'embeddings.</li>
+<li><strong>Masquage de variables</strong> : Certaines colonnes de données (ex. le taux de cholestérol d'un patient ou le prix d'une action) sont masquées.</li>
+<li><strong>Tâche prétexte</strong> : L'encodeur traite les colonnes visibles, et le Predictor doit reconstituer la représentation latente des colonnes manquantes.</li>
+<li><strong>Résultat</strong> : Tab-JEPA capture les corrélations sous-jacentes complexes et non-linéaires entre les variables d'un jeu de données sans avoir besoin d'étiquettes, offrant une initialisation de premier choix pour des prédictions de risques ou des scoring de crédit.</li>
+</ul>
+<hr />
+<h2 id="h-jepa-hierarchical-jepa-la-vision-ultime-de-yann-lecun">🏔️ H-JEPA (Hierarchical-JEPA) : La vision ultime de Yann LeCun</h2>
+<p>Pour créer des agents capables de planifier à long terme, Yann LeCun propose d'empiler ces modèles sous forme <strong>hiérarchique</strong> (H-JEPA). </p>
+<p>Dans notre cerveau, lorsque nous planifions un voyage de Paris à New York, notre niveau d'abstraction le plus élevé ne pense pas à la façon de contracter chaque muscle de nos jambes. Il planifie à grande échelle ("prendre l'avion"). C'est le rôle des différentes couches de H-JEPA :</p>
+<ol>
+<li><strong>Niveau Supérieur (Échelle de temps longue, abstraction forte)</strong> : Planifie les grandes étapes (ex. "se rendre à l'aéroport").</li>
+<li><strong>Niveau Intermédiaire</strong> : Traduit en sous-actions (ex. "commander un taxi").</li>
+<li><strong>Niveau Inférieur (Échelle de temps courte, précision locale)</strong> : Gère les micro-mouvements physiques (ex. "ouvrir la portière du taxi").</li>
+</ol>
+<p>Chaque niveau prédit et planifie dans son propre espace latent, adapté à sa résolution temporelle et sémantique.</p>
+<pre><code>                  [ H-JEPA Niveau 3 (Grandes abstractions) ] 
+                                     │
+                                     ▼ (Sous-Objectifs)
+                  [ H-JEPA Niveau 2 (Actions intermédiaires) ]
+                                     │
+                                     ▼ (Commandes physiques)
+                  [ H-JEPA Niveau 1 (Actionneur moteur local) ]
+</code></pre>
+<hr />
+<h2 id="cl-ture-de-la-s-rie-jepa-lab">🏁 Clôture de la Série JEPA-Lab</h2>
+<p>Nous y sommes ! En 6 articles détaillés, nous avons parcouru tout le spectre de la révolution JEPA :
+1.  <strong>L'Article 1</strong> nous a confronté à la malédiction du bruit haute fréquence et nous a présenté l'architecture cognitive globale.
+2.  <strong>L'Article 2</strong> nous a appris à découper les images en patches et à assembler les trois modules asymétriques.
+3.  <strong>L'Article 3</strong> nous a montré comment passer au multi-cibles parallélisé sur GPU.
+4.  <strong>L'Article 4</strong> a validé l'incroyable efficacité de données de JEPA grâce au Fine-Tuning.
+5.  <strong>L'Article 5</strong> a ouvert la boîte noire par des visualisations d'attention et de clustering.
+6.  <strong>L'Article 6</strong> vous donne les clés pour diagnostiquer le collapse et imaginer les extensions futures.</p>
+<p>Vous disposez désormais de toutes les clés théoriques et du code source complet de notre lab pour concevoir, entraîner et comprendre votre propre modèle JEPA !</p>
+<hr />
+<h3 id="d-fi-curieux-n-3">🛠️ Défi curieux n°3</h3>
+<p><em>Félicitations pour avoir complété cette série d'apprentissage ! Pour aller plus loin, essayez de modifier le fichier <code>jepa_lab/models.py</code> en ajoutant des commentaires décrivant comment vous imagineriez adapter le code pour traiter une dimension temporelle (vidéo) ou tabulaire.</em></p>
+                    </div>
+                    
+                    <div class="article-footer-nav">
+  <a href="article_6_partie_2.html" class="footer-nav-link prev">
+    <span class="footer-nav-label">← Précédent</span>
+    <span class="footer-nav-title">Le Guide du Praticien - Partie 2</span>
+  </a>
+  <a href="article_conclusion.html" class="footer-nav-link next">
+    <span class="footer-nav-label">Suivant →</span>
+    <span class="footer-nav-title">Le Verdict Empirique - Partie 1</span>
+  </a>
+</div>
+                </article>
+                
+                <div class="toc-sidebar">
+  <div class="toc-title">Sur cette page</div>
+  <ul class="toc-list">
+    <li class=""><a href="#1-v-jepa-video-jepa-apprendre-la-physique-du-monde">📹 1. V-JEPA (Video-JEPA) : Apprendre la physique du monde</a></li>
+    <li class=""><a href="#2-tab-jepa-r-volutionner-les-donn-es-tabulaires">📊 2. Tab-JEPA : Révolutionner les données tabulaires</a></li>
+    <li class=""><a href="#h-jepa-hierarchical-jepa-la-vision-ultime-de-yann-lecun">🏔️ H-JEPA (Hierarchical-JEPA) : La vision ultime de Yann LeCun</a></li>
+    <li class=""><a href="#cl-ture-de-la-s-rie-jepa-lab">🏁 Clôture de la Série JEPA-Lab</a></li>
+    <li class="toc-indent"><a href="#d-fi-curieux-n-3">🛠️ Défi curieux n°3</a></li>
+  </ul>
+</div>
+            </div>
+        </main>
+    </div>
+
+    <!-- Scripts -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.8.0/highlight.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/mermaid/dist/mermaid.min.js"></script>
+    
+    <script>
+        // Initialize Highlight.js
+        hljs.highlightAll();
+        
+        // Initialize Mermaid
+        mermaid.initialize({
+            theme: 'dark',
+            startOnLoad: false,
+            securityLevel: 'loose'
+        });
+
+        document.addEventListener("DOMContentLoaded", function() {
+            // 1. Convert Markdown pre-code blocks for Mermaid to actual divs
+            document.querySelectorAll("pre code.language-mermaid").forEach(function(el) {
+                const pre = el.parentElement;
+                const div = document.createElement("div");
+                div.className = "mermaid";
+                div.textContent = el.textContent;
+                pre.parentElement.replaceChild(div, pre);
+            });
+            
+            // Run Mermaid rendering
+            mermaid.run();
+            
+            // 2. Reading Progress Bar Logic
+            window.addEventListener('scroll', function() {
+                const winScroll = document.documentElement.scrollTop || document.body.scrollTop;
+                const height = document.documentElement.scrollHeight - document.documentElement.clientHeight;
+                const scrolled = (winScroll / height) * 100;
+                document.getElementById("reading-progress").style.width = scrolled + "%";
+            });
+        });
+    </script>
+</body>
+</html>

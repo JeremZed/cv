@@ -1,0 +1,291 @@
+<!DOCTYPE html>
+<html lang="fr">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Ouvrir la Boîte Noire — Partie 1 : Attention du Predictor | Tinkerer's Lab</title>
+
+    <!-- Stylesheets -->
+    <link rel="stylesheet" href="../css/style.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.8.0/styles/github-dark.min.css">
+
+    <!-- Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+
+    <!-- MathJax Configuration -->
+    <script>
+        window.MathJax = {
+            tex: {
+                inlineMath: [['$', '$'], ['\\(', '\\)']],
+                displayMath: [['$$', '$$'], ['\\[', '\\]']],
+                processEscapes: true
+            },
+            options: {
+                ignoreHtmlClass: 'tex2jax_ignore',
+                processHtmlClass: 'tex2jax_process'
+            }
+        };
+    </script>
+    <script id="MathJax-script" async src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
+    <script src="../js/sidebar.js" defer></script>
+</head>
+
+<body class="tex2jax_process">
+
+    <!-- Reading Progress Bar -->
+    <div class="progress-bar-container">
+        <div class="progress-bar" id="reading-progress"></div>
+    </div>
+
+    <div class="app-container">
+
+        <!-- Mobile Navigation Header -->
+        <header class="mobile-header">
+            <button class="menu-toggle" id="menu-open-btn">
+                <svg width="24" height="24" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" d="M4 6h16M4 12h16M4 18h16" />
+                </svg>
+            </button>
+            <div class="sidebar-title">Tinkerer's Lab</div>
+            <div></div> <!-- spacer -->
+        </header>
+
+        <!-- Persistent Sidebar -->
+        <aside class="sidebar" id="app-sidebar"></aside>
+
+        <!-- Main Content -->
+        <main class="main-content">
+            <div class="article-layout">
+                <article class="article-container">
+                    <header class="article-header">
+                        <span class="article-category jepa-1-6">Série I-JEPA</span>
+                        <h1>Ouvrir la Boîte Noire — Partie 1 : Attention du Predictor</h1>
+                        <p class="article-subtitle">Visualisation et Interprétation Sémantique (XAI)</p>
+                    </header>
+
+                    <div class="article-body">
+                        <blockquote>
+                            <p><strong>Série I-JEPA — Article 5 : Ouvrir la boîte noire (XAI)</strong>
+                                <em>Dans cette première partie de notre cinquième article, nous allons concevoir une
+                                    méthode pour ouvrir la boîte noire. En interceptant les matrices d'attention du
+                                    Predictor, nous allons cartographier la façon dont notre JEPA utilise le contexte
+                                    visible pour imaginer et prédire les zones masquées de l'image.</em>
+                            </p>
+                        </blockquote>
+                        <hr />
+                        <h2 id="le-predictor-comme-simulateur-de-l-espace-latent">🧠 Le Predictor comme simulateur de
+                            l'espace latent</h2>
+                        <p>Rappelons le rôle du <strong>Predictor</strong> : il reçoit les représentations des patches
+                            de contexte visibles $s_x$ et des requêtes de masques vides $s_y$ contenant uniquement leurs
+                            coordonnées de position. </p>
+                        <p>Pendant son calcul, chaque couche de Self-Attention (Attention sur soi) permet aux jetons de
+                            masque de "regarder" les patches de contexte pour reconstituer l'information manquante.</p>
+                        <p>Si nous parvenons à savoir <strong>quels patches de contexte</strong> un jeton de masque
+                            regarde en priorité pour faire sa prédiction, nous pourrons comprendre la logique interne du
+                            modèle. C'est l'essence de l'Explicabilité (XAI).</p>
+                        <hr />
+                        <h2 id="la-cartographie-de-l-attention-target-to-context">🗺️ La cartographie de l'Attention
+                            (Target-to-Context)</h2>
+                        <p>Dans un Transformer, l'attention est calculée par une multiplication matricielle entre les
+                            requêtes (Queries $Q$) et les clés (Keys $K$). </p>
+                        <p>Pour un Predictor recevant la séquence concaténée
+                            <code>[Contexte (K_x tokens), Cibles (K_y tokens)]</code>, la matrice d'attention totale a
+                            une dimension de <code>(N, N)</code> où $N = K_x + K_y$.
+                        </p>
+                        <p>Pour comprendre l'imagination du modèle, nous isolons spécifiquement la région
+                            <strong>Target-to-Context</strong> (Cibles vers Contexte) :
+                        </p>
+                        <pre><code>                                 CLÉS (Keys)
+                     ┌───────────────────┬───────────────────┐
+                     │  Context Tokens   │   Target Tokens   │
+                     │      (0..K_x)     │    (K_x..K_x+K_y) │
+     Q ┌─────────────┼───────────────────┼───────────────────┤
+     U │ Context     │                   │                   │
+     E │ Tokens      │                   │                   │
+     R ├─────────────┼───────────────────┼───────────────────┤
+     I │ Target      │  TARGET-TO-CONTEXT│                   │
+     E │ Tokens      │    (Ce que les    │                   │
+     S │ (K_x..N)    │ cibles regardent) │                   │
+       └─────────────┴───────────────────┴───────────────────┘
+                       └───────┬───────┘
+                               │
+                       C'est cette zone !
+                 De forme (K_y, K_x) dans la matrice
+</code></pre>
+                        <hr />
+                        <h2 id="dans-les-entrailles-du-code-jepa-lab-visualize-attention-py">🛠️ Dans les entrailles du
+                            code : <code>jepa_lab/visualize_attention.py</code></h2>
+                        <p>Voyons comment notre script extrait cette information en PyTorch.</p>
+                        <h3 id="tape-1-intercepter-la-matrice-d-attention">Étape 1 : Intercepter la matrice d'attention
+                        </h3>
+                        <p>Pendant la passe de calcul (<code>forward</code>), notre module d'attention stocke la matrice
+                            brute dans une variable temporaire <code>attn_map</code> (de forme
+                            <code>(B, Heads, N, N)</code>) :
+                        </p>
+                        <pre><code class="language-python"># Extraction de la carte pour chaque bloc du Predictor
+attn_map = block.attn.attn_map
+</code></pre>
+                        <h3 id="tape-2-isoler-la-relation-target-to-context">Étape 2 : Isoler la relation
+                            Target-to-Context</h3>
+                        <p>Nous découpons la matrice à partir de l'index $K_x$. Nous calculons ensuite la moyenne sur
+                            les têtes d'attention et sur tous les jetons cibles pour obtenir un score global
+                            d'importance pour chaque patch de contexte :</p>
+                        <pre><code class="language-python"># On cible la sous-matrice : Lignes = après K_x, Colonnes = avant K_x
+target_to_context = attn_map[0, :, K_x:, :K_x] # Forme : (Heads, K_y, K_x)
+
+# Moyenne sur les têtes et sur les jetons cibles
+avg_attn = target_to_context.mean(dim=(0, 1)) # Forme : (K_x,) (ex: 48 valeurs)
+</code></pre>
+                        <h3 id="tape-3-reconstruction-de-la-heatmap-32x32">Étape 3 : Reconstruction de la Heatmap 32x32
+                        </h3>
+                        <p>Nous replaçons ces 48 valeurs d'attention sur notre grille de contexte de dimension $8\times
+                            8$ (les 16 autres patches étant masqués et mis à 0). Ensuite, nous extrapolons cette grille
+                            $8\times 8$ vers la taille d'origine de l'image ($32\times 32$) par une interpolation
+                            bilinéaire pour obtenir un rendu lisse et esthétique :</p>
+                        <pre><code class="language-python"># 1. Cartographie 8x8
+heatmap_grid = np.zeros((8, 8))
+for j, patch_idx in enumerate(context_indices[0]):
+    r = patch_idx // 8
+    c = patch_idx % 8
+    heatmap_grid[r, c] = final_attn[j]
+
+# 2. Interpolation vers 32x32
+heatmap_tensor = torch.tensor(heatmap_grid).unsqueeze(0).unsqueeze(0)
+heatmap_resized = torch.nn.functional.interpolate(
+    heatmap_tensor, size=(32, 32), mode='bilinear'
+).squeeze().numpy()
+</code></pre>
+                        <p>Enfin, nous superposons cette carte interpolée en couleur sur l'image d'origine avec une
+                            transparence <code>alpha=0.5</code>.</p>
+                        <hr />
+                        <h2 id="qu-observons-nous-l-effet-wow-de-l-interpr-tation">🎨 Qu'observons-nous ? (L'effet WOW
+                            de l'interprétation)</h2>
+                        <p>Lorsque l'on génère ces images (<code>attention_heatmap_mono.png</code> et
+                            <code>attention_heatmap_multi.png</code>), le résultat est fascinant :
+                        </p>
+                        <p><img alt="Heatmap d'attention Mono-cible" src="../images/attention_heatmap_mono.png" />
+                            <em>Figure 1 : Carte d'attention du Predictor Mono-cible.</em>
+                        </p>
+                        <p><img alt="Heatmap d'attention Multi-cible" src="../images/attention_heatmap_multi.png" />
+                            <em>Figure 2 : Carte d'attention du Predictor Multi-cible.</em>
+                        </p>
+                        <ul>
+                            <li><strong>Focalisation sur les bordures de l'objet (Mono-cible)</strong> : Sur la
+                                <em>Figure 1</em>, la zone masquée (en bas à droite) contient l'arrière-train de la
+                                grenouille. L'attention du Predictor se concentre de façon extrêmement nette sous forme
+                                d'une ligne verticale rouge/jaune directement à gauche du masque (le milieu du corps de
+                                la grenouille) et d'une ligne horizontale directement au-dessus (le dos). Le modèle
+                                ignore le décor lointain et se focalise sur les frontières immédiates de l'objet pour en
+                                prédire la suite.
+                            </li>
+                            <li><strong>Distribution multi-contextuelle (Multi-cible)</strong> : Sur la <em>Figure
+                                    2</em>, avec plusieurs zones masquées, le Predictor répartit son attention. Il cible
+                                à la fois la bande centrale visible du corps de la grenouille (zone jaune) et les brins
+                                d'herbe à l'extrême gauche (point rouge chaud) pour raccorder le sujet à son
+                                environnement.</li>
+                            <li><strong>La preuve du World Model</strong> : C'est la preuve empirique que le Predictor
+                                n'est pas en train d'interpoler des pixels proches de façon stupide. Il a construit une
+                                structure interne des objets (un modèle du monde) et sait que pour deviner la texture
+                                manquante d'un objet, il doit analyser les autres parties de ce même objet.</li>
+                        </ul>
+                        <hr />
+                        <h2 id="conclusion-amp-transition">🧠 Conclusion &amp; Transition</h2>
+                        <p>En visualisant les cartes d'attention, nous avons prouvé que le modèle sait où regarder pour
+                            reconstituer les formes. Mais comment s'organise ce savoir à l'échelle globale du réseau ?
+                            Le modèle regroupe-t-il vraiment les concepts par ressemblance sémantique dans son espace
+                            latent ?</p>
+                        <p>C'est ce que nous allons explorer dans la deuxième partie de cet article en réalisant
+                            <strong>un clustering d'embeddings par K-Means pour démontrer l'émergence spontanée de
+                                concepts sémantiques</strong> (ciel, poils, métal) sans aucune intervention humaine !
+                        </p>
+                        <hr />
+                        <h3 id="d-fi-curieux-n-1">🛠️ Défi curieux n°1</h3>
+                        <p><em>Imaginez un détective (le Predictor) face à une photo de paysage où une cabine
+                                téléphonique a été découpée au ciseau (la zone cible masquée). S'il applique une simple
+                                "interpolation locale", il va simplement étendre la couleur verte de l'herbe
+                                environnante pour boucher le trou. S'il utilise un véritable "modèle du monde", il va
+                                chercher des connexions sémantiques plus éloignées (ex: des câbles électriques aériens
+                                ou un chemin de gravier qui s'arrêtent net au bord de la découpe). À votre avis, si l'on
+                                observait sa carte d'attention, où verrait-on les points chauds s'allumer dans le cas
+                                d'un modèle du monde intelligent ?</em></p>
+                    </div>
+
+                    <div class="article-footer-nav">
+                        <a href="article_4_partie_3.html" class="footer-nav-link prev">
+                            <span class="footer-nav-label">← Précédent</span>
+                            <span class="footer-nav-title">Validation Empirique - Partie 3</span>
+                        </a>
+                        <a href="article_5_partie_2.html" class="footer-nav-link next">
+                            <span class="footer-nav-label">Suivant →</span>
+                            <span class="footer-nav-title">Ouvrir la Boîte Noire - Partie 2</span>
+                        </a>
+                    </div>
+                </article>
+
+                <div class="toc-sidebar">
+                    <div class="toc-title">Sur cette page</div>
+                    <ul class="toc-list">
+                        <li class=""><a href="#le-predictor-comme-simulateur-de-l-espace-latent">🧠 Le Predictor comme
+                                simulateur de l'espace latent</a></li>
+                        <li class=""><a href="#la-cartographie-de-l-attention-target-to-context">🗺️ La cartographie de
+                                l'Attention (Target-to-Context)</a></li>
+                        <li class=""><a href="#dans-les-entrailles-du-code-jepa-lab-visualize-attention-py">🛠️ Dans les
+                                entrailles du code : jepa_lab/visualize_attention.py</a></li>
+                        <li class="toc-indent"><a href="#tape-1-intercepter-la-matrice-d-attention">Étape 1 :
+                                Intercepter la matrice d'attention</a></li>
+                        <li class="toc-indent"><a href="#tape-2-isoler-la-relation-target-to-context">Étape 2 : Isoler
+                                la relation Target-to-Context</a></li>
+                        <li class="toc-indent"><a href="#tape-3-reconstruction-de-la-heatmap-32x32">Étape 3 :
+                                Reconstruction de la Heatmap 32x32</a></li>
+                        <li class=""><a href="#qu-observons-nous-l-effet-wow-de-l-interpr-tation">🎨 Qu'observons-nous ?
+                                (L'effet WOW de l'interprétation)</a></li>
+                        <li class=""><a href="#conclusion-amp-transition">🧠 Conclusion &amp; Transition</a></li>
+                        <li class="toc-indent"><a href="#d-fi-curieux-n-1">🛠️ Défi curieux n°1</a></li>
+                    </ul>
+                </div>
+            </div>
+        </main>
+    </div>
+
+    <!-- Scripts -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.8.0/highlight.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/mermaid/dist/mermaid.min.js"></script>
+
+    <script>
+        // Initialize Highlight.js
+        hljs.highlightAll();
+
+        // Initialize Mermaid
+        mermaid.initialize({
+            theme: 'dark',
+            startOnLoad: false,
+            securityLevel: 'loose'
+        });
+
+        document.addEventListener("DOMContentLoaded", function () {
+            // 1. Convert Markdown pre-code blocks for Mermaid to actual divs
+            document.querySelectorAll("pre code.language-mermaid").forEach(function (el) {
+                const pre = el.parentElement;
+                const div = document.createElement("div");
+                div.className = "mermaid";
+                div.textContent = el.textContent;
+                pre.parentElement.replaceChild(div, pre);
+            });
+
+            // Run Mermaid rendering
+            mermaid.run();
+
+            // 2. Reading Progress Bar Logic
+            window.addEventListener('scroll', function () {
+                const winScroll = document.documentElement.scrollTop || document.body.scrollTop;
+                const height = document.documentElement.scrollHeight - document.documentElement.clientHeight;
+                const scrolled = (winScroll / height) * 100;
+                document.getElementById("reading-progress").style.width = scrolled + "%";
+            });
+        });
+    </script>
+</body>
+
+</html>

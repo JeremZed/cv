@@ -1,0 +1,289 @@
+<!DOCTYPE html>
+<html lang="fr">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Passage à l'Échelle — Partie 2 : L'Astuce de Vectorisation Batch | Tinkerer's Lab</title>
+
+    <!-- Stylesheets -->
+    <link rel="stylesheet" href="../css/style.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.8.0/styles/github-dark.min.css">
+
+    <!-- Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+
+    <!-- MathJax Configuration -->
+    <script>
+        window.MathJax = {
+            tex: {
+                inlineMath: [['$', '$'], ['\\(', '\\)']],
+                displayMath: [['$$', '$$'], ['\\[', '\\]']],
+                processEscapes: true
+            },
+            options: {
+                ignoreHtmlClass: 'tex2jax_ignore',
+                processHtmlClass: 'tex2jax_process'
+            }
+        };
+    </script>
+    <script id="MathJax-script" async src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
+    <script src="../js/sidebar.js" defer></script>
+</head>
+
+<body class="tex2jax_process">
+
+    <!-- Reading Progress Bar -->
+    <div class="progress-bar-container">
+        <div class="progress-bar" id="reading-progress"></div>
+    </div>
+
+    <div class="app-container">
+
+        <!-- Mobile Navigation Header -->
+        <header class="mobile-header">
+            <button class="menu-toggle" id="menu-open-btn">
+                <svg width="24" height="24" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" d="M4 6h16M4 12h16M4 18h16" />
+                </svg>
+            </button>
+            <div class="sidebar-title">Tinkerer's Lab</div>
+            <div></div> <!-- spacer -->
+        </header>
+
+        <!-- Persistent Sidebar -->
+        <aside class="sidebar" id="app-sidebar"></aside>
+
+        <!-- Main Content -->
+        <main class="main-content">
+            <div class="article-layout">
+                <article class="article-container">
+                    <header class="article-header">
+                        <span class="article-category jepa-1-6">Série I-JEPA</span>
+                        <h1>Passage à l'Échelle — Partie 2 : L'Astuce de Vectorisation Batch</h1>
+                        <p class="article-subtitle">Prédire la cohérence spatiale globale sur GPU</p>
+                    </header>
+
+                    <div class="article-body">
+                        <blockquote>
+                            <p><strong>Série I-JEPA — Article 3 : Passer à l'échelle (Niveau 2)</strong>
+                                <em>Dans cette deuxième partie, nous abordons un défi d'optimisation majeur. Lorsque
+                                    l'on passe d'une seule cible à $M$ cibles disjointes, le piège classique est
+                                    d'écrire une boucle séquentielle Python sur le GPU. Découvrez comment notre
+                                    implémentation résout ce problème par une vectorisation élégante et
+                                    ultra-rapide.</em>
+                            </p>
+                        </blockquote>
+                        <hr />
+                        <h2 id="le-goulet-d-tranglement-le-co-t-des-boucles-s-quentielles">🐢 Le goulet d'étranglement :
+                            Le coût des boucles séquentielles</h2>
+                        <p>Imaginons que nous ayons un lot (batch) de $B = 128$ images, et que pour chaque image, nous
+                            voulions prédire $M = 4$ cibles distinctes. </p>
+                        <p>Si nous écrivions le code naïvement avec une boucle séquentielle en Python :</p>
+                        <pre><code class="language-python"># CODE NAÏF ET LENT
+predictions = []
+for m in range(self.num_targets):
+    # Récupérer les masques de la cible m
+    # Faire une passe complète dans le Predictor
+    pred = self.predictor(s_x, target_masks[m])
+    predictions.append(pred)
+</code></pre>
+                        <p>Sur le papier, c'est logique. Mais sur le GPU, c'est une catastrophe :
+                        <ol>
+                            <li><strong>CPU Overhead</strong> : Python va devoir lancer 4 instructions consécutives au
+                                GPU. Le temps que le CPU prépare et envoie chaque commande, le GPU (qui calcule en
+                                nanosecondes) se retrouve à attendre sans rien faire.</li>
+                            <li><strong>Sous-utilisation du parallélisme</strong> : Au lieu de traiter un grand bloc de
+                                données en parallèle, le GPU traite 4 petits blocs successivement, ce qui détruit son
+                                efficacité.</li>
+                        </ol>
+                        </p>
+                        <p>Pour maximiser le débit (throughput) du GPU, nous devons regrouper toutes ces opérations en
+                            <strong>une seule passe matricielle parallèle</strong>.
+                        </p>
+                        <hr />
+                        <h2 id="la-solution-l-expansion-de-la-dimension-de-batch">🔀 La solution : L'expansion de la
+                            dimension de Batch</h2>
+                        <p>Pour paralléliser le calcul, l'astuce de notre classe <code>MultiTargetJEPA</code>
+                            (<code>models_multi.py</code>) consiste à <strong>faire croire au Predictor qu'il traite un
+                                batch d'images beaucoup plus grand</strong>. </p>
+                        <p>Au lieu de lui passer un batch de taille $B$ (128) et de boucler 4 fois, nous fusionnons la
+                            dimension de batch et la dimension des cibles pour lui donner un unique batch virtuel de
+                            taille $B \times M$ (soit $128 \times 4 = 512$ éléments) à traiter en une seule fois.</p>
+                        <p>Voici le schéma exact des transformations de formes (shapes) de nos tenseurs dans le code :
+                        </p>
+                        <pre><code>                  s_x (Représentation Contexte) : (B, K_x, D)
+                                       │
+                                       ▼ (Ajout axe cible)
+                                 (B, 1, K_x, D)
+                                       │
+                                       ▼ (Répétition pour M cibles)
+                                 (B, M, K_x, D)
+                                       │
+                                       ▼ (Aplatissement batch virtuel)
+                             s_x_exp : (B * M, K_x, D)
+                                       │
+                                       ├─► Concaténation ──► pred_inputs : (B * M, K_x + K_y, D)
+                                       │
+                             s_y_tqk : (B * M, K_y, D) 
+                                       │  (Mask Tokens + Positions Cibles)
+                                       ▼
+                                 [ Predictor ]
+                                       │
+                                       ▼ (Sortie)
+                            pred_outputs : (B * M, K_x + K_y, D)
+                                       │
+                                       ▼ (Sélection cibles)
+                           s_y_hat_flat : (B * M, K_y, D)
+                                       │
+                                       ▼ (Restauration dimensions)
+                             s_y_hat : (B, M, K_y, D)
+</code></pre>
+                        <hr />
+                        <h2 id="analyse-ligne-par-ligne-de-la-vectorisation-models-multi-py">🔍 Analyse ligne par ligne
+                            de la vectorisation (<code>models_multi.py</code>)</h2>
+                        <p>Regardons comment cette chorégraphie de tenseurs est écrite en PyTorch dans la méthode
+                            <code>forward</code> :
+                        </p>
+                        <h3 id="tape-1-dupliquer-le-contexte-sur-la-dimension-de-batch">Étape 1 : Dupliquer le contexte
+                            sur la dimension de Batch</h3>
+                        <p>Le contexte visible $s_x$ (de taille <code>(B, K_x, D)</code>) est identique pour les $M$
+                            cibles d'une même image. Nous devons donc le copier $M$ fois :</p>
+                        <pre><code class="language-python"># 1. s_x: (B, K_x, D) -&gt; unsqueeze -&gt; (B, 1, K_x, D)
+# 2. repeat -&gt; (B, M, K_x, D)
+# 3. view -&gt; (B * M, K_x, D)
+s_x_exp = s_x.unsqueeze(1).repeat(1, M, 1, 1).view(B * M, K_x, D)
+</code></pre>
+                        <h3 id="tape-2-pr-parer-les-requ-tes-de-position-pour-toutes-les-cibles">Étape 2 : Préparer les
+                            requêtes de position pour toutes les cibles</h3>
+                        <p>Nous récupérons les coordonnées GPS spatiales de tous les patches cibles, puis nous
+                            fusionnons également ces dimensions pour obtenir la forme <code>(B * M, K_y, D)</code> :</p>
+                        <pre><code class="language-python"># Extraction des coordonnées GPS des cibles
+pos_embed = self.context_encoder.pos_embed # (1, N, D)
+idx_pos = flat_target_indices.unsqueeze(-1).expand(-1, -1, D)
+target_pos_embed_all = torch.gather(pos_embed.expand(B, -1, -1), 1, idx_pos) # (B, M * K_y, D)
+
+# Passage au batch virtuel
+target_pos_embed = target_pos_embed_all.view(B * M, K_y, D)
+target_mask_tokens = self.mask_token.expand(B * M, K_y, -1) + target_pos_embed # (B * M, K_y, D)
+</code></pre>
+                        <h3 id="tape-3-la-pr-diction-parall-le-et-la-reconstruction">Étape 3 : La prédiction parallèle
+                            et la reconstruction</h3>
+                        <p>Nous concaténons le contexte dupliqué et les requêtes de cibles. Le Predictor effectue son
+                            attention en une seule passe globale. Ensuite, nous restaurons la géométrie d'origine :</p>
+                        <pre><code class="language-python"># Concaténation et calcul unique sur GPU
+pred_inputs = torch.cat([s_x_exp, target_mask_tokens], dim=1) # (B * M, K_x + K_y, D)
+pred_outputs = self.predictor(pred_inputs) # (B * M, K_x + K_y, D)
+
+# On extrait uniquement la partie prédite (les K_y derniers tokens)
+s_y_hat_flat = pred_outputs[:, K_x:] # (B * M, K_y, D)
+
+# Retour aux dimensions d'origine pour le calcul de la loss
+s_y_hat = s_y_hat_flat.view(B, M, K_y, D) # (B, M, K_y, D)
+</code></pre>
+                        <hr />
+                        <h2 id="le-gain-de-performance-mesur">📊 Le gain de performance mesuré</h2>
+                        <p>Grâce à cette vectorisation, le coût de pré-entraînement d'un modèle multi-cibles de I-JEPA
+                            est <strong>presque identique</strong> à celui du modèle mono-cible ! </p>
+                        <p>Le GPU calcule l'attention sur le batch virtuel de taille $B \times M$ de manière optimisée
+                            en exploitant tous ses cœurs CUDA en parallèle. Il n'y a plus aucune latence d'attente
+                            CPU-GPU.</p>
+                        <hr />
+                        <h2 id="conclusion-amp-transition">🧠 Conclusion &amp; Transition</h2>
+                        <p>La vectorisation nous permet de passer à l'échelle sans sacrifier la vitesse de calcul. Nous
+                            disposons maintenant d'un pipeline multi-cibles puissant et optimisé.</p>
+                        <p>Mais pour que notre JEPA apprenne des représentations sémantiques de haute voltige, quelle
+                            taille de réseau devons-nous choisir ? Comment le fait d'augmenter la taille de notre Vision
+                            Transformer modifie-t-il la qualité des caractéristiques apprises ?</p>
+                        <p>C'est ce que nous allons explorer dans la troisième partie en analysant <strong>les options
+                                de capacité des modèles (Tiny, Small, Base) et l'impact du scaling</strong> !</p>
+                        <hr />
+                        <h3 id="d-fi-curieux-n-2">🛠️ Défi curieux n°2</h3>
+                        <p><em>Imaginez un grand restaurant où 128 tables (la taille de Batch $B$) commandent chacune 4
+                                entrées différentes (les $M$ cibles). Si le serveur fait un aller-retour en cuisine pour
+                                chaque entrée l'une après l'autre (boucle séquentielle), les cuisiniers passent leur
+                                temps à l'attendre. Si, au contraire, il apporte les 512 commandes d'un coup, la cuisine
+                                (les cœurs CUDA du GPU) peut tout préparer en parallèle. À votre avis, si le restaurant
+                                a une taille de cuisine limitée (la mémoire VRAM du GPU), quel est le risque de
+                                regrouper un trop grand nombre de commandes (par exemple, un batch virtuel géant) par
+                                rapport à un service table par table ?</em></p>
+                    </div>
+
+                    <div class="article-footer-nav">
+                        <a href="article_3_partie_1.html" class="footer-nav-link prev">
+                            <span class="footer-nav-label">← Précédent</span>
+                            <span class="footer-nav-title">Passage à l'Échelle - Partie 1</span>
+                        </a>
+                        <a href="article_3_partie_3.html" class="footer-nav-link next">
+                            <span class="footer-nav-label">Suivant →</span>
+                            <span class="footer-nav-title">Passage à l'Échelle - Partie 3</span>
+                        </a>
+                    </div>
+                </article>
+
+                <div class="toc-sidebar">
+                    <div class="toc-title">Sur cette page</div>
+                    <ul class="toc-list">
+                        <li class=""><a href="#le-goulet-d-tranglement-le-co-t-des-boucles-s-quentielles">🐢 Le goulet
+                                d'étranglement : Le coût des boucles séquentielles</a></li>
+                        <li class=""><a href="#la-solution-l-expansion-de-la-dimension-de-batch">🔀 La solution :
+                                L'expansion de la dimension de Batch</a></li>
+                        <li class=""><a href="#analyse-ligne-par-ligne-de-la-vectorisation-models-multi-py">🔍 Analyse
+                                ligne par ligne de la vectorisation (models_multi.py)</a></li>
+                        <li class="toc-indent"><a href="#tape-1-dupliquer-le-contexte-sur-la-dimension-de-batch">Étape 1
+                                : Dupliquer le contexte sur la dimension de Batch</a></li>
+                        <li class="toc-indent"><a
+                                href="#tape-2-pr-parer-les-requ-tes-de-position-pour-toutes-les-cibles">Étape 2 :
+                                Préparer les requêtes de position pour toutes les cibles</a></li>
+                        <li class="toc-indent"><a href="#tape-3-la-pr-diction-parall-le-et-la-reconstruction">Étape 3 :
+                                La prédiction parallèle et la reconstruction</a></li>
+                        <li class=""><a href="#le-gain-de-performance-mesur">📊 Le gain de performance mesuré</a></li>
+                        <li class=""><a href="#conclusion-amp-transition">🧠 Conclusion &amp; Transition</a></li>
+                        <li class="toc-indent"><a href="#d-fi-curieux-n-2">🛠️ Défi curieux n°2</a></li>
+                    </ul>
+                </div>
+            </div>
+        </main>
+    </div>
+
+    <!-- Scripts -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.8.0/highlight.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/mermaid/dist/mermaid.min.js"></script>
+
+    <script>
+        // Initialize Highlight.js
+        hljs.highlightAll();
+
+        // Initialize Mermaid
+        mermaid.initialize({
+            theme: 'dark',
+            startOnLoad: false,
+            securityLevel: 'loose'
+        });
+
+        document.addEventListener("DOMContentLoaded", function () {
+            // 1. Convert Markdown pre-code blocks for Mermaid to actual divs
+            document.querySelectorAll("pre code.language-mermaid").forEach(function (el) {
+                const pre = el.parentElement;
+                const div = document.createElement("div");
+                div.className = "mermaid";
+                div.textContent = el.textContent;
+                pre.parentElement.replaceChild(div, pre);
+            });
+
+            // Run Mermaid rendering
+            mermaid.run();
+
+            // 2. Reading Progress Bar Logic
+            window.addEventListener('scroll', function () {
+                const winScroll = document.documentElement.scrollTop || document.body.scrollTop;
+                const height = document.documentElement.scrollHeight - document.documentElement.clientHeight;
+                const scrolled = (winScroll / height) * 100;
+                document.getElementById("reading-progress").style.width = scrolled + "%";
+            });
+        });
+    </script>
+</body>
+
+</html>

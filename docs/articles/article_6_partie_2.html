@@ -1,0 +1,178 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Le Guide du Praticien — Partie 2 : Ajuster le Ratio de Masquage | Tinkerer's Lab</title>
+    
+    <!-- Stylesheets -->
+    <link rel="stylesheet" href="../css/style.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.8.0/styles/github-dark.min.css">
+    
+    <!-- Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    
+    <!-- MathJax Configuration -->
+    <script>
+        window.MathJax = {
+            tex: {
+                inlineMath: [['$', '$'], ['\\(', '\\)']],
+                displayMath: [['$$', '$$'], ['\\[', '\\]']],
+                processEscapes: true
+            },
+            options: {
+                ignoreHtmlClass: 'tex2jax_ignore',
+                processHtmlClass: 'tex2jax_process'
+            }
+        };
+    </script>
+    <script id="MathJax-script" async src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
+    <script src="../js/sidebar.js" defer></script>
+</head>
+<body class="tex2jax_process">
+
+    <!-- Reading Progress Bar -->
+    <div class="progress-bar-container">
+        <div class="progress-bar" id="reading-progress"></div>
+    </div>
+
+    <div class="app-container">
+    
+        <!-- Mobile Navigation Header -->
+        <header class="mobile-header">
+            <button class="menu-toggle" id="menu-open-btn">
+                <svg width="24" height="24" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M4 6h16M4 12h16M4 18h16"/></svg>
+            </button>
+            <div class="sidebar-title">Tinkerer's Lab</div>
+            <div></div> <!-- spacer -->
+        </header>
+
+        <!-- Persistent Sidebar -->
+        <aside class="sidebar" id="app-sidebar"></aside>
+
+        <!-- Main Content -->
+        <main class="main-content">
+            <div class="article-layout">
+                <article class="article-container">
+                    <header class="article-header">
+                        <span class="article-category jepa-1-6">Série I-JEPA</span>
+                        <h1>Le Guide du Praticien — Partie 2 : Ajuster le Ratio de Masquage</h1>
+                        <p class="article-subtitle">Diagnostics de collapse, ratios et hyperparamètres</p>
+                    </header>
+                    
+                    <div class="article-body">
+                        <blockquote>
+<p><strong>Série I-JEPA — Article 6 : Le Guide du Praticien</strong>
+<em>Dans cette deuxième partie, nous abordons le choix du ratio de masquage. Nous verrons pourquoi cacher trop peu d'informations permet au réseau de tricher par interpolation locale, tandis que trop masquer rend la tâche insoluble, bloquant toute convergence sémantique.</em></p>
+</blockquote>
+<hr />
+<h2 id="le-spectre-de-la-difficult">⚖️ Le spectre de la difficulté</h2>
+<p>Dans notre architecture JEPA, la tâche prétexte consiste à deviner la représentation des blocs cibles masqués à partir des patches de contexte visibles. Le ratio de patches masqués par rapport au total (sur nos 64 patches) détermine la difficulté de cet exercice :</p>
+<pre><code>    [ 10% Masqué ] ─────────────► [ 25% - 60% Masqué ] ─────────────► [ 90% Masqué ]
+     Tâche Triviale                 Le &quot;Sweet Spot&quot;                   Tâche Impossible
+   (Copie locale de pixels)       (Apprentissage Sémantique)         (Spéculation Aveugle)
+</code></pre>
+<p>Détaillons les comportements du modèle aux deux extrêmes du spectre :</p>
+<hr />
+<h2 id="1-la-t-che-triviale-ratio-trop-bas-ex-10">1. La Tâche Triviale (Ratio trop bas, ex: 10%)</h2>
+<p>Si nous ne masquons qu'une toute petite zone (par exemple 4 patches sur 64) :
+*   <strong>La triche par interpolation locale</strong> : Dans les images naturelles, les pixels voisins sont extrêmement corrélés (si un pixel est vert, ses voisins immédiats ont de grandes chances de l'être aussi). Le Predictor peut facilement deviner la zone manquante en se contentant de "recopier" ou d'étaler les caractéristiques des patches adjacents visibles.
+*   <strong>Conséquence</strong> : Le réseau n'a aucun besoin de faire d'effort d'abstraction ou de comprendre la géométrie des objets pour réussir. Il développe des filtres locaux simples et n'apprend aucune représentation sémantique globale utile.</p>
+<hr />
+<h2 id="2-la-t-che-impossible-ratio-trop-lev-ex-90">2. La Tâche Impossible (Ratio trop élevé, ex: 90%)</h2>
+<p>Si nous masquons presque toute l'image (par exemple 60 patches sur 64) :
+*   <strong>La spéculation aveugle</strong> : L'encodeur ne dispose plus que de 4 patches visibles (par exemple, un coin de ciel bleu ou un bout de route). Prédire la forme d'un chien ou d'un camion à partir de cette information minuscule est mathématiquement impossible.
+*   <strong>Conséquence</strong> : La Loss refuse de descendre, les gradients sont bruités et instables, et l'entraînement ne converge jamais. Le modèle ne peut rien structurer puisqu'il n'a aucun point de repère.</p>
+<hr />
+<h2 id="le-sweet-spot-trouver-le-juste-milieu">🎯 Le "Sweet Spot" : Trouver le juste milieu</h2>
+<p>Pour forcer le modèle à apprendre sans le décourager, nous devons cibler le juste milieu :</p>
+<h3 id="dans-notre-lab-cifar-10-images-32x32">Dans notre Lab (CIFAR-10, images 32x32) :</h3>
+<ul>
+<li><strong>Configuration</strong> : Nous masquons une cible de $4\times 4$ patches (mono-cible) ou 4 cibles de $2\times 2$ patches (multi-cibles), soit exactement <strong>16 patches masqués sur 64</strong>.</li>
+<li><strong>Ratio de masquage</strong> : <strong>25%</strong>. </li>
+<li>Ce ratio de 25% est optimal pour la basse résolution (32x32) : il laisse 48 patches de contexte visible (75%), ce qui est suffisant pour identifier la scène, tout en créant un trou de taille respectable à combler, forçant le Predictor à "réfléchir" géométriquement.</li>
+</ul>
+<h3 id="dans-le-papier-officiel-i-jepa-imagenet-images-224x224">Dans le papier officiel I-JEPA (ImageNet, images 224x224) :</h3>
+<ul>
+<li><strong>Ratio de masquage</strong> : <strong>50% à 70%</strong>.</li>
+<li>Pourquoi ce ratio est-il plus élevé ? Les images haute résolution contiennent une immense quantité d'informations redondantes. Un ratio de masquage plus important est nécessaire pour empêcher le ViT d'exploiter la continuité locale des textures et le forcer à capturer la sémantique de l'objet.</li>
+</ul>
+<hr />
+<h2 id="conclusion-amp-transition">🧠 Conclusion &amp; Transition</h2>
+<p>Le ratio de masquage est le thermostat de la difficulté d'apprentissage de JEPA. Régler ce thermostat à 25% sur CIFAR-10 et à 60% sur ImageNet garantit une acquisition sémantique de premier ordre.</p>
+<p>Maintenant que nous maîtrisons les diagnostics cliniques et les paramètres d'entraînement de JEPA sur les images, comment cette philosophie de modélisation du monde s'exporte-t-elle vers d'autres types de données ? Le concept JEPA est-il limité aux images statiques ?</p>
+<p>C'est ce que nous allons découvrir dans la troisième et dernière partie de notre série en explorant <strong>les extensions de JEPA aux données tabulaires (Tab-JEPA) et à la vidéo (V-JEPA)</strong> !</p>
+<hr />
+<h3 id="d-fi-curieux-n-2">🛠️ Défi curieux n°2</h3>
+<p><em>Ouvrez le fichier <code>jepa_lab/masks.py</code>. Trouvez la fonction <code>sample_masks</code>. Quel argument détermine la taille de la cible carrée ? Si vous vouliez tester l'effet d'une tâche "triviale" en réduisant le masquage à une cible de $2\times 2$ patches, quelle valeur de paramètre devriez-vous modifier dans votre script d'entraînement <code>train_jepa.py</code> ?</em></p>
+                    </div>
+                    
+                    <div class="article-footer-nav">
+  <a href="article_6_partie_1.html" class="footer-nav-link prev">
+    <span class="footer-nav-label">← Précédent</span>
+    <span class="footer-nav-title">Le Guide du Praticien - Partie 1</span>
+  </a>
+  <a href="article_6_partie_3.html" class="footer-nav-link next">
+    <span class="footer-nav-label">Suivant →</span>
+    <span class="footer-nav-title">Le Guide du Praticien - Partie 3</span>
+  </a>
+</div>
+                </article>
+                
+                <div class="toc-sidebar">
+  <div class="toc-title">Sur cette page</div>
+  <ul class="toc-list">
+    <li class=""><a href="#le-spectre-de-la-difficult">⚖️ Le spectre de la difficulté</a></li>
+    <li class=""><a href="#1-la-t-che-triviale-ratio-trop-bas-ex-10">1. La Tâche Triviale (Ratio trop bas, ex: 10%)</a></li>
+    <li class=""><a href="#2-la-t-che-impossible-ratio-trop-lev-ex-90">2. La Tâche Impossible (Ratio trop élevé, ex: 90%)</a></li>
+    <li class=""><a href="#le-sweet-spot-trouver-le-juste-milieu">🎯 Le "Sweet Spot" : Trouver le juste milieu</a></li>
+    <li class="toc-indent"><a href="#dans-notre-lab-cifar-10-images-32x32">Dans notre Lab (CIFAR-10, images 32x32) :</a></li>
+    <li class="toc-indent"><a href="#dans-le-papier-officiel-i-jepa-imagenet-images-224x224">Dans le papier officiel I-JEPA (ImageNet, images 224x224) :</a></li>
+    <li class=""><a href="#conclusion-amp-transition">🧠 Conclusion &amp; Transition</a></li>
+    <li class="toc-indent"><a href="#d-fi-curieux-n-2">🛠️ Défi curieux n°2</a></li>
+  </ul>
+</div>
+            </div>
+        </main>
+    </div>
+
+    <!-- Scripts -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.8.0/highlight.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/mermaid/dist/mermaid.min.js"></script>
+    
+    <script>
+        // Initialize Highlight.js
+        hljs.highlightAll();
+        
+        // Initialize Mermaid
+        mermaid.initialize({
+            theme: 'dark',
+            startOnLoad: false,
+            securityLevel: 'loose'
+        });
+
+        document.addEventListener("DOMContentLoaded", function() {
+            // 1. Convert Markdown pre-code blocks for Mermaid to actual divs
+            document.querySelectorAll("pre code.language-mermaid").forEach(function(el) {
+                const pre = el.parentElement;
+                const div = document.createElement("div");
+                div.className = "mermaid";
+                div.textContent = el.textContent;
+                pre.parentElement.replaceChild(div, pre);
+            });
+            
+            // Run Mermaid rendering
+            mermaid.run();
+            
+            // 2. Reading Progress Bar Logic
+            window.addEventListener('scroll', function() {
+                const winScroll = document.documentElement.scrollTop || document.body.scrollTop;
+                const height = document.documentElement.scrollHeight - document.documentElement.clientHeight;
+                const scrolled = (winScroll / height) * 100;
+                document.getElementById("reading-progress").style.width = scrolled + "%";
+            });
+        });
+    </script>
+</body>
+</html>

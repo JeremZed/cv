@@ -1,0 +1,237 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Analyse Comparative Théorique | Tinkerer's Lab</title>
+    
+    <!-- Stylesheets -->
+    <link rel="stylesheet" href="../css/style.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.8.0/styles/github-dark.min.css">
+    
+    <!-- Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    
+    <!-- MathJax Configuration -->
+    <script>
+        window.MathJax = {
+            tex: {
+                inlineMath: [['$', '$'], ['\\(', '\\)']],
+                displayMath: [['$$', '$$'], ['\\[', '\\]']],
+                processEscapes: true
+            },
+            options: {
+                ignoreHtmlClass: 'tex2jax_ignore',
+                processHtmlClass: 'tex2jax_process'
+            }
+        };
+    </script>
+    <script id="MathJax-script" async src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
+    <script src="../js/sidebar.js" defer></script>
+</head>
+<body class="tex2jax_process">
+
+    <!-- Reading Progress Bar -->
+    <div class="progress-bar-container">
+        <div class="progress-bar" id="reading-progress"></div>
+    </div>
+
+    <div class="app-container">
+    
+        <!-- Mobile Navigation Header -->
+        <header class="mobile-header">
+            <button class="menu-toggle" id="menu-open-btn">
+                <svg width="24" height="24" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M4 6h16M4 12h16M4 18h16"/></svg>
+            </button>
+            <div class="sidebar-title">Tinkerer's Lab</div>
+            <div></div> <!-- spacer -->
+        </header>
+
+        <!-- Persistent Sidebar -->
+        <aside class="sidebar" id="app-sidebar"></aside>
+
+        <!-- Main Content -->
+        <main class="main-content">
+            <div class="article-layout">
+                <article class="article-container">
+                    <header class="article-header">
+                        <span class="article-category technical">Annexe Technique</span>
+                        <h1>Analyse Comparative Théorique</h1>
+                        <p class="article-subtitle">Linear Probing vs Fine-Tuning ViT</p>
+                    </header>
+                    
+                    <div class="article-body">
+                        <p>Ce document analyse les raisons théoriques et empiriques pour lesquelles le passage du <strong>Linear Probing</strong> (sonde linéaire) au <strong>Fine-Tuning</strong> (ajustement fin) permet d'obtenir des gains de performance spectaculaires sur CIFAR-10 à partir des représentations apprises par I-JEPA.</p>
+<hr />
+<h2 id="comparaison-des-performances-r-elles-vit-tiny">📊 Comparaison des Performances Réelles (ViT-Tiny)</h2>
+<p>Voici la synthèse des résultats obtenus sur CIFAR-10 :</p>
+<table>
+<thead>
+<tr>
+<th style="text-align: left;">Fraction Labellisée</th>
+<th style="text-align: center;">Linear Probe (Gelé)</th>
+<th style="text-align: center;">Fine-Tuning (Ajustement Fin)</th>
+<th style="text-align: center;">Gain de Précision</th>
+<th style="text-align: center;">Supervised Scratch (FT aug)</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td style="text-align: left;"><strong>1%</strong> (500 imgs)</td>
+<td style="text-align: center;">28.75%</td>
+<td style="text-align: center;"><strong>45.02%</strong></td>
+<td style="text-align: center;"><strong>+16.27%</strong></td>
+<td style="text-align: center;">26.51%</td>
+</tr>
+<tr>
+<td style="text-align: left;"><strong>10%</strong> (5000 imgs)</td>
+<td style="text-align: center;">46.29%</td>
+<td style="text-align: center;"><strong>65.80%</strong></td>
+<td style="text-align: center;"><strong>+19.51%</strong></td>
+<td style="text-align: center;">41.34%</td>
+</tr>
+<tr>
+<td style="text-align: left;"><strong>100%</strong> (50000)</td>
+<td style="text-align: center;">55.56%</td>
+<td style="text-align: center;"><strong>80.22%</strong></td>
+<td style="text-align: center;"><strong>+24.66%</strong></td>
+<td style="text-align: center;">72.30%</td>
+</tr>
+</tbody>
+</table>
+<p><img alt="Courbes d'apprentissage" src="../images/learning_curves.png" />
+<em>Figure 1 : Courbes d'entraînement et de test pour la sonde linéaire face au Scratch.</em></p>
+<p><img alt="Comparaison des performances" src="../images/comparison_results.png" />
+<em>Figure 2 : Comparaison globale des performances de classification de la sonde linéaire.</em></p>
+<p><img alt="Courbes de fine-tuning" src="../images/learning_curves_finetuning.png" />
+<em>Figure 3 : Courbes d'entraînement et de test pour le Fine-Tuning face au Scratch.</em></p>
+<p><img alt="Comparaison fine-tuning" src="../images/comparison_results_finetuning.png" />
+<em>Figure 4 : Comparaison globale incluant le Fine-Tuning.</em></p>
+<p><em>Note : Les résultats de Fine-Tuning ci-dessus mettent en évidence l'incroyable vitesse de convergence et la supériorité de l'initialisation JEPA par rapport à un entraînement supervisé à partir de zéro.</em></p>
+<hr />
+<h2 id="pourquoi-le-linear-probing-est-il-limitant-pour-les-petits-mod-les-vit-tiny">🔍 Pourquoi le Linear Probing est-il limitant pour les petits modèles (ViT-Tiny) ?</h2>
+<p>Dans le cadre du <strong>Linear Probing</strong>, l'encodeur est entièrement gelé. Le classifieur n'est qu'une simple couche linéaire ($W \cdot x + b$) entraînée à séparer les représentations issues du modèle par des hyperplans (frontières de décision droites). </p>
+<p>Cela pose plusieurs limites majeures :</p>
+<ol>
+<li>
+<p><strong>La nature non-linéaire des concepts réels</strong> :
+   Le pré-entraînement auto-supervisé (I-JEPA) regroupe les patches par sémantique (comme le montre notre clustering K-Means : ciel, textures d'animaux, structures métalliques). Cependant, ces concepts ne sont pas forcément alignés de façon strictement linéaire par rapport aux classes finales de CIFAR-10 (par exemple, "ciel bleu" et "métal" appartiennent tous deux à la classe <code>plane</code> mais aussi à la classe <code>ship</code>). Une sonde linéaire ne peut pas tordre ou réarranger l'espace latent pour démêler ces intersections ; elle ne peut que couper l'espace de manière rectiligne.</p>
+</li>
+<li>
+<p><strong>La capacité limitée du ViT-Tiny</strong> :
+   Les grands modèles (comme ViT-Huge ou ResNet-50 pré-entraînés sur ImageNet) produisent des représentations extrêmement riches et linéairement séparables par simple effet d'échelle (over-parameterization). Un petit modèle comme <code>ViT-Tiny</code> (~2.7M de paramètres) n'a pas la capacité de projeter d'emblée des représentations parfaites et rectilignes sans supervision. Ses représentations sont d'excellents points de départ, mais elles nécessitent un léger ajustement sémantique.</p>
+</li>
+</ol>
+<hr />
+<h2 id="le-pourquoi-du-comment-du-succ-s-du-fine-tuning">💡 Le "Pourquoi du Comment" du succès du Fine-Tuning</h2>
+<p>Le Fine-Tuning surpasse largement le Linear Probing et l'entraînement à partir de zéro (<em>Scratch</em>) grâce à la synergie de trois facteurs clés :</p>
+<h3 id="1-une-initialisation-s-mantique-pr-entra-n-e-warm-start">1. Une initialisation sémantique pré-entraînée (Warm-Start)</h3>
+<p>Contrairement à un modèle entraîné <em>from scratch</em> (qui part de poids aléatoires et doit apprendre ce qu'est un contour, une texture, puis un objet), le modèle fine-tuné démarre avec des poids JEPA qui ont déjà appris :
+* La continuité spatiale des objets (grâce à la prédiction par masquage de blocs).
+* L'invariance aux petites transformations.
+* L'attention sur l'objet plutôt que sur le décor (comme prouvé par les heatmaps d'attention).</p>
+<p>Le modèle n'a pas à réapprendre à "voir", il doit juste apprendre à "catégoriser".</p>
+<h3 id="2-les-taux-d-apprentissage-diff-rentiels-discriminative-lrs">2. Les Taux d'Apprentissage Différentiels (Discriminative LRs)</h3>
+<p>C'est le levier technique le plus important de notre implémentation :
+$$\text{LR}_{\text{encoder}} = 10^{-4} \quad \text{vs} \quad \text{LR}_{\text{head}} = 10^{-3}$$
+* <strong>L'encodeur</strong> s'ajuste très lentement. Cela l'empêche d'oublier catastrophiquement (<em>catastrophic forgetting</em>) les abstractions géométriques et visuelles robustes apprises pendant le pré-entraînement SSL.
+* <strong>La tête</strong> apprend 10 fois plus vite pour cartographier rapidement les représentations latentes ajustées vers les 10 classes de CIFAR-10.</p>
+<h3 id="3-la-data-augmentation-avanc-e">3. La Data Augmentation avancée</h3>
+<p>L'une des faiblesses du Fine-Tuning sur de petits datasets (1% ou 10%) est le risque de surapprentissage (overfitting) rapide puisque l'encodeur est dégelé. L'intégration de transformations d'images adaptées :
+* <code>RandomCrop(32, padding=4)</code>
+* <code>RandomHorizontalFlip()</code>
+* <code>ColorJitter()</code></p>
+<p>permet d'injecter de la variabilité à chaque époque. L'encodeur ne peut pas simplement mémoriser les pixels des 500 images du jeu de données 1% ; il est contraint d'ajuster ses poids internes de manière à conserver sa robustesse de généralisation.</p>
+<hr />
+<h2 id="analyse-comparative-face-au-mod-le-supervis-de-z-ro-scratch">📈 Analyse comparative face au modèle supervisé de zéro (Scratch)</h2>
+<p>Pourquoi le Fine-Tuning écrase-t-il aussi le modèle supervisé classique sur les petits volumes ?
+* À <strong>1% de données</strong> : Le modèle supervisé classique n'a pas assez d'exemples (seulement 50 images par classe) pour apprendre à la fois à extraire des features visuelles cohérentes et à classifier. Il overfitte rapidement. Le Fine-Tuning JEPA, quant à lui, exploite l'extraction de features sémantiques déjà acquises pour obtenir <strong>45.02%</strong> d'accuracy.
+* À <strong>10% de données</strong> : Le Fine-Tuning atteint <strong>65.80%</strong> tandis que le scratch plafonne à <strong>41.34%</strong>. Le warm-start JEPA confère au modèle un boost d'efficacité de données d'un ordre de grandeur.</p>
+<hr />
+<h2 id="explicabilit-post-fine-tuning-analyse-d-influence">🎯 Explicabilité post-Fine-Tuning : Analyse d'influence</h2>
+<p>Dégeler le modèle permet d'affiner l'attention sémantique globale. Les visualisations des cartes d'influence de classification issues du Fine-Tuning montrent une concentration encore plus nette du signal positif (rouge) sur les attributs discriminants des objets (comme la carrosserie ou les roues pour les véhicules) par rapport au modèle supervisé de zéro.</p>
+<p><img alt="Influence de classification FT - Mono" src="../images/classification_influence_mono_ft.png" />
+<em>Figure 5 : Cartes d'influence de classification pour JEPA Mono-cible fine-tuné.</em></p>
+<p><img alt="Influence de classification FT - Multi" src="../images/classification_influence_multi_ft.png" />
+<em>Figure 6 : Cartes d'influence de classification pour JEPA Multi-cible fine-tuné.</em></p>
+<p><img alt="Influence de classification FT - Scratch" src="../images/classification_influence_scratch_ft.png" />
+<em>Figure 7 : Cartes d'influence de classification pour le modèle supervisé Scratch.</em></p>
+<hr />
+<h2 id="recommandation-pour-la-suite-des-exp-riences">🛠️ Recommandation pour la suite des expériences</h2>
+<p>Pour maximiser encore ces résultats lors de vos entraînements complets :
+1. <strong>Patience de l'Early Stopping</strong> : Laissez le Fine-Tuning tourner au moins 25 à 30 époques avec un <code>CosineAnnealingLR</code> pour permettre aux poids de l'encodeur de se stabiliser sur les données CIFAR-10.
+2. <strong>Comparaison par taille</strong> : Jouez la commande suivante pour observer l'impact du scaling de l'encodeur (Tiny ➔ Small ➔ Base) sous le protocole de Fine-Tuning :
+   <code>bash
+   python3 jepa_lab/evaluate_finetuning.py --model-size small --epochs 25</code></p>
+                    </div>
+                    
+                    <div class="article-footer-nav">
+  <a href="mask.html" class="footer-nav-link prev">
+    <span class="footer-nav-label">← Précédent</span>
+    <span class="footer-nav-title">La Stratégie de Masquage</span>
+  </a>
+  <a href="articles_steps_demo.html" class="footer-nav-link next">
+    <span class="footer-nav-label">Suivant →</span>
+    <span class="footer-nav-title">Guide d'Exécution du Lab</span>
+  </a>
+</div>
+                </article>
+                
+                <div class="toc-sidebar">
+  <div class="toc-title">Sur cette page</div>
+  <ul class="toc-list">
+    <li class=""><a href="#comparaison-des-performances-r-elles-vit-tiny">📊 Comparaison des Performances Réelles (ViT-Tiny)</a></li>
+    <li class=""><a href="#pourquoi-le-linear-probing-est-il-limitant-pour-les-petits-mod-les-vit-tiny">🔍 Pourquoi le Linear Probing est-il limitant pour les petits modèles (ViT-Tiny) ?</a></li>
+    <li class=""><a href="#le-pourquoi-du-comment-du-succ-s-du-fine-tuning">💡 Le "Pourquoi du Comment" du succès du Fine-Tuning</a></li>
+    <li class="toc-indent"><a href="#1-une-initialisation-s-mantique-pr-entra-n-e-warm-start">1. Une initialisation sémantique pré-entraînée (Warm-Start)</a></li>
+    <li class="toc-indent"><a href="#2-les-taux-d-apprentissage-diff-rentiels-discriminative-lrs">2. Les Taux d'Apprentissage Différentiels (Discriminative LRs)</a></li>
+    <li class="toc-indent"><a href="#3-la-data-augmentation-avanc-e">3. La Data Augmentation avancée</a></li>
+    <li class=""><a href="#analyse-comparative-face-au-mod-le-supervis-de-z-ro-scratch">📈 Analyse comparative face au modèle supervisé de zéro (Scratch)</a></li>
+    <li class=""><a href="#explicabilit-post-fine-tuning-analyse-d-influence">🎯 Explicabilité post-Fine-Tuning : Analyse d'influence</a></li>
+    <li class=""><a href="#recommandation-pour-la-suite-des-exp-riences">🛠️ Recommandation pour la suite des expériences</a></li>
+  </ul>
+</div>
+            </div>
+        </main>
+    </div>
+
+    <!-- Scripts -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.8.0/highlight.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/mermaid/dist/mermaid.min.js"></script>
+    
+    <script>
+        // Initialize Highlight.js
+        hljs.highlightAll();
+        
+        // Initialize Mermaid
+        mermaid.initialize({
+            theme: 'dark',
+            startOnLoad: false,
+            securityLevel: 'loose'
+        });
+
+        document.addEventListener("DOMContentLoaded", function() {
+            // 1. Convert Markdown pre-code blocks for Mermaid to actual divs
+            document.querySelectorAll("pre code.language-mermaid").forEach(function(el) {
+                const pre = el.parentElement;
+                const div = document.createElement("div");
+                div.className = "mermaid";
+                div.textContent = el.textContent;
+                pre.parentElement.replaceChild(div, pre);
+            });
+            
+            // Run Mermaid rendering
+            mermaid.run();
+            
+            // 2. Reading Progress Bar Logic
+            window.addEventListener('scroll', function() {
+                const winScroll = document.documentElement.scrollTop || document.body.scrollTop;
+                const height = document.documentElement.scrollHeight - document.documentElement.clientHeight;
+                const scrolled = (winScroll / height) * 100;
+                document.getElementById("reading-progress").style.width = scrolled + "%";
+            });
+        });
+    </script>
+</body>
+</html>

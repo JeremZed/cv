@@ -1,0 +1,185 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Le Guide du Praticien — Partie 1 : Identifier et Corriger le Collapse | Tinkerer's Lab</title>
+    
+    <!-- Stylesheets -->
+    <link rel="stylesheet" href="../css/style.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.8.0/styles/github-dark.min.css">
+    
+    <!-- Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    
+    <!-- MathJax Configuration -->
+    <script>
+        window.MathJax = {
+            tex: {
+                inlineMath: [['$', '$'], ['\\(', '\\)']],
+                displayMath: [['$$', '$$'], ['\\[', '\\]']],
+                processEscapes: true
+            },
+            options: {
+                ignoreHtmlClass: 'tex2jax_ignore',
+                processHtmlClass: 'tex2jax_process'
+            }
+        };
+    </script>
+    <script id="MathJax-script" async src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
+    <script src="../js/sidebar.js" defer></script>
+</head>
+<body class="tex2jax_process">
+
+    <!-- Reading Progress Bar -->
+    <div class="progress-bar-container">
+        <div class="progress-bar" id="reading-progress"></div>
+    </div>
+
+    <div class="app-container">
+    
+        <!-- Mobile Navigation Header -->
+        <header class="mobile-header">
+            <button class="menu-toggle" id="menu-open-btn">
+                <svg width="24" height="24" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M4 6h16M4 12h16M4 18h16"/></svg>
+            </button>
+            <div class="sidebar-title">Tinkerer's Lab</div>
+            <div></div> <!-- spacer -->
+        </header>
+
+        <!-- Persistent Sidebar -->
+        <aside class="sidebar" id="app-sidebar"></aside>
+
+        <!-- Main Content -->
+        <main class="main-content">
+            <div class="article-layout">
+                <article class="article-container">
+                    <header class="article-header">
+                        <span class="article-category jepa-1-6">Série I-JEPA</span>
+                        <h1>Le Guide du Praticien — Partie 1 : Identifier et Corriger le Collapse</h1>
+                        <p class="article-subtitle">Diagnostics de collapse, ratios et hyperparamètres</p>
+                    </header>
+                    
+                    <div class="article-body">
+                        <blockquote>
+<p><strong>Série I-JEPA — Article 6 : Le Guide du Praticien</strong>
+<em>Dans cette première partie de notre dernier article, nous abordons la bête noire de l'apprentissage auto-supervisé : le Representation Collapse (l'effondrement des représentations). Nous verrons comment repérer les signaux d'alerte indiquant que votre modèle est devenu cliniquement mort, et quels leviers architecturaux actionner pour le ramener à la vie.</em></p>
+</blockquote>
+<hr />
+<h2 id="qu-est-ce-que-le-representation-collapse">🌪️ Qu'est-ce que le Representation Collapse ?</h2>
+<p>Dans les architectures de type Joint Embedding (comme JEPA), l'encodeur de contexte et l'encodeur cible apprennent à projeter des images dans un espace latent commun, et le prédicteur apprend à faire le pont entre les deux.</p>
+<p>Mais il existe une solution de triche mathématiquement parfaite et triviale pour le réseau : <strong>l'effondrement (Collapse)</strong>.</p>
+<p>Si l'encodeur décide d'associer le même vecteur constant $C$ (par exemple un vecteur rempli de zéros ou de uns) à <strong>toutes les images du monde</strong>, et que l'encodeur cible fait de même, alors la prédiction devient un jeu d'enfant :
+*   Entrée : n'importe quelle image ──► Sortie encodeur : $C$
+*   Cible réelle ──► $C$
+*   Le prédicteur reçoit $C$ et prédit $C$ avec une erreur (Loss) de <strong>zéro</strong>.</p>
+<p>Le modèle triche. La Loss descend à zéro, mais les représentations latentes n'ont plus aucune valeur sémantique. Une voiture, un chien et un nuage ont tous exactement le même code latent. Le modèle est cérébralement mort.</p>
+<pre><code>          [ Image 1 (Chien) ] ──► [ ENCODEUR ] ──► [ Vecteur Constant C ] ┐
+                                                                          ├─► Même code latent !
+          [ Image 2 (Auto)  ] ──► [ ENCODEUR ] ──► [ Vecteur Constant C ] ┘
+</code></pre>
+<hr />
+<h2 id="les-trois-signaux-d-alerte-du-collapse">🚨 Les trois signaux d'alerte du Collapse</h2>
+<p>Lorsque vous lancez un entraînement auto-supervisé, vous devez surveiller ces trois indicateurs de collapse :</p>
+<h3 id="1-la-courbe-de-perte-loss-s-effondre-trop-vite-pr-s-de-0">1. La courbe de Perte (Loss) s'effondre trop vite près de 0</h3>
+<p>Durant le pré-entraînement JEPA, la MSE Loss mesure la différence entre la prédiction et la cible réelle dans l'espace latent. Si vous observez que la Loss chute de manière spectaculaire à des valeurs infimes (ex. $10^{-6}$ ou $10^{-7}$) dès la première ou deuxième époque, ce n'est pas un miracle d'apprentissage. C'est le signe que le modèle a trouvé la constante triviale.</p>
+<h3 id="2-la-variance-des-embeddings-est-nulle">2. La Variance des Embeddings est nulle</h3>
+<p>Si vous calculez la variance des caractéristiques latentes d'un batch d'images, celle-ci doit être positive. Si la variance s'approche de $0$, cela signifie que tous les vecteurs du batch sont identiques.</p>
+<h3 id="3-l-accuracy-de-classification-linear-probing-plafonne-10">3. L'Accuracy de classification (Linear Probing) plafonne à 10%</h3>
+<p>Si vous évaluez un modèle effondré sur CIFAR-10, la sonde linéaire sera incapable de séparer les classes. Vos performances stagneront à <strong>10%</strong> (le niveau du hasard pur pour 10 classes), quel que soit le volume de données étiquetées fourni.</p>
+<hr />
+<h2 id="le-vaccin-de-jepa-comment-pr-venir-le-collapse">🛡️ Le vaccin de JEPA : Comment prévenir le Collapse ?</h2>
+<p>Contrairement à d'autres méthodes SSL (comme SimCLR ou SwAV) qui utilisent des pertes contrastives complexes pour repousser artificiellement les embeddings d'images différentes, JEPA prévient le collapse uniquement par son <strong>asymétrie architecturale</strong> :</p>
+<h3 id="1-le-r-glage-fin-du-taux-d-ema-tau">1. Le réglage fin du taux d'EMA ($\tau$)</h3>
+<p>C'est le paramètre le plus critique. Les poids du Target Encoder ($\phi$) sont mis à jour lentement à partir du Context Encoder ($\theta$) via une moyenne mobile exponentielle :</p>
+<p>$$\phi \leftarrow \tau \phi + (1 - \tau) \theta$$</p>
+<ul>
+<li><strong>Le piège ($\tau$ trop bas, ex: 0.90)</strong> : Si $\tau$ est trop bas, le Target Encoder change trop rapidement et se synchronise presque instantanément avec le Context Encoder. Ils coopèrent pour trouver la constante triviale, provoquant un collapse immédiat.</li>
+<li><strong>La solution ($\tau$ élevé, ex: 0.996 à 0.999)</strong> : Le Target Encoder change de manière extrêmement lente. Pour le Context Encoder, il apparaît comme un objectif stable et difficile à corrompre. Cela brise la boucle de rétroaction rapide qui permet au collapse de s'installer.</li>
+</ul>
+<h3 id="2-le-goulot-d-tranglement-du-predictor-predictor-bottleneck">2. Le goulot d'étranglement du Predictor (Predictor Bottleneck)</h3>
+<p>Le Predictor est volontairement choisi comme un Transformer léger (profondeur de 4 blocs contre 6 pour l'encodeur). Ne disposant pas de la capacité mémoire de l'encodeur, il ne peut pas mémoriser des raccourcis triviaux et force l'encodeur à structurer des représentations sémantiques robustes.</p>
+<h3 id="3-layer-normalization-et-weight-decay">3. Layer Normalization et Weight Decay</h3>
+<p>L'utilisation systématique de couches de normalisation (<code>LayerNorm</code>) maintient l'échelle des embeddings constante, tandis que le <code>Weight Decay</code> de l'optimiseur empêche les poids du réseau d'exploser vers l'infini pour créer des fausses constantes.</p>
+<hr />
+<h2 id="conclusion-amp-transition">🧠 Conclusion &amp; Transition</h2>
+<p>Le Representation Collapse est le danger permanent du Self-Supervised Learning. Mais en configurant correctement notre EMA ($\tau \ge 0.996$) et en structurant notre Predictor de façon asymétrique, nous immunisons notre JEPA contre ce fléau.</p>
+<p>Cependant, il existe un autre réglage délicat : la quantité d'informations à masquer. Combien de patches devons-nous masquer ? </p>
+<p>C'est ce que nous allons voir dans la deuxième partie de cet article en analysant <strong>le ratio de masquage : le juste milieu entre tâche triviale et tâche impossible</strong> !</p>
+<hr />
+<h3 id="d-fi-curieux-n-1">🛠️ Défi curieux n°1</h3>
+<p><em>Ouvrez le fichier <code>jepa_lab/train_jepa.py</code>. Repérez le paramètre <code>ema_decay</code> (autour de la ligne 25-35). Quelle est sa valeur par défaut ? Que se passerait-il si vous réduisiez cette valeur à 0.0 (c'est-à-dire en recopiant directement les poids de l'encodeur de contexte dans le target encoder à chaque itération) ?</em></p>
+                    </div>
+                    
+                    <div class="article-footer-nav">
+  <a href="article_5_partie_3.html" class="footer-nav-link prev">
+    <span class="footer-nav-label">← Précédent</span>
+    <span class="footer-nav-title">Ouvrir la Boîte Noire - Partie 3</span>
+  </a>
+  <a href="article_6_partie_2.html" class="footer-nav-link next">
+    <span class="footer-nav-label">Suivant →</span>
+    <span class="footer-nav-title">Le Guide du Praticien - Partie 2</span>
+  </a>
+</div>
+                </article>
+                
+                <div class="toc-sidebar">
+  <div class="toc-title">Sur cette page</div>
+  <ul class="toc-list">
+    <li class=""><a href="#qu-est-ce-que-le-representation-collapse">🌪️ Qu'est-ce que le Representation Collapse ?</a></li>
+    <li class=""><a href="#les-trois-signaux-d-alerte-du-collapse">🚨 Les trois signaux d'alerte du Collapse</a></li>
+    <li class="toc-indent"><a href="#1-la-courbe-de-perte-loss-s-effondre-trop-vite-pr-s-de-0">1. La courbe de Perte (Loss) s'effondre trop vite près de 0</a></li>
+    <li class="toc-indent"><a href="#2-la-variance-des-embeddings-est-nulle">2. La Variance des Embeddings est nulle</a></li>
+    <li class="toc-indent"><a href="#3-l-accuracy-de-classification-linear-probing-plafonne-10">3. L'Accuracy de classification (Linear Probing) plafonne à 10%</a></li>
+    <li class=""><a href="#le-vaccin-de-jepa-comment-pr-venir-le-collapse">🛡️ Le vaccin de JEPA : Comment prévenir le Collapse ?</a></li>
+    <li class="toc-indent"><a href="#1-le-r-glage-fin-du-taux-d-ema-tau">1. Le réglage fin du taux d'EMA ($\tau$)</a></li>
+    <li class="toc-indent"><a href="#2-le-goulot-d-tranglement-du-predictor-predictor-bottleneck">2. Le goulot d'étranglement du Predictor (Predictor Bottleneck)</a></li>
+    <li class="toc-indent"><a href="#3-layer-normalization-et-weight-decay">3. Layer Normalization et Weight Decay</a></li>
+    <li class=""><a href="#conclusion-amp-transition">🧠 Conclusion &amp; Transition</a></li>
+    <li class="toc-indent"><a href="#d-fi-curieux-n-1">🛠️ Défi curieux n°1</a></li>
+  </ul>
+</div>
+            </div>
+        </main>
+    </div>
+
+    <!-- Scripts -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.8.0/highlight.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/mermaid/dist/mermaid.min.js"></script>
+    
+    <script>
+        // Initialize Highlight.js
+        hljs.highlightAll();
+        
+        // Initialize Mermaid
+        mermaid.initialize({
+            theme: 'dark',
+            startOnLoad: false,
+            securityLevel: 'loose'
+        });
+
+        document.addEventListener("DOMContentLoaded", function() {
+            // 1. Convert Markdown pre-code blocks for Mermaid to actual divs
+            document.querySelectorAll("pre code.language-mermaid").forEach(function(el) {
+                const pre = el.parentElement;
+                const div = document.createElement("div");
+                div.className = "mermaid";
+                div.textContent = el.textContent;
+                pre.parentElement.replaceChild(div, pre);
+            });
+            
+            // Run Mermaid rendering
+            mermaid.run();
+            
+            // 2. Reading Progress Bar Logic
+            window.addEventListener('scroll', function() {
+                const winScroll = document.documentElement.scrollTop || document.body.scrollTop;
+                const height = document.documentElement.scrollHeight - document.documentElement.clientHeight;
+                const scrolled = (winScroll / height) * 100;
+                document.getElementById("reading-progress").style.width = scrolled + "%";
+            });
+        });
+    </script>
+</body>
+</html>

@@ -1,0 +1,183 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Validation & Benchmarks — Partie 1 : Data Efficiency avec 1% de labels | Tinkerer's Lab</title>
+    
+    <!-- Stylesheets -->
+    <link rel="stylesheet" href="../css/style.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.8.0/styles/github-dark.min.css">
+    
+    <!-- Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    
+    <!-- MathJax Configuration -->
+    <script>
+        window.MathJax = {
+            tex: {
+                inlineMath: [['$', '$'], ['\\(', '\\)']],
+                displayMath: [['$$', '$$'], ['\\[', '\\]']],
+                processEscapes: true
+            },
+            options: {
+                ignoreHtmlClass: 'tex2jax_ignore',
+                processHtmlClass: 'tex2jax_process'
+            }
+        };
+    </script>
+    <script id="MathJax-script" async src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
+    <script src="../js/sidebar.js" defer></script>
+</head>
+<body class="tex2jax_process">
+
+    <!-- Reading Progress Bar -->
+    <div class="progress-bar-container">
+        <div class="progress-bar" id="reading-progress"></div>
+    </div>
+
+    <div class="app-container">
+    
+        <!-- Mobile Navigation Header -->
+        <header class="mobile-header">
+            <button class="menu-toggle" id="menu-open-btn">
+                <svg width="24" height="24" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M4 6h16M4 12h16M4 18h16"/></svg>
+            </button>
+            <div class="sidebar-title">Tinkerer's Lab</div>
+            <div></div> <!-- spacer -->
+        </header>
+
+        <!-- Persistent Sidebar -->
+        <aside class="sidebar" id="app-sidebar"></aside>
+
+        <!-- Main Content -->
+        <main class="main-content">
+            <div class="article-layout">
+                <article class="article-container">
+                    <header class="article-header">
+                        <span class="article-category saccadic">Série Saccadic-JEPA</span>
+                        <h1>Validation & Benchmarks — Partie 1 : Data Efficiency avec 1% de labels</h1>
+                        <p class="article-subtitle">Saccadic-JEPA face aux géants classiques</p>
+                    </header>
+                    
+                    <div class="article-body">
+                        <blockquote>
+<p><strong>Série Saccadic-JEPA : Vers une Vision Artificielle Biologiquement Inspirée</strong>
+<em>Dans cette première partie de notre neuvième article, nous plongeons dans l'une des plus grandes forces des modèles auto-supervisés inspirés du vivant : l'efficacité extrême des données (Data Efficiency). Nous analysons pourquoi et comment Saccadic-JEPA surclasse les méthodes classiques lorsqu'on ne lui donne que 1% de données étiquetées pour apprendre.</em></p>
+</blockquote>
+<hr />
+<h2 id="la-boulimie-de-donn-es-du-deep-learning-classique">🍽️ La boulimie de données du Deep Learning classique</h2>
+<p>Les réseaux de neurones modernes, en particulier les <strong>Vision Transformers (ViT)</strong>, sont connus pour être des "gloutons de données". Sans des millions d'images étiquetées à la main (comme le dataset ImageNet), ils ont beaucoup de mal à généraliser. Ils manquent de ce que l'on appelle en apprentissage automatique un <strong>biais inductif</strong> (une prédisposition géométrique comme celle des convolutions dans un CNN).</p>
+<p>À l'inverse, un bébé humain n'a pas besoin de voir 10 000 photos étiquetées "chat" pour reconnaître le chat de la voisine. Il explore le monde de manière auto-supervisée en bougeant les yeux, et quelques exemples verbaux lui suffisent ensuite pour acquérir le concept.</p>
+<p>C'est ce défi que nous simulons avec le régime de <strong>1% de labels</strong>.</p>
+<hr />
+<h2 id="le-match-du-r-gime-rare-1-de-labels">🎯 Le match du régime rare (1% de labels)</h2>
+<p>Dans le dataset CIFAR-10, 1% de labels représente seulement <strong>500 images étiquetées au total</strong>, soit à peine <strong>50 images par classe</strong> (50 chiens, 50 voitures, 50 avions, etc.). C'est un régime de pénurie extrême.</p>
+<p>Voici le score obtenu par nos trois compétiteurs :</p>
+<ul>
+<li>🥇 <strong>Saccadic-JEPA (128x128)</strong> : <strong>32.37%</strong> d'accuracy</li>
+<li>🥈 <strong>Mono-JEPA (32x32)</strong> : <strong>28.66%</strong> d'accuracy</li>
+<li>🥉 <strong>Supervised Scratch (128x128)</strong> : <strong>24.72%</strong> d'accuracy</li>
+</ul>
+<pre><code>        PRÉCISION À 1% DE LABELS (CIFAR-10)
+
+  Saccadic-JEPA (128x128) █▓▒░ 32.37%
+  Mono-JEPA (32x32)       █▓▒░ 28.66%
+  Supervised Scratch      █▓▒░ 24.72%
+</code></pre>
+<hr />
+<h2 id="pourquoi-le-mod-le-scratch-s-effondre-le-pi-ge-du-bruit">🛑 Pourquoi le modèle Scratch s'effondre (Le Piège du Bruit)</h2>
+<p>Sans pré-entraînement, le modèle supervisé (Scratch) démarre avec des poids aléatoires. Lorsqu'il essaie de classer les images avec seulement 50 exemples par classe, il tombe dans le piège de la mémorisation brute :
+* Il associe la classe "avion" à la présence d'un ciel bleu en arrière-plan.
+* Il associe la classe "grenouille" à une texture verte uniforme.
+* Il ajuste ses millions de paramètres sur le bruit et les corrélations fortuites des 50 images d'entraînement.</p>
+<p>C'est ce que révèlent ses courbes d'apprentissage : sa perte d'entraînement tombe à zéro très vite, mais sa perte de test explose. Le modèle a appris par cœur, mais il est incapable de généraliser à de nouvelles images.</p>
+<hr />
+<h2 id="pourquoi-saccadic-jepa-triomphe-les-trois-secrets-de-l-efficacit">🛡️ Pourquoi Saccadic-JEPA triomphe : Les trois secrets de l'efficacité</h2>
+<p>Saccadic-JEPA parvient à extraire 32.37% de précision (bien au-dessus du hasard qui est à 10%) grâce à trois piliers fondamentaux :</p>
+<h3 id="1-un-espace-latent-d-j-structur">1. Un espace latent déjà structuré</h3>
+<p>Pendant ses 120 époques de pré-entraînement auto-supervisé (sans aucune étiquette), Saccadic-JEPA a observé des milliers d'images fovéées. Il a appris comment les contours se prolongent, comment les dégradés se forment et comment les textures s'organisent. Quand on lui présente les 1% d'images labellisées, il n'a pas besoin d'apprendre à voir : il sait déjà voir. Il doit simplement apprendre à associer des étiquettes à des concepts géométriques qu'il a déjà identifiés.</p>
+<h3 id="2-le-flou-fov-al-comme-filtre-anti-bruit">2. Le flou fovéal comme filtre anti-bruit</h3>
+<p>En floutant la périphérie de l'image de contexte lors du pré-entraînement, nous avons forcé le modèle à se concentrer sur les structures sémantiques globales des objets (les silhouettes, les proportions) plutôt que sur les détails haute fréquence (le bruit de texture, les pixels isolés). Ce biais inductif biologique agit comme une excellente régularisation.</p>
+<h3 id="3-l-apport-de-la-r-solution-128x128-vs-32x32">3. L'apport de la résolution (128x128 vs 32x32)</h3>
+<p>En travaillant à $128\times 128$ pixels, Saccadic-JEPA dispose d'une richesse géométrique et spatiale bien plus grande que Mono-JEPA ($32\times 32$). Les contours des objets sont plus nets dans le fovéa cible nette du Target Encoder, ce qui permet de projeter des représentations plus riches et plus facilement séparables par la suite.</p>
+<hr />
+<h2 id="conclusion-amp-transition">🧠 Conclusion &amp; Transition</h2>
+<p>L'auto-supervision fovéée de Saccadic-JEPA résout le problème de la rareté des étiquettes en construisant un espace latent robuste avant même l'introduction de la moindre étiquette.</p>
+<p>Mais travailler à $128\times 128$ implique également de manipuler beaucoup plus de données spatiales. Quel est l'impact de cette augmentation du nombre de jetons sur la vitesse de calcul et la convergence du modèle ?</p>
+<p>C'est ce que nous allons analyser dans la deuxième partie de cet article : <strong>L'impact du nombre de jetons et de la résolution</strong> !</p>
+<hr />
+<h3 id="d-fi-de-curiosit-n-1">🛠️ Défi de curiosité n°1</h3>
+<p><em>Si nous réduisions encore le nombre d'images étiquetées à seulement 0.1% (soit 5 images par classe), d'après vous, comment se comporterait l'écart entre Saccadic-JEPA et le modèle Scratch ? Quel est le "plancher" de performance d'un modèle Scratch dans ces conditions extrêmes ?</em></p>
+                    </div>
+                    
+                    <div class="article-footer-nav">
+  <a href="article_8_partie_3.html" class="footer-nav-link prev">
+    <span class="footer-nav-label">← Précédent</span>
+    <span class="footer-nav-title">Saccadic-JEPA - Partie 3</span>
+  </a>
+  <a href="article_9_partie_2.html" class="footer-nav-link next">
+    <span class="footer-nav-label">Suivant →</span>
+    <span class="footer-nav-title">Validation & Benchmarks - Partie 2</span>
+  </a>
+</div>
+                </article>
+                
+                <div class="toc-sidebar">
+  <div class="toc-title">Sur cette page</div>
+  <ul class="toc-list">
+    <li class=""><a href="#la-boulimie-de-donn-es-du-deep-learning-classique">🍽️ La boulimie de données du Deep Learning classique</a></li>
+    <li class=""><a href="#le-match-du-r-gime-rare-1-de-labels">🎯 Le match du régime rare (1% de labels)</a></li>
+    <li class=""><a href="#pourquoi-le-mod-le-scratch-s-effondre-le-pi-ge-du-bruit">🛑 Pourquoi le modèle Scratch s'effondre (Le Piège du Bruit)</a></li>
+    <li class=""><a href="#pourquoi-saccadic-jepa-triomphe-les-trois-secrets-de-l-efficacit">🛡️ Pourquoi Saccadic-JEPA triomphe : Les trois secrets de l'efficacité</a></li>
+    <li class="toc-indent"><a href="#1-un-espace-latent-d-j-structur">1. Un espace latent déjà structuré</a></li>
+    <li class="toc-indent"><a href="#2-le-flou-fov-al-comme-filtre-anti-bruit">2. Le flou fovéal comme filtre anti-bruit</a></li>
+    <li class="toc-indent"><a href="#3-l-apport-de-la-r-solution-128x128-vs-32x32">3. L'apport de la résolution (128x128 vs 32x32)</a></li>
+    <li class=""><a href="#conclusion-amp-transition">🧠 Conclusion &amp; Transition</a></li>
+    <li class="toc-indent"><a href="#d-fi-de-curiosit-n-1">🛠️ Défi de curiosité n°1</a></li>
+  </ul>
+</div>
+            </div>
+        </main>
+    </div>
+
+    <!-- Scripts -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.8.0/highlight.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/mermaid/dist/mermaid.min.js"></script>
+    
+    <script>
+        // Initialize Highlight.js
+        hljs.highlightAll();
+        
+        // Initialize Mermaid
+        mermaid.initialize({
+            theme: 'dark',
+            startOnLoad: false,
+            securityLevel: 'loose'
+        });
+
+        document.addEventListener("DOMContentLoaded", function() {
+            // 1. Convert Markdown pre-code blocks for Mermaid to actual divs
+            document.querySelectorAll("pre code.language-mermaid").forEach(function(el) {
+                const pre = el.parentElement;
+                const div = document.createElement("div");
+                div.className = "mermaid";
+                div.textContent = el.textContent;
+                pre.parentElement.replaceChild(div, pre);
+            });
+            
+            // Run Mermaid rendering
+            mermaid.run();
+            
+            // 2. Reading Progress Bar Logic
+            window.addEventListener('scroll', function() {
+                const winScroll = document.documentElement.scrollTop || document.body.scrollTop;
+                const height = document.documentElement.scrollHeight - document.documentElement.clientHeight;
+                const scrolled = (winScroll / height) * 100;
+                document.getElementById("reading-progress").style.width = scrolled + "%";
+            });
+        });
+    </script>
+</body>
+</html>

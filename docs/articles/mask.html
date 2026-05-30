@@ -1,0 +1,187 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>La Stratégie de Masquage | Tinkerer's Lab</title>
+    
+    <!-- Stylesheets -->
+    <link rel="stylesheet" href="../css/style.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.8.0/styles/github-dark.min.css">
+    
+    <!-- Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    
+    <!-- MathJax Configuration -->
+    <script>
+        window.MathJax = {
+            tex: {
+                inlineMath: [['$', '$'], ['\\(', '\\)']],
+                displayMath: [['$$', '$$'], ['\\[', '\\]']],
+                processEscapes: true
+            },
+            options: {
+                ignoreHtmlClass: 'tex2jax_ignore',
+                processHtmlClass: 'tex2jax_process'
+            }
+        };
+    </script>
+    <script id="MathJax-script" async src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
+    <script src="../js/sidebar.js" defer></script>
+</head>
+<body class="tex2jax_process">
+
+    <!-- Reading Progress Bar -->
+    <div class="progress-bar-container">
+        <div class="progress-bar" id="reading-progress"></div>
+    </div>
+
+    <div class="app-container">
+    
+        <!-- Mobile Navigation Header -->
+        <header class="mobile-header">
+            <button class="menu-toggle" id="menu-open-btn">
+                <svg width="24" height="24" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M4 6h16M4 12h16M4 18h16"/></svg>
+            </button>
+            <div class="sidebar-title">Tinkerer's Lab</div>
+            <div></div> <!-- spacer -->
+        </header>
+
+        <!-- Persistent Sidebar -->
+        <aside class="sidebar" id="app-sidebar"></aside>
+
+        <!-- Main Content -->
+        <main class="main-content">
+            <div class="article-layout">
+                <article class="article-container">
+                    <header class="article-header">
+                        <span class="article-category technical">Annexe Technique</span>
+                        <h1>La Stratégie de Masquage</h1>
+                        <p class="article-subtitle">Pourquoi masquer par grands blocs</p>
+                    </header>
+                    
+                    <div class="article-body">
+                        <p>Ce fichier gère la séparation spatiale de l'image en deux zones distinctes : </p>
+<ul>
+<li>le Context (ce que le modèle voit)</li>
+<li>le Target (ce que le modèle doit deviner).</li>
+</ul>
+<pre><code class="language-python">sample_masks(batch_size, grid_size=8, target_size=4, ...)
+</code></pre>
+<p>Ce qu'elle fait :</p>
+<ul>
+<li>Pour chaque image du batch, elle choisit de manière aléatoire les coordonnées d'un grand bloc carré de taille target_size x target_size (ici 4x4 patches).</li>
+<li>Elle calcule les index de tous les patches appartenant à ce bloc cible (target_patches).</li>
+<li>Elle extrait par complémentarité tous les autres patches restants de la grille pour former le contexte (context_patches).</li>
+<li>Elle retourne ces index sous forme de tenseurs.</li>
+</ul>
+<p>Pourquoi cette approche ? </p>
+<ul>
+<li>Dans I-JEPA, on ne masque pas des patches individuels de manière aléatoire (comme dans MAE - Masked Autoencoders), mais on sélectionne de grands blocs contigus.</li>
+<li>Si l'on masquait des patches uniques isolés, le modèle pourrait simplement interpoler les pixels voisins (par exemple, compléter une ligne ou une couleur continue).</li>
+<li>En masquant un grand bloc, on force le modèle à comprendre la structure sémantique globale (par exemple, "si je vois des pattes de chat à gauche et une queue à droite, il doit y avoir un corps au milieu") plutôt que de faire de l'interpolation locale à basse fréquence.</li>
+</ul>
+<p>C'est quoi un patch ?</p>
+<p>Un patch (ou "bloc d'image") est une petite sous-image carrée obtenue en découpant l'image d'entrée en une grille de morceaux réguliers et non chevauchants.</p>
+<p>C'est l'équivalent d'un mot dans une phrase pour les modèles de traitement d'image modernes appelés Vision Transformers (ViT).</p>
+<p>Pourquoi fait-on cela ? (Le problème des pixels)
+Les réseaux de neurones de type Transformer ont été conçus à l'origine pour le texte. Si l'on voulait appliquer un Transformer directement sur les pixels d'une image, ce serait impossible en pratique :</p>
+<ul>
+<li>Une image standard de 224 x 224 pixels contient 50,176 pixels.</li>
+<li>L'attention d'un Transformer calcule les relations de chaque élément avec tous les autres. Le coût grandit de manière quadratique (50,176^2 approx 2,5 milliards d'opérations juste pour une couche !).</li>
+<li>En découpant l'image en patches, on réduit considérablement le nombre d'éléments à traiter.</li>
+</ul>
+<p>Illustration concrète avec notre projet CIFAR-10</p>
+<p>Dans notre code, nous utilisons les dimensions suivantes :</p>
+<ul>
+<li>Taille de l'image : 32 x 32 pixels.</li>
+<li>Taille d'un patch (patch_size) : 4 x 4 pixels.</li>
+<li>Si on découpe l'image de 32 x 32 pixels en petits morceaux de 4 x 4 pixels, on obtient une grille de 8 patches de large sur 8 patches de haut (32 / 4 = 8).</li>
+</ul>
+<p>Chaque patch (de la case 0 à 63) est ensuite aplati et converti en un unique vecteur numérique (un embedding de taille 192 dans notre modèle).</p>
+<p>Pour résumer le flux de JEPA avec cette notion :</p>
+<ul>
+<li>L'image est transformée en 64 patches.</li>
+<li>La fonction de masquage décide par exemple de masquer un bloc cible de 4 x 4 patches (soit 16 patches, disons les cases 18, 19, 20, 21, 26, 27, 28, 29...).</li>
+<li>Le Context Encoder ne reçoit que les 48 patches restants (le contexte) et les analyse.</li>
+<li>Le Predictor doit deviner la signature visuelle des 16 patches masqués à partir des 48 patches visibles.</li>
+</ul>
+<p>Les blocs peuvent se chevaucher ou pas? </p>
+<p>Il faut distinguer deux niveaux de "blocs" dans I-JEPA : les patches individuels (les petits morceaux de 4x4 pixels) et les blocs cibles (targets) (les groupes de patches que l'on masque).</p>
+<p>Voici comment se gère le chevauchement pour chacun d'eux :</p>
+<ol>
+<li>Les Patches Individuels (au niveau des pixels) : Non, ils ne se chevauchent pas.</li>
+</ol>
+<p>Dans l'encodeur (le Vision Transformer), les patches individuels sont découpés de manière stricte et adjacente sans aucun chevauchement.</p>
+<p>Dans notre code models.py (ligne 14), la projection est faite via une convolution 2D : nn.Conv2d(..., kernel_size=patch_size, stride=patch_size)</p>
+<p>Comme la taille du noyau (kernel_size) est de 4 et le pas (stride) est de 4, la convolution glisse exactement de 4 pixels en 4 pixels. Les patches sont donc de parfaits petits carrés collés les uns aux autres.</p>
+<ol>
+<li>Les Blocs Cibles / Targets (les groupes de patches masqués)</li>
+</ol>
+<p>Dans notre prototype et dans le papier officiel I-JEPA, la règle du chevauchement est la suivante :</p>
+<p>A. Entre les différentes Cibles (Targets) : Oui, elles peuvent se chevaucher.</p>
+<p>Dans notre implémentation simplifiée : Pour rester simple et pédagogique, nous ne choisissons qu'un seul bloc cible par image. Il n'y a donc pas de sujet de chevauchement.</p>
+<p>Dans le papier officiel I-JEPA (Meta) : Ils échantillonnent de 4 à 6 blocs cibles par image (de tailles et ratios d'aspect aléatoires). Ces blocs cibles peuvent se chevaucher entre eux. Le modèle doit ainsi prédire plusieurs régions qui peuvent partager des patches communs.</p>
+<p>B. Entre le Contexte et les Cibles (Context vs Target) : Non, ils ne se chevauchent jamais.</p>
+<p>C'est une règle absolue du framework JEPA.</p>
+<p>Le contexte est défini comme l'image entière privée de l'union de tous les blocs cibles.</p>
+<p>Si le contexte chevauchait la cible, le modèle tricherait : pour prédire la cible, il lui suffirait de copier les patches du contexte qui se trouvent au même endroit. La tâche de prédiction sémantique serait détruite.</p>
+                    </div>
+                    
+                    <div class="article-footer-nav">
+  <a href="test_vision_humaine_python.html" class="footer-nav-link prev">
+    <span class="footer-nav-label">← Précédent</span>
+    <span class="footer-nav-title">Simulateur de Fovéation</span>
+  </a>
+  <a href="finetuning_analysis.html" class="footer-nav-link next">
+    <span class="footer-nav-label">Suivant →</span>
+    <span class="footer-nav-title">Analyse Comparative Théorique</span>
+  </a>
+</div>
+                </article>
+                
+                
+            </div>
+        </main>
+    </div>
+
+    <!-- Scripts -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.8.0/highlight.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/mermaid/dist/mermaid.min.js"></script>
+    
+    <script>
+        // Initialize Highlight.js
+        hljs.highlightAll();
+        
+        // Initialize Mermaid
+        mermaid.initialize({
+            theme: 'dark',
+            startOnLoad: false,
+            securityLevel: 'loose'
+        });
+
+        document.addEventListener("DOMContentLoaded", function() {
+            // 1. Convert Markdown pre-code blocks for Mermaid to actual divs
+            document.querySelectorAll("pre code.language-mermaid").forEach(function(el) {
+                const pre = el.parentElement;
+                const div = document.createElement("div");
+                div.className = "mermaid";
+                div.textContent = el.textContent;
+                pre.parentElement.replaceChild(div, pre);
+            });
+            
+            // Run Mermaid rendering
+            mermaid.run();
+            
+            // 2. Reading Progress Bar Logic
+            window.addEventListener('scroll', function() {
+                const winScroll = document.documentElement.scrollTop || document.body.scrollTop;
+                const height = document.documentElement.scrollHeight - document.documentElement.clientHeight;
+                const scrolled = (winScroll / height) * 100;
+                document.getElementById("reading-progress").style.width = scrolled + "%";
+            });
+        });
+    </script>
+</body>
+</html>

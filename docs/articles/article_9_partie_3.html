@@ -1,0 +1,226 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Validation & Benchmarks — Partie 3 : Linear Probing vs Fine-Tuning | Tinkerer's Lab</title>
+    
+    <!-- Stylesheets -->
+    <link rel="stylesheet" href="../css/style.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.8.0/styles/github-dark.min.css">
+    
+    <!-- Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    
+    <!-- MathJax Configuration -->
+    <script>
+        window.MathJax = {
+            tex: {
+                inlineMath: [['$', '$'], ['\\(', '\\)']],
+                displayMath: [['$$', '$$'], ['\\[', '\\]']],
+                processEscapes: true
+            },
+            options: {
+                ignoreHtmlClass: 'tex2jax_ignore',
+                processHtmlClass: 'tex2jax_process'
+            }
+        };
+    </script>
+    <script id="MathJax-script" async src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
+    <script src="../js/sidebar.js" defer></script>
+</head>
+<body class="tex2jax_process">
+
+    <!-- Reading Progress Bar -->
+    <div class="progress-bar-container">
+        <div class="progress-bar" id="reading-progress"></div>
+    </div>
+
+    <div class="app-container">
+    
+        <!-- Mobile Navigation Header -->
+        <header class="mobile-header">
+            <button class="menu-toggle" id="menu-open-btn">
+                <svg width="24" height="24" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M4 6h16M4 12h16M4 18h16"/></svg>
+            </button>
+            <div class="sidebar-title">Tinkerer's Lab</div>
+            <div></div> <!-- spacer -->
+        </header>
+
+        <!-- Persistent Sidebar -->
+        <aside class="sidebar" id="app-sidebar"></aside>
+
+        <!-- Main Content -->
+        <main class="main-content">
+            <div class="article-layout">
+                <article class="article-container">
+                    <header class="article-header">
+                        <span class="article-category saccadic">Série Saccadic-JEPA</span>
+                        <h1>Validation & Benchmarks — Partie 3 : Linear Probing vs Fine-Tuning</h1>
+                        <p class="article-subtitle">Saccadic-JEPA face aux géants classiques</p>
+                    </header>
+                    
+                    <div class="article-body">
+                        <blockquote>
+<p><strong>Série Saccadic-JEPA : Vers une Vision Artificielle Biologiquement Inspirée</strong>
+<em>Dans cette troisième et dernière partie, nous abordons l'évaluation finale. Comment mesurer si nos représentations pré-entraînées sont bonnes ? Nous allons comparer les deux méthodologies classiques de l'apprentissage auto-supervisé : le Linear Probing (sonde linéaire) et le Fine-Tuning (ajustement fin), et présenter notre nouveau script pour mesurer ce match.</em></p>
+</blockquote>
+<hr />
+<h2 id="les-deux-examens-du-self-supervised-learning">👨‍⚖️ Les deux examens du Self-Supervised Learning</h2>
+<p>Une fois le pré-entraînement auto-supervisé terminé, nous obtenons un encodeur capable de générer des vecteurs de caractéristiques (les embeddings). Pour évaluer la qualité sémantique de ces représentations, la recherche a établi deux protocoles distincts qui évaluent le modèle sous deux angles différents :</p>
+<pre><code>┌────────────────────────────────────────────────────────────────────────────┐
+│                             ENCODEUR PRÉ-ENTRAÎNÉ                          │
+└──────────────────────────────────────┬─────────────────────────────────────┘
+                                       │
+            ┌──────────────────────────┴──────────────────────────┐
+            ▼                                                     ▼
+   [ LINEAR PROBING ]                                     [ FINE-TUNING ]
+  • Encodeur 100% GELÉ                                   • Encodeur DÉGELÉ
+  • Seule la tête linéaire apprend                       • Tout le réseau apprend
+  • Évalue la séparabilité brute                         • Évalue la capacité d'adaptation
+</code></pre>
+<hr />
+<h2 id="1-le-linear-probing-l-valuation-de-la-s-parabilit-brute">1. Le Linear Probing (L'Évaluation de la Séparabilité Brute)</h2>
+<p>Dans ce protocole, <strong>l'encodeur pré-entraîné est totalement gelé</strong> (<code>requires_grad = False</code>). On branche une simple couche linéaire (une sonde) sur ses sorties, et on n'entraîne <strong>que</strong> cette couche.</p>
+<ul>
+<li><strong>La signification scientifique</strong> : C'est le test le plus rigoureux pour mesurer la qualité des représentations. Si une simple régression linéaire parvient à séparer les classes (ex: distinguer un chien d'un avion), cela signifie que l'espace latent a naturellement regroupé les objets de même nature dans des régions distinctes de l'espace.</li>
+<li><strong>L'analogie</strong> : C'est comme évaluer la culture générale d'un étudiant en lui posant des questions de QCM sans lui donner le temps de réviser le sujet spécifique. On mesure ce qu'il a compris par lui-même.</li>
+</ul>
+<hr />
+<h2 id="2-le-fine-tuning-l-adaptation-sp-cialis-e">2. Le Fine-Tuning (L'Adaptation Spécialisée)</h2>
+<p>Dans ce protocole, <strong>l'encodeur est dégelé</strong> (<code>requires_grad = True</code>). Durant l'entraînement, les gradients de l'erreur de classification redescendent dans toutes les couches du Vision Transformer.</p>
+<ul>
+<li><strong>La signification scientifique</strong> : C'est la méthode de choix pour maximiser les performances pratiques. Le modèle utilise les connaissances géométriques apprises en auto-supervisé comme un "Warm-Start" (bon point de départ) et les ajuste pour se spécialiser sur la tâche finale.</li>
+<li><strong>L'analogie</strong> : C'est comme donner à un étudiant qui sait déjà lire, écrire et raisonner (pré-entraînement) une semaine de révisions intensives avec un tuteur spécialisé dans les annales de l'examen.</li>
+</ul>
+<div class="callout callout-important"><div class="callout-title"><svg width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" style="flex-shrink:0;"><path stroke-linecap="round" stroke-linejoin="round" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"/></svg>Important</div><p><strong>La règle d'or du Fine-Tuning : Le taux d'apprentissage différentiel</strong>
+Si nous entraînons l'encodeur avec un taux d'apprentissage trop grand, nous allons détruire instantanément les représentations géométriques subtiles apprises en auto-supervisé (phénomène d'oubli catastrophique). C'est pourquoi nous utilisons un taux d'apprentissage <strong>10 fois plus petit pour l'encodeur</strong> ($1\times 10^{-4}$) que pour la tête de classification ($1\times 10^{-3}$).</p></div>
+<hr />
+<h2 id="le-nouveau-script-de-combat-evaluate-saccadic-finetuning-py">🛠️ Le nouveau script de combat : <code>evaluate_saccadic_finetuning.py</code></h2>
+<p>Pour mettre en œuvre et comparer ces deux approches sur notre architecture Saccadic-JEPA, nous avons développé le script :
+👉 <strong><a href="https://github.com/JeremZed/jepa-lab/blob/main/jepa_lab/evaluate_saccadic_finetuning.py"><code>evaluate_saccadic_finetuning.py</code></a></strong></p>
+<p>Ce script permet d'ajuster finement l'ensemble des poids de l'encodeur fovéé. Voici comment la gestion différentielle des paramètres est programmée en PyTorch :</p>
+<pre><code class="language-python"># Taux d'apprentissage différentiel pour le Fine-Tuning
+encoder_params = []
+head_params = []
+for name, param in model.named_parameters():
+    if param.requires_grad:
+        if &quot;encoder&quot; in name:
+            encoder_params.append(param)
+        else:
+            head_params.append(param)
+
+optimizer = torch.optim.AdamW([
+    {&quot;params&quot;: encoder_params, &quot;lr&quot;: lr_encoder}, # lr plus petit (ex: 1e-4)
+    {&quot;params&quot;: head_params, &quot;lr&quot;: lr_head}       # lr normal (ex: 1e-3)
+], weight_decay=weight_decay)
+</code></pre>
+<hr />
+<h2 id="les-r-sultats-du-fine-tuning-le-verdict-des-chiffres">📊 Les résultats du Fine-Tuning : Le verdict des chiffres</h2>
+<p>Voici le tableau final de nos benchmarks de Fine-Tuning sur CIFAR-10 :</p>
+<pre><code>=========================================================================
+                 SACCADIC-JEPA FINE-TUNING COMPARISON TABLE              
+=========================================================================
+| Label Fraction | Saccadic-JEPA (128x128) | Mono-JEPA (32x32) | Supervised Scratch (128x128) |
+|----------------|-------------------------|-------------------|------------------------------|
+|              1% |         28.85%          |      46.79%       |            24.23%            |
+|             10% |         57.34%          |      65.80%       |            37.87%            |
+|            100% |         76.10%          |      80.17%       |            59.17%            |
+=========================================================================
+</code></pre>
+<p><img alt="Résultats Fine-Tuning" src="../images/comparison_saccadic_results_finetuning.png" />
+<em>Figure 9.3 : Comparaison des performances finales en Fine-Tuning.</em></p>
+<p><img alt="Courbes d'apprentissage Fine-Tuning" src="../images/learning_curves_saccadic_finetuning.png" />
+<em>Figure 9.4 : Courbes d'apprentissage (Loss &amp; Accuracy) obtenues lors du Fine-Tuning.</em></p>
+<hr />
+<h2 id="d-cryptage-et-analyse-approfondie">🔍 Décryptage et analyse approfondie</h2>
+<p>L'analyse de ces chiffres et des courbes révèle deux phénomènes fondamentaux :</p>
+<h3 id="1-le-paradoxe-du-r-gime-1-quand-le-fine-tuning-d-truit-les-repr-sentations">1. Le paradoxe du Régime 1% : Quand le Fine-Tuning détruit les représentations</h3>
+<p>Fait surprenant au premier abord : à <strong>1% de labels</strong>, Saccadic-JEPA obtient <strong>28.85%</strong> en Fine-Tuning alors qu'il obtenait <strong>32.37%</strong> en Linear Probing. 
+* <strong>Pourquoi cette baisse ?</strong> Avec seulement 500 images d'entraînement, le fait de laisser les gradients modifier les couches profondes de l'encodeur (même avec un taux d'apprentissage très faible de $10^{-4}$) provoque une <strong>destruction locale des représentations</strong> (ou oubli catastrophique). Le modèle a trop de liberté (de paramètres libres) pour un si petit nombre d'exemples et commence à surapprendre sur des détails insignifiants de ces 500 images, perdant sa structure géométrique saine acquise en auto-supervisé.
+* <strong>Leçon</strong> : Sous forte pénurie de données, il vaut mieux <strong>geler totalement l'encodeur (Linear Probing)</strong>.</p>
+<h3 id="2-le-triomphe-10-et-100-le-d-collage-des-performances">2. Le triomphe à 10% et 100% : Le décollage des performances</h3>
+<p>Dès que le volume de données étiquetées est suffisant pour stabiliser l'ajustement des poids, le Fine-Tuning libère toute la puissance de l'initialisation auto-supervisée :
+* À <strong>10% de labels</strong>, Saccadic-JEPA grimpe à <strong>57.34%</strong> (contre <strong>44.67%</strong> en linear probing, soit un gain de <strong>+12.67%</strong>). Il écrase le modèle Scratch de près de 20% absolus (<strong>37.87%</strong>).
+* À <strong>100% de labels</strong>, Saccadic-JEPA atteint <strong>76.10%</strong> (contre <strong>54.12%</strong> en linear probing, soit <strong>+21.98%</strong> de gain). Il surpasse le modèle Scratch (<strong>59.17%</strong>) de près de <strong>17%</strong> absolus !</p>
+<p>Ce gain massif prouve que l'apprentissage auto-supervisé fovéé a fourni une initialisation (Warm-Start) extrêmement proche de la solution globale. Au lieu de partir de zéro dans des vallées de perte aléatoires, Saccadic-JEPA démarre sur un haut plateau géométrique et n'a plus qu'à glisser légèrement vers le minimum local optimal de classification.</p>
+<hr />
+<h2 id="conclusion-de-la-s-rie-saccadic-jepa">🧠 Conclusion de la série Saccadic-JEPA</h2>
+<p>En combinant la modélisation de la fovéation humaine, le masquage strict par ensembles d'index disjoints, et des protocoles d'évaluation rigoureux (Linear Probing et Fine-Tuning), nous avons conçu et validé une architecture de vision artificielle biologiquement inspirée hautement performante.</p>
+<p>Ce voyage dans le monde des modèles prédictifs conjoints (JEPA) montre que les contraintes physiques de notre biologie (la structure de notre œil et de notre cerveau) ne sont pas des faiblesses, mais des guides précieux pour concevoir l'intelligence artificielle de demain.</p>
+<hr />
+<h3 id="d-fi-de-curiosit-n-3">🛠️ Défi de curiosité n°3</h3>
+<p><em>Que se passerait-il si nous faisions du Fine-Tuning sans utiliser de taux d'apprentissage différentiel (en appliquant par exemple $1\times 10^{-3}$ à tout le réseau) ? Pourquoi le modèle risquerait-il d'obtenir de moins bonnes performances sur le long terme ?</em></p>
+                    </div>
+                    
+                    <div class="article-footer-nav">
+  <a href="article_9_partie_2.html" class="footer-nav-link prev">
+    <span class="footer-nav-label">← Précédent</span>
+    <span class="footer-nav-title">Validation & Benchmarks - Partie 2</span>
+  </a>
+  <a href="article_9.html" class="footer-nav-link next">
+    <span class="footer-nav-label">Suivant →</span>
+    <span class="footer-nav-title">Saccadic-JEPA - Partie 1</span>
+  </a>
+</div>
+                </article>
+                
+                <div class="toc-sidebar">
+  <div class="toc-title">Sur cette page</div>
+  <ul class="toc-list">
+    <li class=""><a href="#les-deux-examens-du-self-supervised-learning">👨‍⚖️ Les deux examens du Self-Supervised Learning</a></li>
+    <li class=""><a href="#1-le-linear-probing-l-valuation-de-la-s-parabilit-brute">1. Le Linear Probing (L'Évaluation de la Séparabilité Brute)</a></li>
+    <li class=""><a href="#2-le-fine-tuning-l-adaptation-sp-cialis-e">2. Le Fine-Tuning (L'Adaptation Spécialisée)</a></li>
+    <li class=""><a href="#le-nouveau-script-de-combat-evaluate-saccadic-finetuning-py">🛠️ Le nouveau script de combat : evaluate_saccadic_finetuning.py</a></li>
+    <li class=""><a href="#les-r-sultats-du-fine-tuning-le-verdict-des-chiffres">📊 Les résultats du Fine-Tuning : Le verdict des chiffres</a></li>
+    <li class=""><a href="#d-cryptage-et-analyse-approfondie">🔍 Décryptage et analyse approfondie</a></li>
+    <li class="toc-indent"><a href="#1-le-paradoxe-du-r-gime-1-quand-le-fine-tuning-d-truit-les-repr-sentations">1. Le paradoxe du Régime 1% : Quand le Fine-Tuning détruit les représentations</a></li>
+    <li class="toc-indent"><a href="#2-le-triomphe-10-et-100-le-d-collage-des-performances">2. Le triomphe à 10% et 100% : Le décollage des performances</a></li>
+    <li class=""><a href="#conclusion-de-la-s-rie-saccadic-jepa">🧠 Conclusion de la série Saccadic-JEPA</a></li>
+    <li class="toc-indent"><a href="#d-fi-de-curiosit-n-3">🛠️ Défi de curiosité n°3</a></li>
+  </ul>
+</div>
+            </div>
+        </main>
+    </div>
+
+    <!-- Scripts -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.8.0/highlight.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/mermaid/dist/mermaid.min.js"></script>
+    
+    <script>
+        // Initialize Highlight.js
+        hljs.highlightAll();
+        
+        // Initialize Mermaid
+        mermaid.initialize({
+            theme: 'dark',
+            startOnLoad: false,
+            securityLevel: 'loose'
+        });
+
+        document.addEventListener("DOMContentLoaded", function() {
+            // 1. Convert Markdown pre-code blocks for Mermaid to actual divs
+            document.querySelectorAll("pre code.language-mermaid").forEach(function(el) {
+                const pre = el.parentElement;
+                const div = document.createElement("div");
+                div.className = "mermaid";
+                div.textContent = el.textContent;
+                pre.parentElement.replaceChild(div, pre);
+            });
+            
+            // Run Mermaid rendering
+            mermaid.run();
+            
+            // 2. Reading Progress Bar Logic
+            window.addEventListener('scroll', function() {
+                const winScroll = document.documentElement.scrollTop || document.body.scrollTop;
+                const height = document.documentElement.scrollHeight - document.documentElement.clientHeight;
+                const scrolled = (winScroll / height) * 100;
+                document.getElementById("reading-progress").style.width = scrolled + "%";
+            });
+        });
+    </script>
+</body>
+</html>

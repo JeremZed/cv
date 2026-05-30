@@ -1,0 +1,92 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Crédits | Tinkerer's Lab</title>
+    
+    <!-- Stylesheets -->
+    <link rel="stylesheet" href="css/style.css">
+    
+    <!-- Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <script src="js/sidebar.js" defer></script>
+</head>
+<body>
+
+    <div class="app-container">
+    
+        <!-- Mobile Navigation Header -->
+        <header class="mobile-header">
+            <button class="menu-toggle" id="menu-open-btn">
+                <svg width="24" height="24" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M4 6h16M4 12h16M4 18h16"/></svg>
+            </button>
+            <div class="sidebar-title">Tinkerer's Lab</div>
+            <div></div>
+        </header>
+
+        <!-- Persistent Sidebar -->
+        <aside class="sidebar" id="app-sidebar"></aside>
+
+        <!-- Main Content -->
+        <main class="main-content">
+            <div class="article-layout">
+                <article class="article-container">
+                    <header class="article-header">
+                        <span class="article-category" style="background: linear-gradient(135deg, var(--accent-teal), var(--accent-purple)); color: white;">Collaboration</span>
+                        <h1>Crédits & Partenaires</h1>
+                        <p class="article-subtitle">Les coulisses de ce portail d'apprentissage</p>
+                    </header>
+                    
+                    <div class="article-body">
+                        <p class="article-lead">
+                            Bienvenue dans les coulisses de <strong>Tinkerer's Lab</strong>. Ce laboratoire d'expérimentations cognitives et d'exploration de l'IA est le fruit d'une démarche collaborative associant intuition humaine et intelligence artificielle.
+                        </p>
+
+                        <h2>🤝 Co-écriture Homme-Machine</h2>
+                        <p>
+                            L'ensemble des articles, des explications pédagogiques, des implémentations de code (comme la variante <em>Saccadic-JEPA</em>) et des analyses empiriques présentés sur ce portail ont été co-écrits et développés en partenariat avec le grand modèle de langage (LLM) <strong>Gemini</strong> (Google DeepMind).
+                        </p>
+                        
+                        <blockquote>
+                            <p><strong>Gemini</strong> a agi en tant qu'assistant de recherche avancé, compagnon de pair-programming, et vulgarisateur technique pour m'aider à explorer mes idées, développer mon intuition en IA et structurer mes démonstrations.</p>
+                        </blockquote>
+
+                        <h2>Méthodologie d'exploration</h2>
+                        <ul>
+                            <li><strong>Conceptualisation :</strong> Formulation des hypothèses (ex: application de la fovéation humaine aux architectures JEPA) et conception de l'architecture.</li>
+                            <li><strong>Développement & Refactoring :</strong> Écriture des scripts d'entraînement PyTorch, débogage et optimisation des performances de calcul.</li>
+                            <li><strong>Vulgarisation scientifique :</strong> Traduction d'équations mathématiques complexes en guides pédagogiques structurés et accessibles sans perdre de rigueur.</li>
+                        </ul>
+
+                        <h2>Vision & Philosophie de l'Apprentissage Augmenté</h2>
+                        <p>
+                            Au-delà de la technique, ce projet incarne une vision forte de l'avenir de l'ingénierie : l'utilisation des modèles d'IA (LLMs et flux de travail agentiques) comme de formidables multiplicateurs de potentiel pour <strong>s'autoformer, accélérer l'acquisition de compétences et donner vie à de nouvelles créations</strong>. 
+                        </p>
+                        <p>
+                            Dans cette ère d'automatisation, l'IA ne remplace pas le concepteur ; elle le libère des tâches d'infrastructure répétitives pour lui permettre de se concentrer sur l'essentiel. Face aux modèles de calcul bruts, <strong>la créativité humaine reste notre plus grande force et notre meilleure arme</strong> pour poser les bonnes questions, concevoir des architectures innovantes et inventer le futur.
+                        </p>
+
+                        <div style="margin: 3rem 0; padding: 24px; background: var(--bg-secondary); border-radius: 12px; border: 1px solid var(--border-color); text-align: center;">
+                            <h3 style="margin-top: 0; color: var(--accent-teal); font-family: var(--font-headers);">💡 L'esprit de l'artisan</h3>
+                            <p style="margin-bottom: 0; font-size: 0.95rem; font-style: italic;">
+                                "Le véritable apprentissage ne réside pas dans la lecture passive, mais dans le fait de démonter, d'expérimenter et de construire ses propres variantes."
+                            </p>
+                        </div>
+                    </div>
+
+                    <div class="article-footer-nav" style="margin-top: 2rem;">
+                        <a href="index.html" class="footer-nav-link prev">
+                            <span class="footer-nav-label">← Retour</span>
+                            <span class="footer-nav-title">Accueil Portail</span>
+                        </a>
+                        <div></div>
+                    </div>
+                </article>
+            </div>
+        </main>
+    </div>
+
+</body>
+</html>

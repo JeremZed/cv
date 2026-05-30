@@ -1,0 +1,290 @@
+<!DOCTYPE html>
+<html lang="fr">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Fondations & Philosophie — Partie 1 : La Malédiction des Pixels | Tinkerer's Lab</title>
+
+    <!-- Stylesheets -->
+    <link rel="stylesheet" href="../css/style.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.8.0/styles/github-dark.min.css">
+
+    <!-- Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+
+    <!-- MathJax Configuration -->
+    <script>
+        window.MathJax = {
+            tex: {
+                inlineMath: [['$', '$'], ['\\(', '\\)']],
+                displayMath: [['$$', '$$'], ['\\[', '\\]']],
+                processEscapes: true
+            },
+            options: {
+                ignoreHtmlClass: 'tex2jax_ignore',
+                processHtmlClass: 'tex2jax_process'
+            }
+        };
+    </script>
+    <script id="MathJax-script" async src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
+    <script src="../js/sidebar.js" defer></script>
+</head>
+
+<body class="tex2jax_process">
+
+    <!-- Reading Progress Bar -->
+    <div class="progress-bar-container">
+        <div class="progress-bar" id="reading-progress"></div>
+    </div>
+
+    <div class="app-container">
+
+        <!-- Mobile Navigation Header -->
+        <header class="mobile-header">
+            <button class="menu-toggle" id="menu-open-btn">
+                <svg width="24" height="24" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" d="M4 6h16M4 12h16M4 18h16" />
+                </svg>
+            </button>
+            <div class="sidebar-title">Tinkerer's Lab</div>
+            <div></div> <!-- spacer -->
+        </header>
+
+        <!-- Persistent Sidebar -->
+        <aside class="sidebar" id="app-sidebar"></aside>
+
+        <!-- Main Content -->
+        <main class="main-content">
+            <div class="article-layout">
+                <article class="article-container">
+                    <header class="article-header">
+                        <span class="article-category jepa-1-6">Série I-JEPA</span>
+                        <h1>Fondations & Philosophie — Partie 1 : La Malédiction des Pixels</h1>
+                        <p class="article-subtitle">Pourquoi Yann LeCun veut enterrer la génération de pixels</p>
+                    </header>
+
+                    <div class="article-body">
+                        <blockquote>
+                            <p><strong>Série I-JEPA — Article 1 : Fondations &amp; Philosophie</strong>
+                                <em>Dans cette première partie, nous explorons pourquoi les architectures génératives
+                                    classiques se heurtent à un mur de complexité face au monde réel, et pourquoi
+                                    vouloir prédire chaque pixel est à la fois inutile et contre-productif.</em>
+                            </p>
+                        </blockquote>
+                        <hr />
+                        <h2 id="l-analogie-du-grand-ch-ne-sous-le-vent">🍃 L'analogie du grand chêne sous le vent</h2>
+                        <p>Imaginez que vous êtes assis à la terrasse d'un café, regardant un magnifique chêne bercé par
+                            le vent. </p>
+                        <p>Si un ami vous demande de fermer les yeux et de décrire ce que vous venez de voir, vous direz
+                            probablement : <em>"Un grand arbre vert avec des branches épaisses, dont les feuilles
+                                bougent doucement sous la brise."</em> Vous venez de faire une <strong>abstraction
+                                sémantique</strong>. Votre cerveau a immédiatement écarté les détails superflus pour ne
+                            garder que le sens profond de la scène.</p>
+                        <p>Maintenant, imaginez une intelligence artificielle générative (comme un auto-encodeur ou un
+                            modèle de diffusion) à qui l'on demande de prédire l'état de l'arbre une fraction de seconde
+                            plus tard. Pour réussir sa tâche selon ses critères d'entraînement (la perte au niveau du
+                            pixel), cette IA doit essayer de calculer :
+                        <ul>
+                            <li>La trajectoire exacte de la feuille n°14 502.</li>
+                            <li>La nuance de vert exacte du reflet de la lumière sur la feuille n°321.</li>
+                            <li>Les turbulences chaotiques de l'air qui font osciller les branches de gauche.</li>
+                        </ul>
+                        </p>
+                        <pre><code>┌────────────────────────────────────────────────────────────────────────┐
+│                              Le Monde Réel                             │
+│       (Bruit, chaos, feuilles dans le vent, reflets sur l'eau)         │
+└───────────────────────────────────┬────────────────────────────────────┘
+                                    │
+           ┌────────────────────────┴────────────────────────┐
+           ▼                                                 ▼
+┌─────────────────────────────┐                   ┌──────────────────────┐
+│  Approche Générative (MAE)  │                   │    Approche JEPA     │
+│   &quot;Je dois prédire chaque   │                   │ &quot;Je prédis le sens   │
+│   pixel de chaque feuille&quot;  │                   │ de la scène (arbre)&quot; │
+└──────────┬──────────────────┘                   └──────────┬───────────┘
+           │                                                 │
+           ▼                                                 ▼
+   Énergie gaspillée dans                            Focus 100% utile,
+   le bruit imprédictible                         robuste et sémantique
+</code></pre>
+                        <p><strong>C'est le cœur du problème :</strong> le mouvement exact de chaque feuille est
+                            intrinsèquement chaotique et impossible à prévoir à long terme. En forçant un modèle à
+                            prédire les pixels exacts, on le condamne à deux issues médiocres :
+                        <ul>
+                            <li><strong>Gaspiller une capacité immense</strong> de son réseau à mémoriser et modéliser
+                                du
+                                bruit statistique.</li>
+                            <li><strong>Produire des images floues ou hallucinées</strong> (comme les visages bizarres
+                                ou
+                                les mains à six doigts générés par les premiers modèles d'images) car il tente de faire
+                                la
+                                moyenne de toutes les possibilités futures au niveau des pixels.</li>
+                        </ul>
+                        </p>
+                        <hr />
+                        <h2 id="le-concept-de-bruit-haute-fr-quence-vs-information-basse-fr-quence">🌊 Le concept de
+                            bruit "haute fréquence" vs information "basse fréquence"</h2>
+                        <p>En traitement du signal et en vision par ordinateur, on sépare l'information contenue dans
+                            une image (ou une vidéo) en plusieurs niveaux de détails :</p>
+                        <ul>
+                            <li><strong>Le sémantique / basse fréquence :</strong> Ce sont les structures globales, les
+                                formes lentes, les contours des objets (ex: il y a un chien, une voiture, une route).
+                                C'est ce qui importe pour prendre une décision.</li>
+                            <li><strong>Le bruit / haute fréquence :</strong> Ce sont les variations extrêmement rapides
+                                de pixel à pixel (ex: la texture exacte de l'asphalte, le clapotis de l'eau sur un lac,
+                                le grain de la peau). </li>
+                        </ul>
+                        <p>Pour un système de conduite autonome par exemple, savoir si la route est mouillée est une
+                            information sémantique cruciale (elle modifie l'adhérence). En revanche, prédire la forme
+                            géométrique exacte de la flaque d'eau ou le clapotis précis créé par la pluie est une
+                            <strong>perte totale d'énergie calculatoire</strong>.
+                        </p>
+                        <h3 id="le-paradoxe-de-la-perte-quadratique-mse-sur-pixels">Le Paradoxe de la Perte Quadratique
+                            (MSE sur Pixels)</h3>
+                        <p>La plupart des modèles génératifs d'images s'entraînent en calculant l'erreur quadratique
+                            moyenne (MSE) entre l'image réelle $x$ et l'image générée $\hat{x}$ :</p>
+                        <p>$$\mathcal{L}_{\text{pixel}} = \frac{1}{N} \sum_{i=1}^{N} (x_i - \hat{x}_i)^2$$</p>
+                        <p>Où $x_i$ est la valeur du pixel $i$. </p>
+                        <p>Si le modèle prédit parfaitement la forme d'un chien mais décale la texture de ses poils de
+                            seulement 2 pixels vers la gauche, la perte $\mathcal{L}_{\text{pixel}}$ sera gigantesque,
+                            alors que sémantiquement, le modèle a tout compris ! </p>
+                        <p>À l'inverse, si le modèle génère un fond gris flou parfaitement moyen à la place du chien, sa
+                            perte MSE sera statistiquement modérée. <strong>La perte au pixel pénalise les erreurs
+                                sémantiques mineures et encourage la création de flou ou de bruit moyen.</strong></p>
+                        <hr />
+                        <h2 id="cas-pratique-la-conduite-autonome-face-aux-reflets">🚗 Cas pratique : La conduite
+                            autonome face aux reflets</h2>
+                        <p>Visualisons l'impact de ce choix d'architecture dans un cas d'usage concret :</p>
+                        <p>Imaginez une caméra embarquée dans un véhicule autonome naviguant sous la pluie. Sur la
+                            route, il y a des flaques d'eau qui reflètent les néons des magasins environnants. Un piéton
+                            s'apprête à traverser.</p>
+                        <table>
+                            <thead>
+                                <tr>
+                                    <th style="text-align: left;">Caractéristique</th>
+                                    <th style="text-align: left;">Modèle Génératif de Pixels</th>
+                                    <th style="text-align: left;">Modèle JEPA (Espace Latent)</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <tr>
+                                    <td style="text-align: left;"><strong>Objectif de l'entraînement</strong></td>
+                                    <td style="text-align: left;">Reconstruire chaque pixel de l'image (flaque d'eau
+                                        incluse).</td>
+                                    <td style="text-align: left;">Prédire la représentation abstraite de la scène
+                                        future.</td>
+                                </tr>
+                                <tr>
+                                    <td style="text-align: left;"><strong>Goulot d'étranglement</strong></td>
+                                    <td style="text-align: left;">Bloqué par l'imprédictibilité des reflets lumineux et
+                                        des gouttes de pluie.</td>
+                                    <td style="text-align: left;">Ignore la forme des reflets, se focalise sur les
+                                        objets solides.</td>
+                                </tr>
+                                <tr>
+                                    <td style="text-align: left;"><strong>Comportement face au piéton</strong></td>
+                                    <td style="text-align: left;">Risque d'allouer trop de capacité réseau au rendu de
+                                        l'eau et de manquer le piéton dans le flou.</td>
+                                    <td style="text-align: left;">Détecte instantanément le concept sémantique "Humain à
+                                        10h".</td>
+                                </tr>
+                                <tr>
+                                    <td style="text-align: left;"><strong>Efficacité de calcul</strong></td>
+                                    <td style="text-align: left;">Faible (génère des détails inutiles à grands frais).
+                                    </td>
+                                    <td style="text-align: left;">Maximale (ne traite que les concepts clés).</td>
+                                </tr>
+                            </tbody>
+                        </table>
+                        <hr />
+                        <h2 id="conclusion-amp-transition">🧠 Conclusion &amp; Transition</h2>
+                        <p>Vouloir prédire le monde au pixel près est une tentative de reproduire une imprimante de
+                            précision plutôt qu'un système pensant. Pour créer des intelligences artificielles capables
+                            de planifier, d'agir et de comprendre leur environnement, nous devons abandonner la
+                            reconstruction de pixels.</p>
+                        <p>Mais alors, si nous ne reconstruisons pas l'image pixel par pixel, <strong>comment
+                                pouvons-nous entraîner une IA de manière auto-supervisée (sans étiquettes humaines)
+                                ?</strong></p>
+                        <p>C'est ce que nous allons découvrir dans la deuxième partie de cet article, en analysant les
+                            trois grands paradigmes de l'apprentissage auto-supervisé : <strong>l'Invariance, la
+                                Génération et le Joint Embedding.</strong></p>
+                        <hr />
+                        <h3 id="d-fi-curieux-n-1">🛠️ Défi curieux n°1</h3>
+                        <p><em>Prenez une image de votre choix. Essayez d'imaginer : si vous deviez masquer un carré de
+                                $8\times 8$ pixels en plein milieu, quelles informations sémantiques un humain pourrait
+                                deviner, et quels détails de pixels seraient définitivement perdus ?</em></p>
+                    </div>
+
+                    <div class="article-footer-nav">
+                        <a href="../index.html" class="footer-nav-link prev">
+                            <span class="footer-nav-label">← Précédent</span>
+                            <span class="footer-nav-title">Portail d'accueil</span>
+                        </a>
+                        <a href="article_1_partie_2.html" class="footer-nav-link next">
+                            <span class="footer-nav-label">Suivant →</span>
+                            <span class="footer-nav-title">Fondations & Philosophie - Partie 2</span>
+                        </a>
+                    </div>
+                </article>
+
+                <div class="toc-sidebar">
+                    <div class="toc-title">Sur cette page</div>
+                    <ul class="toc-list">
+                        <li class=""><a href="#l-analogie-du-grand-ch-ne-sous-le-vent">🍃 L'analogie du grand chêne sous
+                                le vent</a></li>
+                        <li class=""><a href="#le-concept-de-bruit-haute-fr-quence-vs-information-basse-fr-quence">🌊 Le
+                                concept de bruit "haute fréquence" vs information "basse fréquence"</a></li>
+                        <li class="toc-indent"><a href="#le-paradoxe-de-la-perte-quadratique-mse-sur-pixels">Le Paradoxe
+                                de la Perte Quadratique (MSE sur Pixels)</a></li>
+                        <li class=""><a href="#cas-pratique-la-conduite-autonome-face-aux-reflets">🚗 Cas pratique : La
+                                conduite autonome face aux reflets</a></li>
+                        <li class=""><a href="#conclusion-amp-transition">🧠 Conclusion &amp; Transition</a></li>
+                        <li class="toc-indent"><a href="#d-fi-curieux-n-1">🛠️ Défi curieux n°1</a></li>
+                    </ul>
+                </div>
+            </div>
+        </main>
+    </div>
+
+    <!-- Scripts -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.8.0/highlight.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/mermaid/dist/mermaid.min.js"></script>
+
+    <script>
+        // Initialize Highlight.js
+        hljs.highlightAll();
+
+        // Initialize Mermaid
+        mermaid.initialize({
+            theme: 'dark',
+            startOnLoad: false,
+            securityLevel: 'loose'
+        });
+
+        document.addEventListener("DOMContentLoaded", function () {
+            // 1. Convert Markdown pre-code blocks for Mermaid to actual divs
+            document.querySelectorAll("pre code.language-mermaid").forEach(function (el) {
+                const pre = el.parentElement;
+                const div = document.createElement("div");
+                div.className = "mermaid";
+                div.textContent = el.textContent;
+                pre.parentElement.replaceChild(div, pre);
+            });
+
+            // Run Mermaid rendering
+            mermaid.run();
+
+            // 2. Reading Progress Bar Logic
+            window.addEventListener('scroll', function () {
+                const winScroll = document.documentElement.scrollTop || document.body.scrollTop;
+                const height = document.documentElement.scrollHeight - document.documentElement.clientHeight;
+                const scrolled = (winScroll / height) * 100;
+                document.getElementById("reading-progress").style.width = scrolled + "%";
+            });
+        });
+    </script>
+</body>
+
+</html>

@@ -147,6 +147,19 @@
                     <div class="project-cta">Détails <span>&rarr;</span></div>
                 </div>
 
+                <div class="project-card card" data-project="jepa-lab">
+                    <span class="project-icon">🧠</span>
+                    <h3>Tinkerer's Lab</h3>
+                    <p>Portail d'apprentissage et vulgarisation sur les architectures prédictives jointes (I-JEPA & Saccadic-JEPA).</p>
+                    <div class="project-tags">
+                        <span class="tag">AI Research</span>
+                        <span class="tag">Joint Embedding</span>
+                        <span class="tag">PyTorch</span>
+                        <span class="tag">Technical Writing</span>
+                    </div>
+                    <div class="project-cta">Détails <span>&rarr;</span></div>
+                </div>
+
                 <div class="project-card card" data-project="rag-nlp">
                     <span class="project-icon">📚</span>
                     <h3>RAG & NLP</h3>
@@ -382,6 +395,18 @@
                 ],
                 stack: ["Python", "Tools", "Ollama", "LLM", "Pattern ReAct"]
             },
+            'jepa-lab': {
+                title: "Tinkerer's Lab",
+                description: "Un portail pédagogique complet pour explorer et comprendre les architectures d'apprentissage auto-supervisé Joint Embedding Predictive Architecture (I-JEPA et Saccadic-JEPA) proposées par Yann LeCun.",
+                details: [
+                    "<b>Série I-JEPA</b> : Analyse de la reconstruction de pixels, du découpage en patches, de l'attention du Predictor et du collapse de représentations.",
+                    "<b>Série Saccadic-JEPA</b> : Modélisation PyTorch inspirée de l'acuité visuelle fovéale humaine pour réduire le coût en énergie.",
+                    "<b>Approche Vulgarisée</b> : Synthèse accessible combinant explications théoriques claires et extraits de code source commentés.",
+                    "<b>Démonstrations Intégrées</b> : Simulateurs interactifs de fovéation, heatmaps d'attention et benchmarks comparatifs de performance."
+                ],
+                stack: ["HTML5", "CSS3", "JavaScript", "MathJax", "Mermaid.js"],
+                link: "docs/index.html"
+            },
             'rag-nlp': {
                 title: "Solutions RAG & Extensions NLP",
                 description: "Mise en œuvre de systèmes RAG",
@@ -488,6 +513,11 @@ Une application permet de simuler un incident en sélectionnant une localisation
                     <ul>
                         ${project.details.map(detail => `<li>${detail}</li>`).join('')}
                     </ul>
+                    ${project.link ? `
+                    <div style="margin: 2rem 0; text-align: center;">
+                        <a href="${project.link}" class="project-link-button">Découvrir Tinkerer's Lab 🚀</a>
+                    </div>
+                    ` : ''}
                     <h3>Technologies :</h3>
                     <div class="project-tags">
                         ${project.stack.map(s => `<span class="tag">${s}</span>`).join('')}

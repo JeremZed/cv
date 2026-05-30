@@ -1,0 +1,278 @@
+<!DOCTYPE html>
+<html lang="fr">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Coder son premier JEPA — Partie 1 : Découper l'image en Patches | Tinkerer's Lab</title>
+
+    <!-- Stylesheets -->
+    <link rel="stylesheet" href="../css/style.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.8.0/styles/github-dark.min.css">
+
+    <!-- Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+
+    <!-- MathJax Configuration -->
+    <script>
+        window.MathJax = {
+            tex: {
+                inlineMath: [['$', '$'], ['\\(', '\\)']],
+                displayMath: [['$$', '$$'], ['\\[', '\\]']],
+                processEscapes: true
+            },
+            options: {
+                ignoreHtmlClass: 'tex2jax_ignore',
+                processHtmlClass: 'tex2jax_process'
+            }
+        };
+    </script>
+    <script id="MathJax-script" async src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
+    <script src="../js/sidebar.js" defer></script>
+</head>
+
+<body class="tex2jax_process">
+
+    <!-- Reading Progress Bar -->
+    <div class="progress-bar-container">
+        <div class="progress-bar" id="reading-progress"></div>
+    </div>
+
+    <div class="app-container">
+
+        <!-- Mobile Navigation Header -->
+        <header class="mobile-header">
+            <button class="menu-toggle" id="menu-open-btn">
+                <svg width="24" height="24" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" d="M4 6h16M4 12h16M4 18h16" />
+                </svg>
+            </button>
+            <div class="sidebar-title">Tinkerer's Lab</div>
+            <div></div> <!-- spacer -->
+        </header>
+
+        <!-- Persistent Sidebar -->
+        <aside class="sidebar" id="app-sidebar"></aside>
+
+        <!-- Main Content -->
+        <main class="main-content">
+            <div class="article-layout">
+                <article class="article-container">
+                    <header class="article-header">
+                        <span class="article-category jepa-1-6">Série I-JEPA</span>
+                        <h1>Coder son premier JEPA — Partie 1 : Découper l'image en Patches</h1>
+                        <p class="article-subtitle">De la théorie à l'implémentation pratique ViT</p>
+                    </header>
+
+                    <div class="article-body">
+                        <blockquote>
+                            <p><strong>Série I-JEPA — Article 2 : Coder son premier JEPA (Niveau 1)</strong>
+                                <em>Dans cette première partie de notre second article, nous explorons comment les
+                                    modèles de vision modernes, appelés Vision Transformers (ViT), transforment une
+                                    grille chaotique de pixels en une suite de "mots visuels" appelés patches. C'est
+                                    l'étape fondatrice pour comprendre toute architecture JEPA.</em>
+                            </p>
+                        </blockquote>
+                        <hr />
+                        <h2 id="le-probl-me-de-la-complexit-quadratique-pourquoi-les-pixels-sont-trop-lourds">💥 Le
+                            problème de la complexité quadratique : Pourquoi les pixels sont trop lourds</h2>
+                        <p>Les modèles de traitement du langage naturel (comme GPT) prennent des phrases en entrée, les
+                            découpent en mots (tokens), et utilisent le mécanisme d'<strong>attention</strong> pour
+                            calculer les liens entre chaque mot. </p>
+                        <p>Si l'on voulait appliquer ce même mécanisme directement sur les pixels d'une image :
+                        <ul>
+                            <li> Une petite image de CIFAR-10 de $32\times 32$ pixels contient $1\,024$ pixels.
+                                L'attention calcule les relations de chaque pixel avec tous les autres. Le coût
+                                calculatoire augmente au carré (quadratique) : $1\,024^2 \approx 1$ million
+                                d'opérations. C'est faisable.</li>
+                            <li> Mais pour une image standard de $224\times 224$ pixels, nous avons $50\,176$ pixels. Le
+                                calcul d'attention monte à $50\,176^2 \approx$ <strong>2,5 milliards
+                                    d'opérations</strong> rien que pour une seule couche du réseau !</li>
+                        </ul>
+                        </p>
+                        <p>Pour résoudre cette impasse mathématique, l'équipe de Google Brain a introduit en 2020 le
+                            <strong>Vision Transformer (ViT)</strong> avec une idée révolutionnaire : <strong>découper
+                                l'image en petites tuiles carrées, appelées patches, et traiter chaque tuile comme si
+                                c'était un mot.</strong>
+                        </p>
+                        <hr />
+                        <h2 id="la-g-om-trie-de-cifar-10-saucissonner-l-image">✂️ La géométrie de CIFAR-10 :
+                            Saucissonner l'image</h2>
+                        <p>Dans notre projet <code>jepa-lab</code>, nous travaillons sur des images CIFAR-10 de
+                            $32\times 32$ pixels. Nous configurons notre découpage avec une taille de patch (patch size)
+                            de $4\times 4$ pixels.</p>
+                        <p>Faisons le calcul :
+                        <ol>
+                            <li><strong>Largeur de la grille</strong> : $32 \text{ pixels} / 4 \text{ pixels} = 8$
+                                patches de large.</li>
+                            <li><strong>Hauteur de la grille</strong> : $32 \text{ pixels} / 4 \text{ pixels} = 8$
+                                patches de haut.</li>
+                            <li><strong>Nombre total de patches</strong> : $8 \times 8 = 64$ patches.</li>
+                        </ol>
+                        </p>
+                        <pre><code>   Image CIFAR-10 (32x32 pixels)              Grille de 64 Patches (8x8)
+      ┌──────────────────────┐                  ┌───┬───┬───┬───┬───┬───┬───┬───┐
+      │                      │                  │ 0 │ 1 │ 2 │ 3 │ 4 │ 5 │ 6 │ 7 │
+      │                      │                  ├───┼───┼───┼───┼───┼───┼───┼───┤
+      │                      │   Découpage      │ 8 │ 9 │10 │11 │12 │13 │14 │15 │
+      │       32 x 32        │  ───────────►    ├───┼───┼───┼───┼───┼───┼───┼───┤
+      │        pixels        │   Non-sobre      │...│...│...│...│...│...│...│...│
+      │                      │                  ├───┼───┼───┼───┼───┼───┼───┼───┤
+      │                      │                  │56 │57 │58 │59 │60 │61 │62 │63 │
+      └──────────────────────┘                  └───┴───┴───┴───┴───┴───┴───┴───┘
+                                                chacun fait 4x4 pixels 
+                                                et possède 3 canaux (RGB)
+</code></pre>
+                        <p>En passant de $1\,024$ pixels à seulement $64$ patches, le coût d'attention de notre
+                            Transformer s'effondre de $1\,024^2 \approx 1\,048\,576$ opérations à seulement $64^2 =
+                            4\,096$ opérations ! Le réseau respire, et nous pouvons entraîner des modèles complexes à
+                            haute vitesse.</p>
+                        <hr />
+                        <h2 id="du-pixel-brut-la-s-mantique-la-projection-lin-aire">🎨 Du pixel brut à la sémantique :
+                            La projection linéaire</h2>
+                        <p>Chaque petit patch de $4\times 4$ pixels possède 3 canaux de couleur (Rouge, Vert, Bleu). Au
+                            format brut, un patch contient donc :
+                            $$4 \times 4 \times 3 = 48 \text{ valeurs numériques}$$</p>
+                        <p>Pour que notre Transformer comprenne ce patch, nous devons le projeter dans un espace
+                            sémantique (l'<strong>embedding space</strong>). Dans notre code ViT-Tiny, nous choisissons
+                            une dimension de projection (embed dim) de $192$. </p>
+                        <p>Nous utilisons pour cela une astuce de convolution 2D. En PyTorch, cette étape se code ainsi:
+                        </p>
+                        <pre><code class="language-python">self.patch_embed = nn.Conv2d(
+    in_channels=3, 
+    out_channels=192, 
+    kernel_size=4, 
+    stride=4
+)
+</code></pre>
+                        <h3 id="pourquoi-une-convolution-2d-avec-stride-kernel-size">⚙️ Pourquoi une convolution 2D avec
+                            stride = kernel_size ?</h3>
+                        <ul>
+                            <li><strong><code>kernel_size=4</code></strong> : La convolution regarde des fenêtres
+                                carrées de $4\times 4$ pixels.</li>
+                            <li><strong><code>stride=4</code></strong> : Le filtre glisse exactement de 4 pixels en 4
+                                pixels.
+                                Il n'y a donc <strong>aucun chevauchement</strong> entre les étapes de glissement. Les
+                                patches sont de parfaits petits carreaux collés les uns aux autres.
+                                Le résultat de cette convolution est un tenseur de caractéristiques projetées de
+                                dimension $192$ pour chacun des 64 patches.</li>
+                        </ul>
+                        <hr />
+                        <h2 id="la-boussole-spatiale-les-positional-embeddings">🗺️ La boussole spatiale : Les
+                            Positional Embeddings</h2>
+                        <p>Il y a une faiblesse majeure dans le mécanisme d'attention des Transformers : <strong>il est
+                                insensible à l'ordre des éléments</strong>. </p>
+                        <p>Si vous donnez au Transformer les 64 patches d'un chat dans le désordre le plus total
+                            (mélangés aléatoirement), l'attention va calculer exactement les mêmes relations logiques
+                            sémantiques, car elle ne sait pas <em>où</em> se situe spatialement chaque patch dans
+                            l'image originale. Pour elle, un oeil au milieu du ciel ou au milieu du visage est traité de
+                            la même manière.</p>
+                        <p>Pour redonner le sens de l'orientation spatiale au modèle, on ajoute à chaque représentation
+                            de patch un vecteur contenant ses coordonnées géométriques (les <strong>Positional
+                                Embeddings</strong>).</p>
+                        <pre><code class="language-python"># Un tenseur de paramètres appris de taille (1, 64, 192)
+self.pos_embed = nn.Parameter(torch.zeros(1, 64, 192))
+</code></pre>
+                        <p>Avant d'envoyer nos patches dans le Transformer, on fait une simple addition :</p>
+                        <p>$$\text{Tokens d'Entrée} = \text{Embeddings des Patches} + \text{Positional Embeddings}$$</p>
+                        <p>Désormais, chaque vecteur-mot porte deux informations indissociables : <strong>ce qu'il
+                                contient visuellement</strong> (ses patterns de texture) et <strong>où il se trouve
+                                géométriquement</strong> dans la grille $8\times 8$.</p>
+                        <hr />
+                        <h2 id="conclusion-amp-transition">🧠 Conclusion &amp; Transition</h2>
+                        <p>Vous savez maintenant comment une image brute est découpée en 64 "mots visuels", projetée
+                            dans un espace latent sémantique de dimension 192, et dotée d'une identité géographique
+                            grâce aux Positional Embeddings.</p>
+                        <p>L'image est désormais représentée sous la forme d'une phrase de 64 tokens. </p>
+                        <p>Mais alors, comment exploiter ces tokens pour concevoir les différents acteurs de notre JEPA
+                            ?
+                            C'est ce que nous allons découvrir dans la deuxième partie de cet article en étudiant les
+                            rôles et structures du <strong>Context Encoder</strong>, du <strong>Target Encoder</strong>
+                            et du <strong>Predictor</strong> !</p>
+                        <hr />
+                        <h3 id="d-fi-curieux-n-1">🛠️ Défi curieux n°1</h3>
+                        <p><em>Pensez à un puzzle. Si l'on découpe une image en 64 pièces carrées (patches) et qu'on les
+                                mélange dans un sac sans aucune indication de leur position d'origine, assembler le
+                                puzzle devient extrêmement difficile, voire impossible pour les parties uniformes (comme
+                                30 pièces de ciel bleu identique). À votre avis, comment le fait
+                                d'<strong>additionner</strong> une coordonnée géographique unique (Positional Embedding)
+                                directement dans la signature numérique de chaque pièce permet-il mathématiquement au
+                                Transformer de reconstruire la géométrie globale de l'image, même face à des textures
+                                répétitives ?</em></p>
+                    </div>
+
+                    <div class="article-footer-nav">
+                        <a href="article_1_partie_3.html" class="footer-nav-link prev">
+                            <span class="footer-nav-label">← Précédent</span>
+                            <span class="footer-nav-title">Fondations & Philosophie - Partie 3</span>
+                        </a>
+                        <a href="article_2_partie_2.html" class="footer-nav-link next">
+                            <span class="footer-nav-label">Suivant →</span>
+                            <span class="footer-nav-title">Coder son premier JEPA - Partie 2</span>
+                        </a>
+                    </div>
+                </article>
+
+                <div class="toc-sidebar">
+                    <div class="toc-title">Sur cette page</div>
+                    <ul class="toc-list">
+                        <li class=""><a
+                                href="#le-probl-me-de-la-complexit-quadratique-pourquoi-les-pixels-sont-trop-lourds">💥
+                                Le problème de la complexité quadratique : Pourquoi les pixels sont trop lourds</a></li>
+                        <li class=""><a href="#la-g-om-trie-de-cifar-10-saucissonner-l-image">✂️ La géométrie de
+                                CIFAR-10 : Saucissonner l'image</a></li>
+                        <li class=""><a href="#du-pixel-brut-la-s-mantique-la-projection-lin-aire">🎨 Du pixel brut à la
+                                sémantique : La projection linéaire</a></li>
+                        <li class="toc-indent"><a href="#pourquoi-une-convolution-2d-avec-stride-kernel-size">⚙️
+                                Pourquoi une convolution 2D avec stride = kernel_size ?</a></li>
+                        <li class=""><a href="#la-boussole-spatiale-les-positional-embeddings">🗺️ La boussole spatiale
+                                : Les Positional Embeddings</a></li>
+                        <li class=""><a href="#conclusion-amp-transition">🧠 Conclusion &amp; Transition</a></li>
+                        <li class="toc-indent"><a href="#d-fi-curieux-n-1">🛠️ Défi curieux n°1</a></li>
+                    </ul>
+                </div>
+            </div>
+        </main>
+    </div>
+
+    <!-- Scripts -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.8.0/highlight.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/mermaid/dist/mermaid.min.js"></script>
+
+    <script>
+        // Initialize Highlight.js
+        hljs.highlightAll();
+
+        // Initialize Mermaid
+        mermaid.initialize({
+            theme: 'dark',
+            startOnLoad: false,
+            securityLevel: 'loose'
+        });
+
+        document.addEventListener("DOMContentLoaded", function () {
+            // 1. Convert Markdown pre-code blocks for Mermaid to actual divs
+            document.querySelectorAll("pre code.language-mermaid").forEach(function (el) {
+                const pre = el.parentElement;
+                const div = document.createElement("div");
+                div.className = "mermaid";
+                div.textContent = el.textContent;
+                pre.parentElement.replaceChild(div, pre);
+            });
+
+            // Run Mermaid rendering
+            mermaid.run();
+
+            // 2. Reading Progress Bar Logic
+            window.addEventListener('scroll', function () {
+                const winScroll = document.documentElement.scrollTop || document.body.scrollTop;
+                const height = document.documentElement.scrollHeight - document.documentElement.clientHeight;
+                const scrolled = (winScroll / height) * 100;
+                document.getElementById("reading-progress").style.width = scrolled + "%";
+            });
+        });
+    </script>
+</body>
+
+</html>

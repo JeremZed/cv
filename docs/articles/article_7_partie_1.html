@@ -1,0 +1,224 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Recréer l'Œil Humain en Python — Partie 1 : Anatomie de la Rétine Humaine | Tinkerer's Lab</title>
+    
+    <!-- Stylesheets -->
+    <link rel="stylesheet" href="../css/style.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.8.0/styles/github-dark.min.css">
+    
+    <!-- Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    
+    <!-- MathJax Configuration -->
+    <script>
+        window.MathJax = {
+            tex: {
+                inlineMath: [['$', '$'], ['\\(', '\\)']],
+                displayMath: [['$$', '$$'], ['\\[', '\\]']],
+                processEscapes: true
+            },
+            options: {
+                ignoreHtmlClass: 'tex2jax_ignore',
+                processHtmlClass: 'tex2jax_process'
+            }
+        };
+    </script>
+    <script id="MathJax-script" async src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
+    <script src="../js/sidebar.js" defer></script>
+</head>
+<body class="tex2jax_process">
+
+    <!-- Reading Progress Bar -->
+    <div class="progress-bar-container">
+        <div class="progress-bar" id="reading-progress"></div>
+    </div>
+
+    <div class="app-container">
+    
+        <!-- Mobile Navigation Header -->
+        <header class="mobile-header">
+            <button class="menu-toggle" id="menu-open-btn">
+                <svg width="24" height="24" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M4 6h16M4 12h16M4 18h16"/></svg>
+            </button>
+            <div class="sidebar-title">Tinkerer's Lab</div>
+            <div></div> <!-- spacer -->
+        </header>
+
+        <!-- Persistent Sidebar -->
+        <aside class="sidebar" id="app-sidebar"></aside>
+
+        <!-- Main Content -->
+        <main class="main-content">
+            <div class="article-layout">
+                <article class="article-container">
+                    <header class="article-header">
+                        <span class="article-category saccadic">Série Saccadic-JEPA</span>
+                        <h1>Recréer l'Œil Humain en Python — Partie 1 : Anatomie de la Rétine Humaine</h1>
+                        <p class="article-subtitle">Fovéation, cônes/bâtonnets et acuité visuelle</p>
+                    </header>
+                    
+                    <div class="article-body">
+                        <blockquote>
+<p><strong>Série Saccadic-JEPA : Vers une Vision Artificielle Biologiquement Inspirée</strong>
+<em>Dans cette première partie de notre septième article, nous explorons les fondations biologiques de la vision humaine. Avant de coder des réseaux de neurones, comprenons pourquoi notre œil n'est pas une simple caméra numérique, et comment la répartition inégale de nos récepteurs façonne notre perception du monde.</em></p>
+</blockquote>
+<hr />
+<h2 id="l-illusion-de-la-nettet-permanente">🎭 L'illusion de la netteté permanente</h2>
+<p>Lorsque vous lisez cette phrase ou regardez autour de vous, vous avez l'impression intime d'évoluer dans un monde entièrement net, coloré et détaillé. </p>
+<p><strong>C'est une illusion complète.</strong> </p>
+<p>En réalité, à cet instant précis, seule une infime partie de votre champ de vision (l'équivalent de la taille de votre pouce tenu à bout de bras) est parfaitement nette. Tout le reste est un flou artistique, désaturé, où seuls les mouvements et les contrastes grossiers sont perçus. Si vous ne vous en rendez pas compte, c'est parce que vos yeux bougent constamment (les saccades) et que votre cerveau fusionne ces captures rapides en une image globale nette stockée en mémoire.</p>
+<p>Pour comprendre comment reproduire ce phénomène de manière algorithmique, il faut d'abord plonger dans l'anatomie de notre rétine.</p>
+<hr />
+<h2 id="les-deux-capteurs-de-l-il-c-nes-vs-b-tonnets">🔬 Les deux capteurs de l'œil : Cônes vs Bâtonnets</h2>
+<p>La rétine, située au fond du globe oculaire, agit comme le capteur photosensible d'un appareil photo. Cependant, contrairement aux capteurs en silicium où tous les pixels sont identiques et disposés sur une grille régulière, la rétine humaine utilise deux types de récepteurs biologiques radicalement différents :</p>
+<table>
+<thead>
+<tr>
+<th style="text-align: left;">Caractéristique</th>
+<th style="text-align: center;">🟢 Les Cônes</th>
+<th style="text-align: center;">⚪ Les Bâtonnets</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td style="text-align: left;"><strong>Fonction principale</strong></td>
+<td style="text-align: center;">Vision des détails et des couleurs (RVB)</td>
+<td style="text-align: center;">Vision nocturne et détection du mouvement</td>
+</tr>
+<tr>
+<td style="text-align: left;"><strong>Sensibilité lumineuse</strong></td>
+<td style="text-align: center;">Faible (nécessite beaucoup de lumière)</td>
+<td style="text-align: center;">Extrêmement élevée (sensible à un seul photon)</td>
+</tr>
+<tr>
+<td style="text-align: left;"><strong>Acuité Visuelle</strong></td>
+<td style="text-align: center;">Très élevée</td>
+<td style="text-align: center;">Très faible (image floue)</td>
+</tr>
+<tr>
+<td style="text-align: left;"><strong>Temps de réponse</strong></td>
+<td style="text-align: center;">Lent</td>
+<td style="text-align: center;">Très rapide (idéal pour les mouvements)</td>
+</tr>
+<tr>
+<td style="text-align: left;"><strong>Population totale</strong></td>
+<td style="text-align: center;">~6 Millions</td>
+<td style="text-align: center;">~120 Millions</td>
+</tr>
+</tbody>
+</table>
+<h3 id="les-c-nes-les-pixels-haute-d-finition">Les Cônes : Les pixels haute définition</h3>
+<p>Les cônes se déclinent en trois types de sensibilités spectrales (S pour bleu, M pour vert, L pour rouge). Ils nous permettent de lire, de distinguer les textures fines et d'apprécier les couleurs. Cependant, ils sont gourmands en lumière : dans la pénombre, ils cessent de fonctionner.</p>
+<h3 id="les-b-tonnets-les-d-tecteurs-de-mouvement">Les Bâtonnets : Les détecteurs de mouvement</h3>
+<p>Les bâtonnets ne perçoivent pas les couleurs (vision monochrome) mais réagissent à des intensités lumineuses infimes. Ils sont nos sentinelles périphériques : s'ils ne peuvent pas lire les lettres d'un livre en périphérie, ils détectent instantanément le moindre mouvement suspect sur le côté.</p>
+<hr />
+<h2 id="la-fov-a-la-zone-vip-de-la-vision-humaine">🎯 La Fovéa : La zone VIP de la vision humaine</h2>
+<p>La répartition de ces récepteurs sur la surface de la rétine est tout sauf uniforme.</p>
+<pre><code>       RÉPARTITION DES PHOTORÉCEPTEURS SUR LA RÉTINE
+
+   Densité
+      ▲
+      │             /│\  &lt;- Pic de Cônes (Fovéa)
+      │            / │ \
+      │  Bâtonnets/  │  \ Bâtonnets
+      │  -------\/   │   \/-------
+      │  -------/\   │   /\-------
+      │ /         \  │  /         \
+      └────────────┴─┴──┴──────────► Angle (Degrés)
+                 -20° 0° 20°
+</code></pre>
+<p>Au centre exact de la rétine, sur l'axe optique direct, se trouve une minuscule dépression d'environ 1,5 mm de diamètre appelée la <strong>fovéa</strong> (et en son cœur, la <em>fovéola</em> de 0,35 mm).</p>
+<p>Cette zone possède des propriétés uniques :
+1. <strong>100% de Cônes</strong> : La fovéa ne contient pratiquement aucun bâtonnet. C'est une mosaïque ultra-serrée de cônes à haute densité.
+2. <strong>Le ratio 1:1 (Pas de compression)</strong> : En périphérie, des dizaines de récepteurs partagent la même fibre nerveuse (le nerf optique) pour envoyer leur signal au cerveau. Dans la fovéa, <strong>chaque cône est relié à une seule et unique cellule ganglionnaire</strong>. C'est une transmission sans perte, un canal direct à large bande passante vers le cortex visuel.
+3. <strong>Un champ de vision minuscule</strong> : Cette zone de netteté absolue ne couvre que <strong>1 à 2 degrés</strong> de votre champ visuel total.</p>
+<hr />
+<h2 id="la-d-gradation-progressive-vers-la-p-riph-rie">📈 La dégradation progressive vers la périphérie</h2>
+<p>Dès que l'on s'écarte de ces 2 degrés centraux, la structure de la rétine change de manière exponentielle :</p>
+<ul>
+<li><strong>La zone para-fovéale (2° à 5°)</strong> : La densité des cônes chute brutalement, remplacée par les premiers bâtonnets. La lecture fine devient difficile.</li>
+<li><strong>La zone péri-fovéale (5° à 20°)</strong> : Les cônes se raréfient. Les bâtonnets deviennent dominants. Les contours s'estompent.</li>
+<li><strong>La vision périphérique (&gt; 20° à 180°)</strong> : Les bâtonnets sont ultra-majoritaires et connectés en groupes denses (compression spatiale forte). L'image est totalement floue et les couleurs disparaissent presque entièrement, ne laissant que la perception des mouvements et des contrastes.</li>
+</ul>
+<hr />
+<h2 id="conclusion-amp-transition">🧠 Conclusion &amp; Transition</h2>
+<p>Notre système visuel n'a pas été conçu pour capturer une image complète en haute définition comme le ferait un capteur photo moderne de 100 mégapixels. À la place, la biologie a opté pour un compromis d'une efficacité redoutable : <strong>une zone centrale minuscule ultra-précise (la fovéa) et une périphérie floue à faible coût énergétique.</strong></p>
+<p>Mais comment notre cerveau gère-t-il ce flux d'informations asymétrique ? Comment le cortex visuel traite-t-il cette différence de résolution ?</p>
+<p>C'est ce que nous allons explorer dans la deuxième partie de cet article en abordant le concept fascinant de <strong>grossissement cortical</strong> !</p>
+<hr />
+<h3 id="d-fi-de-curiosit-n-1">🛠️ Défi de curiosité n°1</h3>
+<p><em>Faites l'expérience vous-même : fixez une seule lettre au centre de cette page. Sans déplacer vos yeux d'un millimètre, essayez de lire les mots situés 4 lignes plus bas ou 5 mots plus à droite. Qu'observez-vous concernant la netteté et votre capacité à identifier les lettres en dehors de votre point de fixation ?</em></p>
+                    </div>
+                    
+                    <div class="article-footer-nav">
+  <a href="article_conclusion.html" class="footer-nav-link prev">
+    <span class="footer-nav-label">← Précédent</span>
+    <span class="footer-nav-title">Le Verdict Empirique - Partie 1</span>
+  </a>
+  <a href="article_7_partie_2.html" class="footer-nav-link next">
+    <span class="footer-nav-label">Suivant →</span>
+    <span class="footer-nav-title">Recréer l'Œil Humain en Python - Partie 2</span>
+  </a>
+</div>
+                </article>
+                
+                <div class="toc-sidebar">
+  <div class="toc-title">Sur cette page</div>
+  <ul class="toc-list">
+    <li class=""><a href="#l-illusion-de-la-nettet-permanente">🎭 L'illusion de la netteté permanente</a></li>
+    <li class=""><a href="#les-deux-capteurs-de-l-il-c-nes-vs-b-tonnets">🔬 Les deux capteurs de l'œil : Cônes vs Bâtonnets</a></li>
+    <li class="toc-indent"><a href="#les-c-nes-les-pixels-haute-d-finition">Les Cônes : Les pixels haute définition</a></li>
+    <li class="toc-indent"><a href="#les-b-tonnets-les-d-tecteurs-de-mouvement">Les Bâtonnets : Les détecteurs de mouvement</a></li>
+    <li class=""><a href="#la-fov-a-la-zone-vip-de-la-vision-humaine">🎯 La Fovéa : La zone VIP de la vision humaine</a></li>
+    <li class=""><a href="#la-d-gradation-progressive-vers-la-p-riph-rie">📈 La dégradation progressive vers la périphérie</a></li>
+    <li class=""><a href="#conclusion-amp-transition">🧠 Conclusion &amp; Transition</a></li>
+    <li class="toc-indent"><a href="#d-fi-de-curiosit-n-1">🛠️ Défi de curiosité n°1</a></li>
+  </ul>
+</div>
+            </div>
+        </main>
+    </div>
+
+    <!-- Scripts -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.8.0/highlight.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/mermaid/dist/mermaid.min.js"></script>
+    
+    <script>
+        // Initialize Highlight.js
+        hljs.highlightAll();
+        
+        // Initialize Mermaid
+        mermaid.initialize({
+            theme: 'dark',
+            startOnLoad: false,
+            securityLevel: 'loose'
+        });
+
+        document.addEventListener("DOMContentLoaded", function() {
+            // 1. Convert Markdown pre-code blocks for Mermaid to actual divs
+            document.querySelectorAll("pre code.language-mermaid").forEach(function(el) {
+                const pre = el.parentElement;
+                const div = document.createElement("div");
+                div.className = "mermaid";
+                div.textContent = el.textContent;
+                pre.parentElement.replaceChild(div, pre);
+            });
+            
+            // Run Mermaid rendering
+            mermaid.run();
+            
+            // 2. Reading Progress Bar Logic
+            window.addEventListener('scroll', function() {
+                const winScroll = document.documentElement.scrollTop || document.body.scrollTop;
+                const height = document.documentElement.scrollHeight - document.documentElement.clientHeight;
+                const scrolled = (winScroll / height) * 100;
+                document.getElementById("reading-progress").style.width = scrolled + "%";
+            });
+        });
+    </script>
+</body>
+</html>

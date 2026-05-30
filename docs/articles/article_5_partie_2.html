@@ -1,0 +1,298 @@
+<!DOCTYPE html>
+<html lang="fr">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Ouvrir la Boîte Noire — Partie 2 : Clustering Latent & Concepts | Tinkerer's Lab</title>
+
+    <!-- Stylesheets -->
+    <link rel="stylesheet" href="../css/style.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.8.0/styles/github-dark.min.css">
+
+    <!-- Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+
+    <!-- MathJax Configuration -->
+    <script>
+        window.MathJax = {
+            tex: {
+                inlineMath: [['$', '$'], ['\\(', '\\)']],
+                displayMath: [['$$', '$$'], ['\\[', '\\]']],
+                processEscapes: true
+            },
+            options: {
+                ignoreHtmlClass: 'tex2jax_ignore',
+                processHtmlClass: 'tex2jax_process'
+            }
+        };
+    </script>
+    <script id="MathJax-script" async src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
+    <script src="../js/sidebar.js" defer></script>
+</head>
+
+<body class="tex2jax_process">
+
+    <!-- Reading Progress Bar -->
+    <div class="progress-bar-container">
+        <div class="progress-bar" id="reading-progress"></div>
+    </div>
+
+    <div class="app-container">
+
+        <!-- Mobile Navigation Header -->
+        <header class="mobile-header">
+            <button class="menu-toggle" id="menu-open-btn">
+                <svg width="24" height="24" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" d="M4 6h16M4 12h16M4 18h16" />
+                </svg>
+            </button>
+            <div class="sidebar-title">Tinkerer's Lab</div>
+            <div></div> <!-- spacer -->
+        </header>
+
+        <!-- Persistent Sidebar -->
+        <aside class="sidebar" id="app-sidebar"></aside>
+
+        <!-- Main Content -->
+        <main class="main-content">
+            <div class="article-layout">
+                <article class="article-container">
+                    <header class="article-header">
+                        <span class="article-category jepa-1-6">Série I-JEPA</span>
+                        <h1>Ouvrir la Boîte Noire — Partie 2 : Clustering Latent & Concepts</h1>
+                        <p class="article-subtitle">Visualisation et Interprétation Sémantique (XAI)</p>
+                    </header>
+
+                    <div class="article-body">
+                        <blockquote>
+                            <p><strong>Série I-JEPA — Article 5 : Ouvrir la boîte noire (XAI)</strong>
+                                <em>Dans cette deuxième partie, nous démontrons le pouvoir le plus spectaculaire de
+                                    l'apprentissage auto-supervisé : la capacité du réseau à regrouper et structurer
+                                    le
+                                    monde tout seul. Grâce à un algorithme de clustering appliqué aux
+                                    représentations de
+                                    patches, nous verrons émerger des concepts sémantiques clairs sans qu'aucun humain
+                                    n'ait jamais donné le moindre nom.</em>
+                            </p>
+                        </blockquote>
+                        <hr />
+                        <h2 id="comment-prouver-l-intelligence-sans-tiquettes">🤷‍♂️ Comment prouver
+                            l'intelligence sans
+                            étiquettes ?</h2>
+                        <p>Lorsqu'un bébé apprend à observer son environnement, personne ne lui répète en boucle le
+                            nom
+                            de chaque pixel qu'il voit. Pourtant, il comprend très vite la différence entre du
+                            feuillage, du ciel, la texture d'un tapis ou le pelage d'un animal. </p>
+                        <p>C'est exactement ce que nous cherchons à valider chez notre JEPA. A-t-il structuré son
+                            espace
+                            latent pour regrouper les choses similaires ?</p>
+                        <p>Pour le vérifier, nous mettons en place une expérience de <strong>clustering non
+                                supervisé</strong> :
+                        <ol>
+                            <li>Nous faisons passer 300 images de test CIFAR-10 dans l'encodeur de contexte gelé de
+                                notre JEPA.</li>
+                            <li>Chaque image est découpée en 64 patches. Nous extrayons ainsi $300 \times 64 = 19\
+                                200$
+                                vecteurs de caractéristiques (embeddings de dimension 192).</li>
+                            <li>Nous appliquons l'algorithme des <strong>K-Means</strong> (implémenté en PyTorch
+                                accéléré sur GPU) pour regrouper ces 19 200 points dans $K = 6$ clusters distincts.
+                            </li>
+                            <li>Pour chaque cluster, nous extrayons les 8 patches les plus proches du centre
+                                géométrique (les centroïdes).</p>
+                            </li>
+                        </ol>
+                        <hr />
+                        <h2 id="dans-les-entrailles-du-code-jepa-lab-visualize-latent-concepts-py">🛠️ Dans les
+                            entrailles du code : <code>jepa_lab/visualize_latent_concepts.py</code></h2>
+                        <p>Le script <code>visualize_latent_concepts.py</code> réalise ce partitionnement
+                            mathématique.
+                        </p>
+                        <h3 id="1-le-calcul-ultra-rapide-des-distances-sur-gpu">1. Le calcul ultra-rapide des distances
+                            sur GPU :</h3>
+                        <p>La fonction <code>kmeans_pytorch</code> utilise des calculs de distance matricielle
+                            condensés
+                            (<code>torch.cdist</code>) pour regrouper nos 19 200 patches :</p>
+                        <pre><code class="language-python">def kmeans_pytorch(X, K, num_iters=100, device='cpu'):
+    centroids = X[torch.randperm(X.shape[0])[:K]].clone()
+    for i in range(num_iters):
+        # 1. Calculer la distance de chaque point à chaque centroïde
+        dist = torch.cdist(X, centroids) # (N, K)
+        # 2. Assigner chaque point au centroïde le plus proche
+        labels = torch.argmin(dist, dim=1) # (N,)
+
+        # 3. Mettre à jour les centroïdes (moyenne des points assignés)
+        new_centroids = torch.zeros_like(centroids)
+        for k in range(K):
+            mask = (labels == k)
+            if mask.sum() &gt; 0:
+                new_centroids[k] = X[mask].mean(dim=0)
+        # ...
+    return centroids, labels
+</code></pre>
+                        <hr />
+                        <h2 id="les-concepts-s-mantiques-mergents-le-r-sultat-visuel">🧩 Les concepts sémantiques
+                            émergents (Le résultat visuel)</h2>
+                        <p><img alt="Concepts latents Mono-cible" src="../images/latent_concepts_mono.png" />
+                            <em>Figure 1 : Visualisation des concepts émergents et segmentation spontanée avec JEPA
+                                Mono-cible.</em>
+                        </p>
+                        <p><img alt="Concepts latents Multi-cible" src="../images/latent_concepts_multi.png" />
+                            <em>Figure 2 : Visualisation des concepts émergents et segmentation spontanée avec JEPA
+                                Multi-cible.</em>
+                        </p>
+                        <ul>
+                            <li><strong>L'Idéal Théorique (Spéculation sur Modèles à Grande Échelle)</strong> : Dans le
+                                cadre d'un modèle de grande taille (ex: ViT-B) entraîné sur un très grand jeu de données
+                                (comme ImageNet) avec un temps d'entraînement très long, on s'attendrait à une
+                                séparation sémantique pure. Le réseau isolerait alors spontanément des concepts
+                                abstraits indépendants de la position : le <em>Ciel</em> (bleu pur), la <em>Verdure</em>
+                                (feuillage), les <em>Pneus</em> (cercles sombres) ou les <em>Pelages</em>.
+                            </li>
+                            <li><strong>La Réalité Expérimentale (Ce que montrent nos illustrations CIFAR-10)</strong> :
+                                Sur notre modèle de laboratoire entraîné sur CIFAR-10 ($32\times 32$), les clusters
+                                réels (Figures 1 & 2) révèlent à l'inverse une forte influence <strong>géométrique et
+                                    spatiale</strong>. Les <em>Positional Embeddings</em> dominent encore l'espace
+                                latent face aux caractéristiques purement sémantiques. C'est exactement ce que nous
+                                observons sur les illustrations :
+                                <ul>
+                                    <li><strong>Cluster 0 (Bords & Coins Latéraux - Rouge)</strong> : Cible les contours
+                                        verticaux et les coins de l'image (les bandes rouges sur les flancs gauche et
+                                        droit des images du bateau et de l'avion).</li>
+                                    <li><strong>Cluster 1 (Centre de l'objet - Vert)</strong> : Capte le cœur
+                                        géométrique central (la cabine verte du bateau et le fuselage vert de l'avion de
+                                        chasse).</li>
+                                    <li><strong>Cluster 2 (Base & Horizon - Bleu)</strong> : Se concentre sur la partie
+                                        inférieure de l'image (la mer sous le bateau, le tarmac sous le jet, colorés en
+                                        bleu).</li>
+                                    <li><strong>Cluster 3 (Ciel Supérieur - Jaune)</strong> : Isole la partie haute (le
+                                        ciel jaune au-dessus des véhicules).</li>
+                                    <li><strong>Clusters 4 & 5 (Colonnes Verticales - Cyan & Magenta)</strong> : Forcent
+                                        des segmentations sous forme de bandes verticales symétriques réparties à gauche
+                                        et à droite.</li>
+                                </ul>
+                            </li>
+                        </ul>
+                        <div class="note-box"
+                            style="background-color: var(--card-bg); border-left: 4px solid var(--accent); padding: 1rem; margin: 1.5rem 0; border-radius: 4px;">
+                            <p><strong>💡 Leçon Pédagogique : Le conflit Position vs Sémantique</strong><br>
+                                Ce phénomène montre que pour des petits modèles entraînés sur peu de données, le JEPA
+                                apprend d'abord la géométrie et la position des zones (<em>"où"</em> se trouvent les
+                                choses) avant de raffiner les textures sémantiques pures (<em>"ce que"</em> sont les
+                                choses). C'est une étape intermédiaire naturelle vers la segmentation d'objets !</p>
+                        </div>
+                        <hr />
+                        <h2 id="segmentation-s-mantique-spontan-e">🎨 Segmentation Sémantique Spontanée</h2>
+                        <p>Le script applique ensuite ces clusters comme des masques de couleur sur deux images entières
+                            de test (Image #2 - bateau et Image #10 - avion de chasse) à l'extrême droite des figures :
+                        </p>
+                        <p>Par exemple, le masque du <strong>Cluster 1 (Vert)</strong> recouvre précisément la
+                            silhouette centrale des véhicules, tandis que le <strong>Cluster 2 (Bleu)</strong> isole la
+                            zone de support inférieure (l'eau ou le tarmac). </p>
+                        <p>Même si cette segmentation est encore hybride (mi-spatiale, mi-sémantique) en raison de la
+                            taille réduite de notre modèle de laboratoire, elle prouve que le JEPA regroupe de lui-même
+                            des pixels de manière cohérente et spontanée. Il sait isoler le sujet de son arrière-plan
+                            sans jamais avoir vu une seule annotation de contour humaine ou de type "ciel" ou "herbe"
+                            pendant son entraînement.</p>
+                        <hr />
+                        <h2 id="conclusion-amp-transition">🧠 Conclusion &amp; Transition</h2>
+                        <p>Le clustering d'embeddings prouve que les représentations de JEPA ne sont pas une simple
+                            collection de pixels. C'est une bibliothèque de concepts physiques et texturés organisée
+                            de
+                            manière géométrique.</p>
+                        <p>Mais lorsque notre classifieur final prend une décision (par exemple, classer une image en
+                            tant que "bateau"), comment ces concepts sémantiques locaux se combinent-ils pour
+                            influencer
+                            cette décision globale ? Comment calculer la contribution mathématique exacte de chaque
+                            patch à la classification finale ?</p>
+                        <p>C'est ce que nous allons explorer dans la troisième partie en analysant
+                            <strong>l'explicabilité par Global Average Pooling et les cartes d'influence de
+                                classification</strong> !
+                        </p>
+                        <hr />
+                        <h3 id="d-fi-curieux-n-2">🛠️ Défi curieux n°2</h3>
+                        <p><em>Choisissez un objet complexe autour de vous (par exemple, un clavier d'ordinateur ou une
+                                plante en pot). Si un algorithme devait regrouper les parties de cet objet en $K=3$
+                                clusters uniquement basés sur la similarité visuelle (sans connaître le sens des mots
+                                "touche" ou "feuille") :
+                                <br>1. Quels regroupements de pixels (clusters) imagineriez-vous émerger spontanément ?
+                                <br>2. Quelles informations fonctionnelles ou sémantiques (la fonction d'une touche, la
+                                nature biologique d'une feuille) échapperaient complètement à ce simple tri géométrique
+                                et visuel ?</em></p>
+                    </div>
+
+                    <div class="article-footer-nav">
+                        <a href="article_5_partie_1.html" class="footer-nav-link prev">
+                            <span class="footer-nav-label">← Précédent</span>
+                            <span class="footer-nav-title">Ouvrir la Boîte Noire - Partie 1</span>
+                        </a>
+                        <a href="article_5_partie_3.html" class="footer-nav-link next">
+                            <span class="footer-nav-label">Suivant →</span>
+                            <span class="footer-nav-title">Ouvrir la Boîte Noire - Partie 3</span>
+                        </a>
+                    </div>
+                </article>
+
+                <div class="toc-sidebar">
+                    <div class="toc-title">Sur cette page</div>
+                    <ul class="toc-list">
+                        <li class=""><a href="#comment-prouver-l-intelligence-sans-tiquettes">🤷‍♂️ Comment
+                                prouver
+                                l'intelligence sans étiquettes ?</a></li>
+                        <li class=""><a href="#dans-les-entrailles-du-code-jepa-lab-visualize-latent-concepts-py">🛠️
+                                Dans les entrailles du code : jepa_lab/visualize_latent_concepts.py</a></li>
+                        <li class="toc-indent"><a href="#1-le-calcul-ultra-rapide-des-distances-sur-gpu">1. Le calcul
+                                ultra-rapide des distances sur GPU :</a></li>
+                        <li class=""><a href="#les-concepts-s-mantiques-mergents-le-r-sultat-visuel">🧩 Les concepts
+                                sémantiques émergents (Le résultat visuel)</a></li>
+                        <li class=""><a href="#segmentation-s-mantique-spontan-e">🎨 Segmentation Sémantique
+                                Spontanée</a></li>
+                        <li class=""><a href="#conclusion-amp-transition">🧠 Conclusion &amp; Transition</a></li>
+                        <li class="toc-indent"><a href="#d-fi-curieux-n-2">🛠️ Défi curieux n°2</a></li>
+                    </ul>
+                </div>
+            </div>
+        </main>
+    </div>
+
+    <!-- Scripts -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.8.0/highlight.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/mermaid/dist/mermaid.min.js"></script>
+
+    <script>
+        // Initialize Highlight.js
+        hljs.highlightAll();
+
+        // Initialize Mermaid
+        mermaid.initialize({
+            theme: 'dark',
+            startOnLoad: false,
+            securityLevel: 'loose'
+        });
+
+        document.addEventListener("DOMContentLoaded", function () {
+            // 1. Convert Markdown pre-code blocks for Mermaid to actual divs
+            document.querySelectorAll("pre code.language-mermaid").forEach(function (el) {
+                const pre = el.parentElement;
+                const div = document.createElement("div");
+                div.className = "mermaid";
+                div.textContent = el.textContent;
+                pre.parentElement.replaceChild(div, pre);
+            });
+
+            // Run Mermaid rendering
+            mermaid.run();
+
+            // 2. Reading Progress Bar Logic
+            window.addEventListener('scroll', function () {
+                const winScroll = document.documentElement.scrollTop || document.body.scrollTop;
+                const height = document.documentElement.scrollHeight - document.documentElement.clientHeight;
+                const scrolled = (winScroll / height) * 100;
+                document.getElementById("reading-progress").style.width = scrolled + "%";
+            });
+        });
+    </script>
+</body>
+
+</html>

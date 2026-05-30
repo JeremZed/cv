@@ -1,0 +1,263 @@
+<!DOCTYPE html>
+<html lang="fr">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Passage à l'Échelle — Partie 3 : Entraînement Multi-Cibles Complet | Tinkerer's Lab</title>
+
+    <!-- Stylesheets -->
+    <link rel="stylesheet" href="../css/style.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.8.0/styles/github-dark.min.css">
+
+    <!-- Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+
+    <!-- MathJax Configuration -->
+    <script>
+        window.MathJax = {
+            tex: {
+                inlineMath: [['$', '$'], ['\\(', '\\)']],
+                displayMath: [['$$', '$$'], ['\\[', '\\]']],
+                processEscapes: true
+            },
+            options: {
+                ignoreHtmlClass: 'tex2jax_ignore',
+                processHtmlClass: 'tex2jax_process'
+            }
+        };
+    </script>
+    <script id="MathJax-script" async src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
+    <script src="../js/sidebar.js" defer></script>
+</head>
+
+<body class="tex2jax_process">
+
+    <!-- Reading Progress Bar -->
+    <div class="progress-bar-container">
+        <div class="progress-bar" id="reading-progress"></div>
+    </div>
+
+    <div class="app-container">
+
+        <!-- Mobile Navigation Header -->
+        <header class="mobile-header">
+            <button class="menu-toggle" id="menu-open-btn">
+                <svg width="24" height="24" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" d="M4 6h16M4 12h16M4 18h16" />
+                </svg>
+            </button>
+            <div class="sidebar-title">Tinkerer's Lab</div>
+            <div></div> <!-- spacer -->
+        </header>
+
+        <!-- Persistent Sidebar -->
+        <aside class="sidebar" id="app-sidebar"></aside>
+
+        <!-- Main Content -->
+        <main class="main-content">
+            <div class="article-layout">
+                <article class="article-container">
+                    <header class="article-header">
+                        <span class="article-category jepa-1-6">Série I-JEPA</span>
+                        <h1>Passage à l'Échelle — Partie 3 : Entraînement Multi-Cibles Complet</h1>
+                        <p class="article-subtitle">Prédire la cohérence spatiale globale sur GPU</p>
+                    </header>
+
+                    <div class="article-body">
+                        <blockquote>
+                            <p><strong>Série I-JEPA — Article 3 : Passer à l'échelle (Niveau 2)</strong>
+                                <em>Dans cette troisième et dernière partie de notre article, nous prenons du recul pour
+                                    analyser le dimensionnement de notre réseau. Pourquoi les modèles auto-supervisés
+                                    (SSL) comme JEPA sont-ils particulièrement friands de paramètres ? Comment choisir
+                                    entre les configurations Tiny, Small et Base ? Analysons les lois d'échelle.</em>
+                            </p>
+                        </blockquote>
+                        <hr />
+                        <h2 id="les-trois-visages-de-notre-vision-transformer">📊 Les trois visages de notre Vision
+                            Transformer</h2>
+                        <p>Dans notre fichier <code>models.py</code>, nous avons standardisé trois configurations de
+                            Vision Transformer issues de la littérature scientifique (DeiT/timm) :</p>
+                        <pre><code class="language-python">MODEL_CONFIGS = {
+    'tiny':  {'embed_dim': 192, 'depth': 6,  'num_heads': 3},
+    'small': {'embed_dim': 384, 'depth': 12, 'num_heads': 6},
+    'base':  {'embed_dim': 768, 'depth': 12, 'num_heads': 12}
+}
+</code></pre>
+                        <p>Détaillons ce que représentent concrètement ces variables de configuration et leur impact
+                            sémantique :</p>
+                        <table>
+                            <thead>
+                                <tr>
+                                    <th style="text-align: left;">Variable</th>
+                                    <th style="text-align: left;">Rôle sémantique</th>
+                                    <th style="text-align: left;">Impact du Scaling</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <tr>
+                                    <td style="text-align: left;"><strong><code>embed_dim</code></strong> (Dimension)
+                                    </td>
+                                    <td style="text-align: left;">La taille du dictionnaire de caractéristiques de
+                                        chaque patch.</td>
+                                    <td style="text-align: left;">Une dimension plus grande permet de coder des détails
+                                        plus subtils (ex: nuances de texture, textures de plumes complexes).</td>
+                                </tr>
+                                <tr>
+                                    <td style="text-align: left;"><strong><code>depth</code></strong> (Profondeur)</td>
+                                    <td style="text-align: left;">Le nombre de blocs de Self-Attention empilés les uns
+                                        sur les autres.</td>
+                                    <td style="text-align: left;">Plus de blocs permettent de construire des
+                                        abstractions de plus haut niveau (du pixel local vers le concept d'objet
+                                        global).</td>
+                                </tr>
+                                <tr>
+                                    <td style="text-align: left;"><strong><code>num_heads</code></strong> (Têtes)</td>
+                                    <td style="text-align: left;">Le nombre de points de vue d'attention indépendants
+                                        travaillant en parallèle.</td>
+                                    <td style="text-align: left;">Plus de têtes permettent au modèle de suivre plusieurs
+                                        relations spatiales simultanément (ex: couleur, contours, ombres).</td>
+                                </tr>
+                            </tbody>
+                        </table>
+                        <hr />
+                        <h2 id="pourquoi-le-self-supervised-learning-adore-le-scaling">🚀 Pourquoi le Self-Supervised
+                            Learning adore le scaling ?</h2>
+                        <p>En apprentissage supervisé classique (avec étiquettes), si vous essayez d'entraîner un très
+                            grand modèle (comme ViT-Base) sur un petit jeu de données, vous allez faire face à un
+                            surapprentissage (<strong>overfitting</strong>) massif. Le modèle va simplement apprendre
+                            par cœur le bruit du dataset.</p>
+                        <p><strong>En Self-Supervised Learning (SSL), le paradigme change :</strong>
+                        <ol>
+                            <li><strong>Une tâche prétexte infiniment plus riche</strong> : Prédire les représentations
+                                de 4 zones géométriques disjointes à partir de 48 patches visibles est une tâche
+                                beaucoup plus ardue que de simplement choisir entre 10 classes (chat, chien, voiture).
+                            </li>
+                            <li><strong>Besoin de capacité de stockage sémantique</strong> : Pour faire de bonnes
+                                prédictions d'imagination latente sur des blocs masqués variés, le réseau doit modéliser
+                                la
+                                physique et la géométrie des objets. Cela demande une place considérable dans les poids
+                                du
+                                modèle.</li>
+                            <li><strong>Lois de scaling robustes</strong> : Plus on donne de paramètres (capacité) à un
+                                modèle JEPA, plus les représentations qu'il apprend sont structurées, généralisables et
+                                faciles à utiliser pour des tâches de classification ou de segmentation futures.</li>
+                        </ol>
+                        </p>
+                        <hr />
+                        <h2 id="le-compromis-vitesse-vs-performance">⚖️ Le compromis : Vitesse vs Performance</h2>
+                        <p>Bien que ViT-Base soit plus performant, il impose un coût calculatoire très important :</p>
+                        <ul>
+                            <li><strong>ViT-Tiny</strong> : ~5 à 7 millions de paramètres. S'entraîne en quelques heures
+                                sur un GPU grand public standard. C'est le choix optimal pour notre lab d'exploration et
+                                pour des datasets compacts comme CIFAR-10.</li>
+                            <li><strong>ViT-Small</strong> : ~22 millions de paramètres. Offre un excellent compromis et
+                                capture des détails fins sur de plus grandes résolutions.</li>
+                            <li><strong>ViT-Base</strong> : ~86 millions de paramètres. C'est le standard pour ImageNet,
+                                mais il demande un temps de calcul environ <strong>8 à 10 fois supérieur</strong> à la
+                                version Tiny.</li>
+                        </ul>
+                        <p>Notre code est entièrement modulaire : vous pouvez basculer l'ensemble de notre pipeline
+                            (mono ou multi-cibles) de Tiny à Base en modifiant simplement le paramètre de configuration
+                            dans vos scripts d'entraînement.</p>
+                        <hr />
+                        <h2 id="bilan-de-l-article-3-amp-perspectives">🎬 Bilan de l'Article 3 &amp; Perspectives</h2>
+                        <p>Nous avons franchi une marche importante :
+                        <ol>
+                            <li>Nous comprenons la stratégie multi-cibles de I-JEPA pour capturer des dépendances
+                                globales (<strong>Partie 1</strong>).</li>
+                            <li>Nous avons analysé l'astuce de vectorisation par expansion de lot pour paralléliser
+                                l'attention du Predictor (<strong>Partie 2</strong>).</li>
+                            <li>Nous savons comment dimensionner notre ViT selon nos ressources de calcul et nos
+                                ambitions d'échelle (<strong>Partie 3</strong>).</li>
+                        </ol>
+                        <p>Désormais, nos modèles JEPA (mono et multi-cibles) sont entraînés. Mais comment s'assurer
+                            qu'ils ont réellement appris des concepts intelligents ? Comment valider la qualité de nos
+                            représentations ?</p>
+                        <p>Dans le prochain article, nous allons concevoir notre <strong>pipeline de diagnostic et
+                                d'évaluation</strong>. Nous testerons l'efficacité de nos modèles sur CIFAR-10 en
+                            conditions extrêmes : <strong>avec seulement 1% et 10% d'images étiquetées</strong> !</p>
+                        <hr />
+                        <h3 id="d-fi-curieux-n-3">🛠️ Défi curieux n°3</h3>
+                        <p><em>Imaginez que vous deviez décrire une œuvre d'art complexe à un ami pour qu'il puisse la
+                                redessiner de mémoire. Si l'on vous limite à 10 mots simples (l'équivalent de la faible
+                                capacité de ViT-Tiny), vous ne pourrez transmettre que des concepts grossiers (« un
+                                visage souriant sur fond sombre »). En revanche, si on vous autorise à rédiger un
+                                rapport de 500 mots riches (l'équivalent de la grande capacité de ViT-Base), vous
+                                pourrez y inclure des nuances de lumière, des textures et des perspectives fines. À
+                                votre avis, comment la capacité de stockage sémantique d'un modèle (sa taille en
+                                paramètres) dicte-t-elle le niveau de complexité et de nuance des concepts du monde réel
+                                qu'il est capable d'assimiler de manière autonome ?</em></p>
+                    </div>
+
+                    <div class="article-footer-nav">
+                        <a href="article_3_partie_2.html" class="footer-nav-link prev">
+                            <span class="footer-nav-label">← Précédent</span>
+                            <span class="footer-nav-title">Passage à l'Échelle - Partie 2</span>
+                        </a>
+                        <a href="article_4_partie_1.html" class="footer-nav-link next">
+                            <span class="footer-nav-label">Suivant →</span>
+                            <span class="footer-nav-title">Validation Empirique - Partie 1</span>
+                        </a>
+                    </div>
+                </article>
+
+                <div class="toc-sidebar">
+                    <div class="toc-title">Sur cette page</div>
+                    <ul class="toc-list">
+                        <li class=""><a href="#les-trois-visages-de-notre-vision-transformer">📊 Les trois visages de
+                                notre Vision Transformer</a></li>
+                        <li class=""><a href="#pourquoi-le-self-supervised-learning-adore-le-scaling">🚀 Pourquoi le
+                                Self-Supervised Learning adore le scaling ?</a></li>
+                        <li class=""><a href="#le-compromis-vitesse-vs-performance">⚖️ Le compromis : Vitesse vs
+                                Performance</a></li>
+                        <li class=""><a href="#bilan-de-l-article-3-amp-perspectives">🎬 Bilan de l'Article 3 &amp;
+                                Perspectives</a></li>
+                        <li class="toc-indent"><a href="#d-fi-curieux-n-3">🛠️ Défi curieux n°3</a></li>
+                    </ul>
+                </div>
+            </div>
+        </main>
+    </div>
+
+    <!-- Scripts -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.8.0/highlight.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/mermaid/dist/mermaid.min.js"></script>
+
+    <script>
+        // Initialize Highlight.js
+        hljs.highlightAll();
+
+        // Initialize Mermaid
+        mermaid.initialize({
+            theme: 'dark',
+            startOnLoad: false,
+            securityLevel: 'loose'
+        });
+
+        document.addEventListener("DOMContentLoaded", function () {
+            // 1. Convert Markdown pre-code blocks for Mermaid to actual divs
+            document.querySelectorAll("pre code.language-mermaid").forEach(function (el) {
+                const pre = el.parentElement;
+                const div = document.createElement("div");
+                div.className = "mermaid";
+                div.textContent = el.textContent;
+                pre.parentElement.replaceChild(div, pre);
+            });
+
+            // Run Mermaid rendering
+            mermaid.run();
+
+            // 2. Reading Progress Bar Logic
+            window.addEventListener('scroll', function () {
+                const winScroll = document.documentElement.scrollTop || document.body.scrollTop;
+                const height = document.documentElement.scrollHeight - document.documentElement.clientHeight;
+                const scrolled = (winScroll / height) * 100;
+                document.getElementById("reading-progress").style.width = scrolled + "%";
+            });
+        });
+    </script>
+</body>
+
+</html>

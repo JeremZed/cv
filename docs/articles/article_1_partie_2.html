@@ -1,0 +1,319 @@
+<!DOCTYPE html>
+<html lang="fr">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Fondations & Philosophie — Partie 2 : Le Triptyque du SSL | Tinkerer's Lab</title>
+
+    <!-- Stylesheets -->
+    <link rel="stylesheet" href="../css/style.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.8.0/styles/github-dark.min.css">
+
+    <!-- Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+
+    <!-- MathJax Configuration -->
+    <script>
+        window.MathJax = {
+            tex: {
+                inlineMath: [['$', '$'], ['\\(', '\\)']],
+                displayMath: [['$$', '$$'], ['\\[', '\\]']],
+                processEscapes: true
+            },
+            options: {
+                ignoreHtmlClass: 'tex2jax_ignore',
+                processHtmlClass: 'tex2jax_process'
+            }
+        };
+    </script>
+    <script id="MathJax-script" async src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
+    <script src="../js/sidebar.js" defer></script>
+</head>
+
+<body class="tex2jax_process">
+
+    <!-- Reading Progress Bar -->
+    <div class="progress-bar-container">
+        <div class="progress-bar" id="reading-progress"></div>
+    </div>
+
+    <div class="app-container">
+
+        <!-- Mobile Navigation Header -->
+        <header class="mobile-header">
+            <button class="menu-toggle" id="menu-open-btn">
+                <svg width="24" height="24" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" d="M4 6h16M4 12h16M4 18h16" />
+                </svg>
+            </button>
+            <div class="sidebar-title">Tinkerer's Lab</div>
+            <div></div> <!-- spacer -->
+        </header>
+
+        <!-- Persistent Sidebar -->
+        <aside class="sidebar" id="app-sidebar"></aside>
+
+        <!-- Main Content -->
+        <main class="main-content">
+            <div class="article-layout">
+                <article class="article-container">
+                    <header class="article-header">
+                        <span class="article-category jepa-1-6">Série I-JEPA</span>
+                        <h1>Fondations & Philosophie — Partie 2 : Le Triptyque du SSL</h1>
+                        <p class="article-subtitle">Pourquoi Yann LeCun veut enterrer la génération de pixels</p>
+                    </header>
+
+                    <div class="article-body">
+                        <blockquote>
+                            <p><strong>Série I-JEPA — Article 1 : Fondations &amp; Philosophie</strong>
+                                <em>Dans cette deuxième partie, nous levons le voile sur les trois grandes stratégies
+                                    qui permettent aux machines d'apprendre sans étiquettes humaines. Nous verrons
+                                    comment le Joint Embedding (JEPA) se positionne comme le chaînon manquant entre
+                                    l'invariance stricte et la reconstruction générative.</em>
+                            </p>
+                        </blockquote>
+                        <hr />
+                        <h2 id="les-trois-voies-de-l-apprentissage-sans-superviseur">🗺️ Les trois voies de
+                            l'apprentissage sans superviseur</h2>
+                        <p>Pour apprendre à comprendre une image sans qu'un humain n'ait manuellement étiqueté des
+                            milliers de photos, il faut créer une <strong>tâche prétexte</strong>. C'est un jeu logique
+                            où l'on cache une partie de l'information pour forcer le réseau de neurones à la deviner.
+                        </p>
+                        <p>En résolvant ce jeu, le modèle développe une compréhension profonde des formes, des textures
+                            et des objets. L'histoire du Deep Learning a vu émerger trois grandes familles de tâches
+                            prétextes.</p>
+                        <hr />
+                        <h2 id="1-l-approche-par-invariance-contrastive-amp-non-contrastive">⚖️ 1. L'approche par
+                            Invariance (Contrastive &amp; Non-Contrastive)</h2>
+                        <p>L'idée de base est simple : <em>"Si je te montre un chat en noir et blanc, ou le même chat
+                                légèrement incliné et rogné, tu dois comprendre qu'il s'agit toujours du même
+                                chat."</em></p>
+                        <pre><code>Image Originale 
+      │
+      ├─► [ Augmentation A ] ─► Image A ─► [ Encodeur ] ─► Représentation A ┐
+      │                                                                     ├─► Forcer la similitude
+      └─► [ Augmentation B ] ─► Image B ─► [ Encodeur ] ─► Représentation B ┘
+</code></pre>
+                        <h3 id="le-m-canisme">Le mécanisme :</h3>
+                        <p>On applique de lourdes distorsions (recadrage, flou, modification des couleurs) à une même
+                            image pour créer deux "vues" différentes. On passe ces vues dans un encodeur et on force les
+                            deux représentations latentes résultantes à être identiques.</p>
+                        <h3 id="le-spectre-de-l-effondrement-representation-collapse">⚠️ Le spectre de l'Effondrement
+                            (Representation Collapse) :</h3>
+                        <p>Si vous demandez simplement à un réseau de sortir des représentations identiques pour des
+                            images déformées, le réseau va trouver une astuce paresseuse très rapide : <strong>produire
+                                un vecteur constant (par exemple, uniquement des zéros) pour toutes les images du
+                                monde.</strong> La perte sera nulle, mais le modèle sera devenu complètement "bête".</p>
+                        <p>Pour éviter cet effondrement, les chercheurs ont dû inventer des mécanismes complexes :
+                        <ul>
+                            <li><strong>Les méthodes contrastives (ex: SimCLR)</strong> : On force les représentations
+                                d'une même image à se rapprocher, tout en repoussant activement les représentations
+                                d'images différentes (paires négatives). C'est efficace mais nécessite des tailles de
+                                batch gigantesques.</li>
+                            <li><strong>La régularisation de variance (ex: VICReg, Barlow Twins)</strong> : On pénalise
+                                mathématiquement le réseau si les représentations deviennent constantes ou si les
+                                dimensions s'avèrent redondantes.</li>
+                            <li><strong>Les asymétries (ex: BYOL)</strong> : Utiliser deux réseaux dont l'un n'est mis à
+                                jour que très lentement (moyenne mobile) et ne reçoit pas de gradients.</li>
+                        </ul>
+                        </p>
+                        <hr />
+                        <h2 id="2-l-approche-g-n-rative-reconstruction">🎨 2. L'approche Générative (Reconstruction)
+                        </h2>
+                        <p>C'est l'approche popularisée par les <strong>MAE (Masked Autoencoders)</strong> et les
+                            modèles de diffusion.
+                            La règle du jeu : <em>"Je masque 75% des pixels de l'image, et le réseau doit repeindre les
+                                pixels manquants."</em></p>
+                        <pre><code>Image Masquée (25% visible) ─► [ Encodeur ] ─► Représentation Latente ─► [ Décodeur ] ─► Image Reconstruite (pixels)
+</code></pre>
+                        <h3 id="le-m-canisme">Le mécanisme :</h3>
+                        <p>L'encodeur compresse la partie visible en un espace latent. Un décodeur prend ensuite cette
+                            représentation et tente de recréer l'image originale pixel par pixel.</p>
+                        <h3 id="avantages-amp-limites">⚖️ Avantages &amp; Limites :</h3>
+                        <ul>
+                            <li><strong>Avantage :</strong> L'entraînement est très stable car il n'y a aucun risque
+                                d'effondrement (le modèle ne peut pas sortir des représentations constantes, sinon il
+                                serait incapable de reconstruire les pixels uniques de chaque image).</li>
+                            <li><strong>Limite :</strong> C'est ici que l'on retrouve la fameuse <strong>malédiction des
+                                    pixels</strong> étudiée en Partie 1. Le modèle consacre la majorité de sa capacité à
+                                dessiner les poils du chien ou le clapotis de l'eau, au lieu de se concentrer sur les
+                                structures sémantiques.</li>
+                        </ul>
+                        <hr />
+                        <h2 id="3-le-joint-embedding-predictive-architecture-jepa">🎯 3. Le Joint Embedding Predictive
+                            Architecture (JEPA)</h2>
+                        <p>Proposé par Yann LeCun, le JEPA combine les forces des deux mondes précédents tout en
+                            éliminant leurs faiblesses.
+                            La règle du jeu : <em>"Je te montre le contexte (l'image amputée d'un grand bloc) et je te
+                                donne la position d'un bloc cible masqué. Tu ne dois pas dessiner les pixels de cette
+                                cible, tu dois prédire sa signature sémantique dans l'espace latent."</em></p>
+                        <pre><code>Contexte visible (x) ─────────► [ Context Encoder ] ──► Repr. Contexte (s_x) ┐
+                                                                           ├─► [ Predictor ] ──► Prédiction (s_y_hat)
+Position de la cible (y) ──────────────────────────────────────────────────┘                         │
+                                                                                                     ▼
+                                                                                           Compare (MSE Latente)
+                                                                                                     ▲
+                                                                                                     │
+Image Cible Masquée (y) ──────► [ Target Encoder ] ──► Repr. Cible (s_y) ────────────────────────────┘
+                              (Mis à jour par EMA)
+</code></pre>
+                        <h3 id="la-formule-de-perte-jepa">La formule de perte JEPA :</h3>
+                        <p>Contrairement à la reconstruction de pixels, on compare les vecteurs dans l'espace latent
+                            produit par un <strong>Target Encoder</strong> (qui analyse l'image complète) et un
+                            <strong>Predictor</strong> (qui spécule à partir du contexte) :</p>
+                        <p>$$\mathcal{L}_{\text{JEPA}} = \left\| s_{y} - \hat{s}_{y} \right\|^2$$</p>
+                        <p>Où $s_y$ est la représentation réelle de la cible masquée et $\hat{s}_y$ est la prédiction
+                            issue du contexte.</p>
+                        <h3 id="pourquoi-jepa-r-sout-le-dilemme">🛡️ Pourquoi JEPA résout le dilemme ?</h3>
+                        <ol>
+                            <li><strong>Immunité au bruit haute fréquence :</strong> Puisque le Target Encoder est
+                                lui-même un réseau de neurones compressif, il filtre le bruit et les détails inutiles.
+                                Le Predictor n'a donc pas besoin de prédire la texture exacte des feuilles dans le vent,
+                                il doit simplement prédire leur signature sémantique commune ("structure végétale").
+                            </li>
+                            <li><strong>Pas de collapse grâce à la dissymétrie :</strong> Le Target Encoder ne reçoit
+                                pas de gradients (pas de rétropropagation). Ses poids sont mis à jour en glissant
+                                lentement derrière ceux de l'encodeur de contexte (EMA). De plus, le fait que la tâche
+                                soit <em>prédictive</em> (il faut projeter une représentation $y$ à partir d'une
+                                représentation $x$ différente) empêche le réseau de converger vers une solution
+                                constante triviale.</li>
+                        </ol>
+                        <hr />
+                        <h2 id="tableau-r-capitulatif-des-paradigmes">📊 Tableau récapitulatif des paradigmes</h2>
+                        <table>
+                            <thead>
+                                <tr>
+                                    <th style="text-align: left;">Critère</th>
+                                    <th style="text-align: left;">Invariance (ex. VICReg)</th>
+                                    <th style="text-align: left;">Génératif (ex. MAE)</th>
+                                    <th style="text-align: left;">JEPA (ex. I-JEPA)</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <tr>
+                                    <td style="text-align: left;"><strong>Espace de comparaison</strong></td>
+                                    <td style="text-align: left;">Latent ($z_A$ vs $z_B$)</td>
+                                    <td style="text-align: left;">Pixels ($x$ vs $\hat{x}$)</td>
+                                    <td style="text-align: left;">Latent ($s_y$ vs $\hat{s}_y$)</td>
+                                </tr>
+                                <tr>
+                                    <td style="text-align: left;"><strong>Risque de Collapse</strong></td>
+                                    <td style="text-align: left;">Très élevé (nécessite des barrières complexes)</td>
+                                    <td style="text-align: left;">Nul (la tâche pixel force la diversité)</td>
+                                    <td style="text-align: left;">Nul (grâce à l'asymétrie EMA et la prédiction de
+                                        position)</td>
+                                </tr>
+                                <tr>
+                                    <td style="text-align: left;"><strong>Sensibilité au bruit</strong></td>
+                                    <td style="text-align: left;">Faible (filtre le bruit)</td>
+                                    <td style="text-align: left;">Très élevée (gaspille des ressources sur le bruit)
+                                    </td>
+                                    <td style="text-align: left;"><strong>Très faible (filtre le bruit et s'abstrait des
+                                            pixels)</strong></td>
+                                </tr>
+                                <tr>
+                                    <td style="text-align: left;"><strong>Sensibilité aux augmentations</strong></td>
+                                    <td style="text-align: left;">Critique (les performances dépendent des découpes)
+                                    </td>
+                                    <td style="text-align: left;">Faible (masquage simple)</td>
+                                    <td style="text-align: left;"><strong>Faible (ne dépend pas de distorsions de
+                                            couleurs agressives)</strong></td>
+                                </tr>
+                            </tbody>
+                        </table>
+                        <hr />
+                        <h2 id="conclusion-amp-transition">🧠 Conclusion &amp; Transition</h2>
+                        <p>Le Joint Embedding résout le problème fondamental de l'apprentissage auto-supervisé en
+                            offrant un espace d'entraînement sémantique, robuste et stable. Mais cette idée ne s'arrête
+                            pas à la vision par ordinateur. Dans l'esprit de Yann LeCun, le JEPA est la première brique
+                            d'une architecture beaucoup plus vaste visant à doter les machines de bon sens.</p>
+                        <p>C'est ce que nous verrons dans la troisième partie de cet article : <strong>L'architecture
+                                cognitive globale de Yann LeCun et le rôle du World Model.</strong></p>
+                        <hr />
+                        <h3 id="d-fi-curieux-n-2">🛠️ Défi curieux n°2</h3>
+                        <p><em>Pensez au jeu des devinettes. Si on vous montre la moitié gauche d'un visage humain et qu'on vous demande de deviner le côté droit : deviner le pixel exact de chaque pore de peau ou cil est impossible (reconstruction générative), mais deviner qu'il y a un second œil, une joue et la symétrie du sourire est naturel (Joint Embedding). À votre avis, pourquoi le fait de prédire dans l'espace des idées (la structure du visage) plutôt que dans l'espace des couleurs de pixels permet-il à notre cerveau (et à l'IA) d'économiser autant d'énergie ?</em></p>
+                    </div>
+
+                    <div class="article-footer-nav">
+                        <a href="article_1_partie_1.html" class="footer-nav-link prev">
+                            <span class="footer-nav-label">← Précédent</span>
+                            <span class="footer-nav-title">Fondations & Philosophie - Partie 1</span>
+                        </a>
+                        <a href="article_1_partie_3.html" class="footer-nav-link next">
+                            <span class="footer-nav-label">Suivant →</span>
+                            <span class="footer-nav-title">Fondations & Philosophie - Partie 3</span>
+                        </a>
+                    </div>
+                </article>
+
+                <div class="toc-sidebar">
+                    <div class="toc-title">Sur cette page</div>
+                    <ul class="toc-list">
+                        <li class=""><a href="#les-trois-voies-de-l-apprentissage-sans-superviseur">🗺️ Les trois voies
+                                de l'apprentissage sans superviseur</a></li>
+                        <li class=""><a href="#1-l-approche-par-invariance-contrastive-amp-non-contrastive">⚖️ 1.
+                                L'approche par Invariance (Contrastive &amp; Non-Contrastive)</a></li>
+                        <li class="toc-indent"><a href="#le-m-canisme">Le mécanisme :</a></li>
+                        <li class="toc-indent"><a href="#le-spectre-de-l-effondrement-representation-collapse">⚠️ Le
+                                spectre de l'Effondrement (Representation Collapse) :</a></li>
+                        <li class=""><a href="#2-l-approche-g-n-rative-reconstruction">🎨 2. L'approche Générative
+                                (Reconstruction)</a></li>
+                        <li class="toc-indent"><a href="#le-m-canisme">Le mécanisme :</a></li>
+                        <li class="toc-indent"><a href="#avantages-amp-limites">⚖️ Avantages &amp; Limites :</a></li>
+                        <li class=""><a href="#3-le-joint-embedding-predictive-architecture-jepa">🎯 3. Le Joint
+                                Embedding Predictive Architecture (JEPA)</a></li>
+                        <li class="toc-indent"><a href="#la-formule-de-perte-jepa">La formule de perte JEPA :</a></li>
+                        <li class="toc-indent"><a href="#pourquoi-jepa-r-sout-le-dilemme">🛡️ Pourquoi JEPA résout le
+                                dilemme ?</a></li>
+                        <li class=""><a href="#tableau-r-capitulatif-des-paradigmes">📊 Tableau récapitulatif des
+                                paradigmes</a></li>
+                        <li class=""><a href="#conclusion-amp-transition">🧠 Conclusion &amp; Transition</a></li>
+                        <li class="toc-indent"><a href="#d-fi-curieux-n-2">🛠️ Défi curieux n°2</a></li>
+                    </ul>
+                </div>
+            </div>
+        </main>
+    </div>
+
+    <!-- Scripts -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.8.0/highlight.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/mermaid/dist/mermaid.min.js"></script>
+
+    <script>
+        // Initialize Highlight.js
+        hljs.highlightAll();
+
+        // Initialize Mermaid
+        mermaid.initialize({
+            theme: 'dark',
+            startOnLoad: false,
+            securityLevel: 'loose'
+        });
+
+        document.addEventListener("DOMContentLoaded", function () {
+            // 1. Convert Markdown pre-code blocks for Mermaid to actual divs
+            document.querySelectorAll("pre code.language-mermaid").forEach(function (el) {
+                const pre = el.parentElement;
+                const div = document.createElement("div");
+                div.className = "mermaid";
+                div.textContent = el.textContent;
+                pre.parentElement.replaceChild(div, pre);
+            });
+
+            // Run Mermaid rendering
+            mermaid.run();
+
+            // 2. Reading Progress Bar Logic
+            window.addEventListener('scroll', function () {
+                const winScroll = document.documentElement.scrollTop || document.body.scrollTop;
+                const height = document.documentElement.scrollHeight - document.documentElement.clientHeight;
+                const scrolled = (winScroll / height) * 100;
+                document.getElementById("reading-progress").style.width = scrolled + "%";
+            });
+        });
+    </script>
+</body>
+
+</html>

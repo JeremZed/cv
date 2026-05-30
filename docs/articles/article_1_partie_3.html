@@ -1,0 +1,288 @@
+<!DOCTYPE html>
+<html lang="fr">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Fondations & Philosophie — Partie 3 : L'Architecture I-JEPA | Tinkerer's Lab</title>
+
+    <!-- Stylesheets -->
+    <link rel="stylesheet" href="../css/style.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.8.0/styles/github-dark.min.css">
+
+    <!-- Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+
+    <!-- MathJax Configuration -->
+    <script>
+        window.MathJax = {
+            tex: {
+                inlineMath: [['$', '$'], ['\\(', '\\)']],
+                displayMath: [['$$', '$$'], ['\\[', '\\]']],
+                processEscapes: true
+            },
+            options: {
+                ignoreHtmlClass: 'tex2jax_ignore',
+                processHtmlClass: 'tex2jax_process'
+            }
+        };
+    </script>
+    <script id="MathJax-script" async src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
+    <script src="../js/sidebar.js" defer></script>
+</head>
+
+<body class="tex2jax_process">
+
+    <!-- Reading Progress Bar -->
+    <div class="progress-bar-container">
+        <div class="progress-bar" id="reading-progress"></div>
+    </div>
+
+    <div class="app-container">
+
+        <!-- Mobile Navigation Header -->
+        <header class="mobile-header">
+            <button class="menu-toggle" id="menu-open-btn">
+                <svg width="24" height="24" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" d="M4 6h16M4 12h16M4 18h16" />
+                </svg>
+            </button>
+            <div class="sidebar-title">Tinkerer's Lab</div>
+            <div></div> <!-- spacer -->
+        </header>
+
+        <!-- Persistent Sidebar -->
+        <aside class="sidebar" id="app-sidebar"></aside>
+
+        <!-- Main Content -->
+        <main class="main-content">
+            <div class="article-layout">
+                <article class="article-container">
+                    <header class="article-header">
+                        <span class="article-category jepa-1-6">Série I-JEPA</span>
+                        <h1>Fondations & Philosophie — Partie 3 : L'Architecture I-JEPA</h1>
+                        <p class="article-subtitle">Pourquoi Yann LeCun veut enterrer la génération de pixels</p>
+                    </header>
+
+                    <div class="article-body">
+                        <blockquote>
+                            <p><strong>Série I-JEPA — Article 1 : Fondations &amp; Philosophie</strong>
+                                <em>Dans cette troisième et dernière partie de notre premier article, nous replaçons
+                                    JEPA dans son cadre d'origine : l'architecture cognitive globale proposée par Yann
+                                    LeCun pour concevoir des agents doués de sens commun. Nous verrons comment le "World
+                                    Model" (modèle du monde) agit comme le cœur pensant et simulateur de ces futures
+                                    intelligences.</em>
+                            </p>
+                        </blockquote>
+                        <hr />
+                        <h2 id="au-del-de-la-vision-vers-l-intelligence-autonome">🏛️ Au-delà de la vision : Vers
+                            l'intelligence autonome</h2>
+                        <p>Dans son manifeste de 2022, <em>"A Path Towards Autonomous Machine Intelligence"</em>, Yann
+                            LeCun dresse un constat critique des grands modèles de langage (LLM) actuels : ils sont
+                            purement linguistiques, n'ont aucun contact physique avec le monde réel, et sont incapables
+                            de planifier de manière robuste ou de raisonner de façon logique.</p>
+                        <p>Pour dépasser ces limites, il propose de ne plus concevoir l'IA comme un simple réseau de
+                            neurones statique, mais comme un <strong>agent autonome modulaire</strong> composé de six
+                            modules principaux travaillant en harmonie.</p>
+                        <hr />
+                        <h2 id="les-6-modules-du-cerveau-artificiel-de-lecun">⚙️ Les 6 modules du cerveau artificiel de
+                            LeCun</h2>
+                        <p>Pour comprendre comment une IA peut interagir avec son environnement, planifier des actions
+                            complexes et éviter le danger, étudions l'architecture proposée :</p>
+                        <pre><code class="language-mermaid">graph TD
+    Configurator[&quot;Configurator &lt;br&gt; (Chef d'orchestre &amp; Buts)&quot;] --&gt; Perception
+    Configurator --&gt; WorldModel
+    Configurator --&gt; Cost
+    Configurator --&gt; Actor
+
+    Sensors[&quot;Monde Réel / Capteurs&quot;] --&gt; Perception
+    Perception[&quot;Perception &lt;br&gt; (Évalue l'état actuel s_t)&quot;] --&gt; WorldModel
+    Perception --&gt; Cost
+
+    WorldModel[&quot;World Model (JEPA) &lt;br&gt; (Simule le futur s_t+1)&quot;] --&gt; Cost
+    WorldModel --&gt; Actor
+
+    Actor[&quot;Actor &lt;br&gt; (Propose des actions a_t)&quot;] --&gt; WorldModel
+    Actor --&gt; RealWorld[&quot;Action dans le monde réel&quot;]
+
+    Cost[&quot;Cost &lt;br&gt; (Évalue la douleur / le coût C_t)&quot;] --&gt; Configurator
+
+    Memory[&quot;Short-term Memory &lt;br&gt; (Mémoire récente)&quot;] &lt;--&gt; WorldModel
+    Memory &lt;--&gt; Perception
+</code></pre>
+                        <h3 id="1-le-configurator-le-chef-d-orchestre">1. Le Configurator (Le Chef d'Orchestre)</h3>
+                        <p>Il configure le flux d'informations. Si l'agent doit "chercher des clés", le Configurator
+                            ajuste le module de Perception pour qu'il focalise son attention sur les petits objets
+                            métalliques et configure le module Cost pour valoriser la découverte des clés.</p>
+                        <h3 id="2-la-perception-l-observateur">2. La Perception (L'Observateur)</h3>
+                        <p>Elle reçoit les signaux bruts des capteurs (caméras, microphones) et les traduit en un état
+                            sémantique abstrait $s_t$. C'est elle qui extrait le sens de l'instant présent.</p>
+                        <h3 id="3-le-world-model-le-simulateur-notre-jepa">3. Le World Model (Le Simulateur - Notre
+                            JEPA)</h3>
+                        <p>C'est le cœur pensant. <strong>Il simule des réalités qui n'existent pas encore.</strong> À
+                            partir de l'état actuel $s_t$ extrait par la perception et d'une action hypothétique $a_t$
+                            proposée par l'Acteur, il prédit l'état futur $s_{t+1}$ sous forme de représentation latente
+                            :</p>
+                        <p>$$s_{t+1} = \text{Predictor}(s_t, a_t)$$</p>
+                        <h3 id="4-le-cost-le-juge">4. Le Cost (Le Juge)</h3>
+                        <p>Il évalue si une situation est bonne ou mauvaise. Il calcule un "coût" $C_t$ composé :
+                        <ul>
+                            <li>D'un coût intrinsèque fixe (ex: la douleur pour un humain, le niveau critique de
+                                batterie pour un robot).</li>
+                            <li>D'un coût de tâche (ex: ai-je réussi à garer la voiture ?).</li>
+                        </ul>
+                        L'agent cherche constamment à minimiser ce coût.</p>
+                        <h3 id="5-l-acteur-le-d-cideur">5. L'Acteur (Le Décideur)</h3>
+                        <p>Il propose des séquences d'actions futures. Contrairement aux modèles de reinforcement
+                            learning classiques qui agissent à l'aveugle, l'Acteur utilise le <strong>World
+                                Model</strong> pour imaginer mentalement les conséquences de ses actions et ne retenir
+                            que la séquence qui minimise le coût théorique calculé par le module Cost.</p>
+                        <h3 id="6-la-short-term-memory-la-m-moire">6. La Short-Term Memory (La Mémoire)</h3>
+                        <p>Elle conserve la trace des états et des actions récents, permettant au World Model d'ajuster
+                            ses prédictions temporelles sur l'historique direct.</p>
+                        <hr />
+                        <h2 id="pourquoi-jepa-est-la-seule-cl-de-vo-te-viable-du-world-model">🎯 Pourquoi JEPA est la
+                            seule clé de voûte viable du World Model ?</h2>
+                        <p>Pourquoi ne pas utiliser un modèle génératif de vidéo (comme Sora ou Runway) comme World
+                            Model ?</p>
+                        <p>Si un robot ménager utilise un modèle de pixels pour planifier la vaisselle :
+                        <ol>
+                            <li>Pour imaginer poser une tasse sur une table, le modèle génératif doit dessiner chaque
+                                pixel de la tasse, de la table, les reflets de la lumière sur la céramique, l'ombre
+                                portée...</li>
+                            <li>Si la tasse glisse d'un millimètre, le calcul des pixels change entièrement. Le modèle
+                                s'épuise en calculs de rendu 3D inutiles.</li>
+                            <li><strong>Avec JEPA :</strong> Le modèle prédit uniquement la relation physique abstraite
+                                :
+                                <em>"La tasse (concept) est stable sur la table (concept)"</em>. Le reste (les reflets,
+                                la
+                                poussière sur la table) est ignoré.
+                            </li>
+                        </ol>
+                        </p>
+                        <p>Dans JEPA, la variable de contexte joue le rôle de l'état actuel $s_t$, la coordonnée
+                            du
+                            masque cible joue le rôle de l'action ou de la contrainte spatiale, et le Predictor
+                            simule
+                            la transition vers le bloc cible. </p>
+                        <p>En vision (I-JEPA), nous prédisons des régions masquées dans l'espace. En vidéo ou en
+                            robotique (V-JEPA), nous prédisons les trames futures conditionnées par des actions.
+                            La
+                            formule mathématique reste identique, seule change la nature des coordonnées
+                            géométriques ou
+                            temporelles fournies au Predictor.</p>
+                        <hr />
+                        <h2 id="conclusion-de-l-article-1-amp-perspectives">🎬 Conclusion de l'Article 1 &amp;
+                            Perspectives</h2>
+                        <p>Nous venons de boucler notre premier grand voyage théorique. Vous comprenez désormais
+                            :
+                        <ol>
+                            <li>Pourquoi la prédiction de pixels haute fréquence est un piège à ressources
+                                (<strong>Partie 1</strong>).</li>
+                            <li>Comment les 3 paradigmes du SSL tentent de résoudre l'apprentissage autonome,
+                                et
+                                comment JEPA se détache en prédisant dans l'espace latent
+                                (<strong>Partie 2</strong>).</li>
+                            <li>Comment cette capacité de simulation s'intègre dans le projet plus large d'un
+                                agent
+                                cognitif doté d'un World Model (<strong>Partie 3</strong>).</li>
+                        </ol>
+                        </p>
+                        <p>Maintenant, assez de théorie. <strong>Il est temps de coder.</strong></p>
+                        <p>Dans l'article 2, nous allons ouvrir notre éditeur de code et implémenter notre tout
+                            premier
+                            JEPA mono-cible sur le jeu de données CIFAR-10. Nous verrons comment architecturer
+                            concrètement l'encodeur de contexte, l'encodeur cible et le prédicteur en PyTorch !
+                        </p>
+                        <hr />
+                        <h3 id="d-fi-curieux-n-3">🛠️ Défi curieux n°3</h3>
+                        <p><em>Imaginez un gardien de but au football lors d'un penalty. Si son cerveau devait planifier
+                                son arrêt en simulant le futur pixel par pixel (comme un modèle de génération vidéo qui
+                                dessine chaque brin d'herbe, les reflets de la lumière sur les maillots, le mouvement
+                                des spectateurs), le ballon serait au fond des filets bien avant qu'il ne puisse bouger.
+                                À votre avis, quels sont les seuls concepts essentiels (variables latentes) que son «
+                                World Model » interne doit simuler pour que son « Acteur » (le système moteur) plonge au
+                                bon endroit au bon moment ?</em></p>
+                    </div>
+
+                    <div class="article-footer-nav">
+                        <a href="article_1_partie_2.html" class="footer-nav-link prev">
+                            <span class="footer-nav-label">← Précédent</span>
+                            <span class="footer-nav-title">Fondations & Philosophie - Partie 2</span>
+                        </a>
+                        <a href="article_2_partie_1.html" class="footer-nav-link next">
+                            <span class="footer-nav-label">Suivant →</span>
+                            <span class="footer-nav-title">Coder son premier JEPA - Partie 1</span>
+                        </a>
+                    </div>
+                </article>
+
+                <div class="toc-sidebar">
+                    <div class="toc-title">Sur cette page</div>
+                    <ul class="toc-list">
+                        <li class=""><a href="#au-del-de-la-vision-vers-l-intelligence-autonome">🏛️ Au-delà de la
+                                vision : Vers l'intelligence autonome</a></li>
+                        <li class=""><a href="#les-6-modules-du-cerveau-artificiel-de-lecun">⚙️ Les 6 modules du cerveau
+                                artificiel de LeCun</a></li>
+                        <li class="toc-indent"><a href="#1-le-configurator-le-chef-d-orchestre">1. Le Configurator (Le
+                                Chef d'Orchestre)</a></li>
+                        <li class="toc-indent"><a href="#2-la-perception-l-observateur">2. La Perception
+                                (L'Observateur)</a></li>
+                        <li class="toc-indent"><a href="#3-le-world-model-le-simulateur-notre-jepa">3. Le World Model
+                                (Le Simulateur - Notre JEPA)</a></li>
+                        <li class="toc-indent"><a href="#4-le-cost-le-juge">4. Le Cost (Le Juge)</a></li>
+                        <li class="toc-indent"><a href="#5-l-acteur-le-d-cideur">5. L'Acteur (Le Décideur)</a></li>
+                        <li class="toc-indent"><a href="#6-la-short-term-memory-la-m-moire">6. La Short-Term Memory (La
+                                Mémoire)</a></li>
+                        <li class=""><a href="#pourquoi-jepa-est-la-seule-cl-de-vo-te-viable-du-world-model">🎯 Pourquoi
+                                JEPA est la seule clé de voûte viable du World Model ?</a></li>
+                        <li class=""><a href="#conclusion-de-l-article-1-amp-perspectives">🎬 Conclusion de l'Article 1
+                                &amp; Perspectives</a></li>
+                        <li class="toc-indent"><a href="#d-fi-curieux-n-3">🛠️ Défi curieux n°3</a></li>
+                    </ul>
+                </div>
+            </div>
+        </main>
+    </div>
+
+    <!-- Scripts -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.8.0/highlight.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/mermaid/dist/mermaid.min.js"></script>
+
+    <script>
+        // Initialize Highlight.js
+        hljs.highlightAll();
+
+        // Initialize Mermaid
+        mermaid.initialize({
+            theme: 'dark',
+            startOnLoad: false,
+            securityLevel: 'loose'
+        });
+
+        document.addEventListener("DOMContentLoaded", function () {
+            // 1. Convert Markdown pre-code blocks for Mermaid to actual divs
+            document.querySelectorAll("pre code.language-mermaid").forEach(function (el) {
+                const pre = el.parentElement;
+                const div = document.createElement("div");
+                div.className = "mermaid";
+                div.textContent = el.textContent;
+                pre.parentElement.replaceChild(div, pre);
+            });
+
+            // Run Mermaid rendering
+            mermaid.run();
+
+            // 2. Reading Progress Bar Logic
+            window.addEventListener('scroll', function () {
+                const winScroll = document.documentElement.scrollTop || document.body.scrollTop;
+                const height = document.documentElement.scrollHeight - document.documentElement.clientHeight;
+                const scrolled = (winScroll / height) * 100;
+                document.getElementById("reading-progress").style.width = scrolled + "%";
+            });
+        });
+    </script>
+</body>
+
+</html>

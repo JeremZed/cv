@@ -1,0 +1,263 @@
+<!DOCTYPE html>
+<html lang="fr">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Coder son premier JEPA — Partie 2 : Les Trois Composants Clés | Tinkerer's Lab</title>
+
+    <!-- Stylesheets -->
+    <link rel="stylesheet" href="../css/style.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.8.0/styles/github-dark.min.css">
+
+    <!-- Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+
+    <!-- MathJax Configuration -->
+    <script>
+        window.MathJax = {
+            tex: {
+                inlineMath: [['$', '$'], ['\\(', '\\)']],
+                displayMath: [['$$', '$$'], ['\\[', '\\]']],
+                processEscapes: true
+            },
+            options: {
+                ignoreHtmlClass: 'tex2jax_ignore',
+                processHtmlClass: 'tex2jax_process'
+            }
+        };
+    </script>
+    <script id="MathJax-script" async src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
+    <script src="../js/sidebar.js" defer></script>
+</head>
+
+<body class="tex2jax_process">
+
+    <!-- Reading Progress Bar -->
+    <div class="progress-bar-container">
+        <div class="progress-bar" id="reading-progress"></div>
+    </div>
+
+    <div class="app-container">
+
+        <!-- Mobile Navigation Header -->
+        <header class="mobile-header">
+            <button class="menu-toggle" id="menu-open-btn">
+                <svg width="24" height="24" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" d="M4 6h16M4 12h16M4 18h16" />
+                </svg>
+            </button>
+            <div class="sidebar-title">Tinkerer's Lab</div>
+            <div></div> <!-- spacer -->
+        </header>
+
+        <!-- Persistent Sidebar -->
+        <aside class="sidebar" id="app-sidebar"></aside>
+
+        <!-- Main Content -->
+        <main class="main-content">
+            <div class="article-layout">
+                <article class="article-container">
+                    <header class="article-header">
+                        <span class="article-category jepa-1-6">Série I-JEPA</span>
+                        <h1>Coder son premier JEPA — Partie 2 : Les Trois Composants Clés</h1>
+                        <p class="article-subtitle">De la théorie à l'implémentation pratique ViT</p>
+                    </header>
+
+                    <div class="article-body">
+                        <blockquote>
+                            <p><strong>Série I-JEPA — Article 2 : Coder son premier JEPA (Niveau 1)</strong>
+                                <em>Dans cette deuxième partie, nous plongeons au cœur de la machinerie JEPA.
+                                    Contrairement aux réseaux de neurones classiques, JEPA n'entraîne pas un, ni deux,
+                                    mais trois modules interconnectés pour créer un jeu d'imagination latente
+                                    asymétrique. Analysons le rôle de chaque acteur.</em>
+                            </p>
+                        </blockquote>
+                        <hr />
+                        <h2 id="le-casting-de-notre-jepa">🎬 Le casting de notre JEPA</h2>
+                        <p>Pour réaliser une prédiction dans l'espace des représentations sans s'effondrer, JEPA utilise
+                            trois sous-réseaux distincts :</p>
+                        <pre><code>                   ┌──────────────────────────────────┐
+                   │        Image Complète (I)        │
+                   └────────────────┬─────────────────┘
+                                    │
+                         [ Target Encoder (EMA) ] ◄── Pas de Gradient (Gelé)
+                                    │
+                                    ▼
+                         Cibles Réelles : s_y  (Embeddings de référence)
+                                    │
+                                    ▼  (MSE Loss)
+                         Cibles Prédites : s_y_hat
+                                    ▲
+                                    │
+                              [ Predictor ] ◄── Reçoit les positions cibles
+                                    │
+                   ┌────────────────┴─────────────────┐
+                   │    Context Encoder (Entraîné)    │
+                   └────────────────▲─────────────────┘
+                                    │
+                        Patches de Contexte Visibles
+</code></pre>
+                        <hr />
+                        <h2 id="1-le-context-encoder-e-theta-l-observateur-du-visible">👁️ 1. Le Context Encoder
+                            ($E_\theta$) : L'observateur du visible</h2>
+                        <p>Le <strong>Context Encoder</strong> est un Vision Transformer (ViT) standard. Son rôle est
+                            d'analyser la partie visible de l'image (le contexte $x$) et de la condenser en
+                            représentations riches.</p>
+                        <ul>
+                            <li><strong>Ce qu'il voit</strong> : Uniquement les patches déclarés comme "visibles" par le
+                                masque (par exemple, 48 patches sur les 64 de l'image).</li>
+                            <li><strong>Ce qu'il fait</strong> : Il traite ces patches à travers des couches d'attention
+                                pour comprendre le sens global (ex: "ici il y a des plumes", "là il y a un bec").</li>
+                            <li><strong>Pourquoi c'est important</strong> : En le privant de la zone cible, on le force
+                                à extraire des indices sémantiques contextuels transférables. Si un oiseau a un bec à
+                                droite et des plumes à gauche, le corps doit se trouver au milieu.</li>
+                        </ul>
+                        <hr />
+                        <h2 id="2-le-target-encoder-e-phi-le-gardien-de-la-v-rit-terrain">🛡️ 2. Le Target Encoder
+                            ($E_\phi$) : Le gardien de la vérité terrain</h2>
+                        <p>Le <strong>Target Encoder</strong> a la même architecture exacte (même profondeur, même
+                            dimension) que le Context Encoder. Cependant, son rôle et son mode d'apprentissage sont
+                            totalement différents.</p>
+                        <ul>
+                            <li><strong>Ce qu'il voit</strong> : L'image <strong>complète</strong> (les 64 patches).
+                            </li>
+                            <li><strong>Ce qu'il fait</strong> : Il produit des embeddings de référence pour tous les
+                                patches de l'image. Nous extrayons ensuite uniquement les embeddings correspondant aux
+                                positions cibles masquées. Ces représentations latentes ($s_y$) constituent la "vérité
+                                terrain" sémantique.</li>
+                            <li><strong>L'apprentissage par EMA (Exponential Moving Average)</strong> :
+                                Le Target Encoder ne reçoit <strong>aucun gradient</strong>
+                                (<code>requires_grad = False</code>). Si on l'entraînait par gradient, le modèle
+                                s'effondrerait instantanément en projetant tout sur un vecteur nul pour obtenir une
+                                perte de zéro. Ses poids $\phi$ sont mis à jour à chaque itération en glissant lentement
+                                derrière les poids $\theta$ du Context Encoder :</li>
+                        </ul>
+                        <p>$$\phi_t \leftarrow \tau \phi_{t-1} + (1 - \tau) \theta_t$$</p>
+                        <p>Où $\tau \in [0.996, 1.0]$ est le coefficient de dynamique.</p>
+                        <h3 id="pourquoi-l-ema-pr-vient-il-le-collapse">⚙️ Pourquoi l'EMA prévient-il le collapse ?</h3>
+                        <p>En bloquant les gradients sur le Target Encoder et en le mettant à jour par EMA, on crée une
+                            <strong>asymétrie temporelle</strong>. Le Target Encoder produit des cibles stables et
+                            lentes à évoluer, tandis que le Context Encoder doit s'adapter rapidement pour les prédire.
+                            Cette asymétrie brise la symétrie mathématique qui mène habituellement à l'effondrement des
+                            représentations.
+                        </p>
+                        <hr />
+                        <h2 id="3-le-predictor-p-psi-l-imagination-latente">🔮 3. Le Predictor ($P_\psi$) :
+                            L'imagination latente</h2>
+                        <p>Le <strong>Predictor</strong> est le pont entre l'observation du contexte et la spéculation
+                            du futur. C'est un Vision Transformer plus petit et plus léger.</p>
+                        <ul>
+                            <li><strong>Ses entrées</strong> :<ol>
+                                    <li>Les représentations du contexte ($s_x$) issues du Context Encoder.</li>
+                                    <li>Des <strong>Mask Tokens</strong> (des vecteurs appris génériques) placés
+                                        précisément aux coordonnées géométriques des patches masqués ($y$) pour indiquer
+                                        au Predictor <em>où</em> il doit imaginer la scène.</li>
+                                </ol>
+                            </li>
+                            <li><strong>Ce qu'il fait</strong> : À l'aide de ses couches d'attention, il croise
+                                l'information du contexte visible avec les requêtes de position masquées pour prédire ce
+                                que le Target Encoder a extrait à ces coordonnées précises.</li>
+                            <li><strong>Pourquoi doit-il être léger ?</strong>
+                                Si le Predictor était trop profond ou trop puissant, il ferait tout le travail
+                                d'abstraction lui-même, déchargeant le Context Encoder de cette tâche. En gardant un
+                                Predictor volontairement "faible" (par exemple, 4 blocs d'attention au lieu de 6 ou 12),
+                                on force le Context Encoder à produire des représentations extrêmement riches et
+                                informatives pour lui faciliter le travail.</li>
+                        </ul>
+                        <hr />
+                        <h2 id="conclusion-amp-transition">🧠 Conclusion &amp; Transition</h2>
+                        <p>Trois acteurs, un seul but : forcer le Context Encoder à apprendre des représentations
+                            sémantiques tellement riches qu'un petit prédicteur peut reconstituer la signature latente
+                            de n'importe quelle zone masquée d'une image.</p>
+                        <p>Mais comment découper l'image pour que ce jeu d'imagination soit le plus formateur possible
+                            pour notre réseau ? Si on masquait des pixels isolés au hasard, le modèle tricherait-il ?
+                        </p>
+                        <p>C'est ce que nous allons découvrir dans la troisième partie en analysant <strong>la stratégie
+                                de masquage par grands blocs contigus</strong> !</p>
+                        <hr />
+                        <h3 id="d-fi-curieux-n-2">🛠️ Défi curieux n°2</h3>
+                        <p><em>Imaginez un professeur (le Context Encoder) qui prépare un cours et un élève (le
+                                Predictor) qui doit passer un examen. Si l'élève est un génie capable de réinventer la
+                                physique à partir de trois indices (un Predictor très profond et puissant), le
+                                professeur n'a aucun effort à faire : ses cours peuvent être désordonnés et
+                                superficiels. En revanche, si l'élève a des capacités d'apprentissage limitées (un
+                                Predictor très léger), le professeur est obligé de synthétiser des concepts d'une clarté
+                                absolue (des représentations latentes riches) pour que l'élève comprenne. À votre avis,
+                                comment cette asymétrie de puissance force-t-elle le Context Encoder à devenir
+                                performant ?</em></p>
+                    </div>
+
+                    <div class="article-footer-nav">
+                        <a href="article_2_partie_1.html" class="footer-nav-link prev">
+                            <span class="footer-nav-label">← Précédent</span>
+                            <span class="footer-nav-title">Coder son premier JEPA - Partie 1</span>
+                        </a>
+                        <a href="article_2_partie_3.html" class="footer-nav-link next">
+                            <span class="footer-nav-label">Suivant →</span>
+                            <span class="footer-nav-title">Coder son premier JEPA - Partie 3</span>
+                        </a>
+                    </div>
+                </article>
+
+                <div class="toc-sidebar">
+                    <div class="toc-title">Sur cette page</div>
+                    <ul class="toc-list">
+                        <li class=""><a href="#le-casting-de-notre-jepa">🎬 Le casting de notre JEPA</a></li>
+                        <li class=""><a href="#1-le-context-encoder-e-theta-l-observateur-du-visible">👁️ 1. Le Context
+                                Encoder ($E_\theta$) : L'observateur du visible</a></li>
+                        <li class=""><a href="#2-le-target-encoder-e-phi-le-gardien-de-la-v-rit-terrain">🛡️ 2. Le
+                                Target Encoder ($E_\phi$) : Le gardien de la vérité terrain</a></li>
+                        <li class="toc-indent"><a href="#pourquoi-l-ema-pr-vient-il-le-collapse">⚙️ Pourquoi l'EMA
+                                prévient-il le collapse ?</a></li>
+                        <li class=""><a href="#3-le-predictor-p-psi-l-imagination-latente">🔮 3. Le Predictor ($P_\psi$)
+                                : L'imagination latente</a></li>
+                        <li class=""><a href="#conclusion-amp-transition">🧠 Conclusion &amp; Transition</a></li>
+                        <li class="toc-indent"><a href="#d-fi-curieux-n-2">🛠️ Défi curieux n°2</a></li>
+                    </ul>
+                </div>
+            </div>
+        </main>
+    </div>
+
+    <!-- Scripts -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.8.0/highlight.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/mermaid/dist/mermaid.min.js"></script>
+
+    <script>
+        // Initialize Highlight.js
+        hljs.highlightAll();
+
+        // Initialize Mermaid
+        mermaid.initialize({
+            theme: 'dark',
+            startOnLoad: false,
+            securityLevel: 'loose'
+        });
+
+        document.addEventListener("DOMContentLoaded", function () {
+            // 1. Convert Markdown pre-code blocks for Mermaid to actual divs
+            document.querySelectorAll("pre code.language-mermaid").forEach(function (el) {
+                const pre = el.parentElement;
+                const div = document.createElement("div");
+                div.className = "mermaid";
+                div.textContent = el.textContent;
+                pre.parentElement.replaceChild(div, pre);
+            });
+
+            // Run Mermaid rendering
+            mermaid.run();
+
+            // 2. Reading Progress Bar Logic
+            window.addEventListener('scroll', function () {
+                const winScroll = document.documentElement.scrollTop || document.body.scrollTop;
+                const height = document.documentElement.scrollHeight - document.documentElement.clientHeight;
+                const scrolled = (winScroll / height) * 100;
+                document.getElementById("reading-progress").style.width = scrolled + "%";
+            });
+        });
+    </script>
+</body>
+
+</html>

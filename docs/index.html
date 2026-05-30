@@ -1,0 +1,293 @@
+<!DOCTYPE html>
+<html lang="fr">
+
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Portail d'apprentissage | Tinkerer's Lab</title>
+
+  <!-- Stylesheets -->
+  <link rel="stylesheet" href="css/style.css">
+
+  <!-- Fonts -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <script src="js/sidebar.js" defer></script>
+</head>
+
+<body>
+
+  <div class="app-container">
+
+    <!-- Mobile Navigation Header -->
+    <header class="mobile-header">
+      <button class="menu-toggle" id="menu-open-btn">
+        <svg width="24" height="24" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" d="M4 6h16M4 12h16M4 18h16" />
+        </svg>
+      </button>
+      <div class="sidebar-title">Tinkerer's Lab</div>
+      <div></div>
+    </header>
+
+    <!-- Persistent Sidebar -->
+    <aside class="sidebar" id="app-sidebar"></aside>
+
+    <!-- Main Content -->
+    <main class="main-content">
+      <div class="article-container" style="max-width: 100%;">
+
+        <div class="portal-hero">
+          <h1 class="portal-hero-title">Tinkerer's Lab</h1>
+          <p class="portal-hero-subtitle">Un espace d'expérimentation dédié à la présentation, la compréhension et la
+            création.</p>
+        </div>
+        <div class="portal-sections">
+          <section class="portal-section">
+            <div class="portal-section-header">
+              <h2 class="portal-section-title">Série I-JEPA : Architecture & Théorie (Tiny ViT)</h2>
+            </div>
+            <div class="portal-grid">
+              <a href="articles/article_1_partie_1.html" class="article-card">
+                <div class="card-meta">
+                  <span class="card-badge jepa-1-6">Série I-JEPA</span>
+                  <span class="card-num">Article 1</span>
+                </div>
+                <h3 class="card-title">Fondations & Philosophie</h3>
+                <p class="card-desc">Pourquoi prédire chaque pixel (comme dans les auto-encodeurs ou la diffusion) est
+                  un gaspillage colossal de ressources, et pourquoi JEPA est la solution.</p>
+                <div class="card-parts">
+                  <span class="card-part-link">P1 : La Malédiction des Pixels</span>
+                  <span class="card-part-link">P2 : Le Triptyque du SSL</span>
+                  <span class="card-part-link">P3 : L'Architecture I-JEPA</span>
+                </div>
+              </a>
+              <a href="articles/article_2_partie_1.html" class="article-card">
+                <div class="card-meta">
+                  <span class="card-badge jepa-1-6">Série I-JEPA</span>
+                  <span class="card-num">Article 2</span>
+                </div>
+                <h3 class="card-title">Coder son premier JEPA</h3>
+                <p class="card-desc">Construisons de zéro un prototype fonctionnel de JEPA mono-cible avec Vision
+                  Transformers (ViT) sur CIFAR-10.</p>
+                <div class="card-parts">
+                  <span class="card-part-link">P1 : Découper l'image en Patches</span>
+                  <span class="card-part-link">P2 : Les Trois Composants Clés</span>
+                  <span class="card-part-link">P3 : La Boucle d'Entraînement & EMA</span>
+                </div>
+              </a>
+              <a href="articles/article_3_partie_1.html" class="article-card">
+                <div class="card-meta">
+                  <span class="card-badge jepa-1-6">Série I-JEPA</span>
+                  <span class="card-num">Article 3</span>
+                </div>
+                <h3 class="card-title">Passage à l'Échelle</h3>
+                <p class="card-desc">Rapprochons-nous du papier de Meta. Pourquoi prédire plusieurs cibles disjointes
+                  force le modèle à apprendre la cohérence spatiale globale.</p>
+                <div class="card-parts">
+                  <span class="card-part-link">P1 : Pourquoi le Multi-Cibles ?</span>
+                  <span class="card-part-link">P2 : L'Astuce de Vectorisation Batch</span>
+                  <span class="card-part-link">P3 : Entraînement Multi-Cibles Complet</span>
+                </div>
+              </a>
+              <a href="articles/article_4_partie_1.html" class="article-card">
+                <div class="card-meta">
+                  <span class="card-badge jepa-1-6">Série I-JEPA</span>
+                  <span class="card-num">Article 4</span>
+                </div>
+                <h3 class="card-title">Validation Empirique</h3>
+                <p class="card-desc">Entraînement et comparaison de notre JEPA face à un modèle supervisé classique sur
+                  des budgets de données ultra-réduits.</p>
+                <div class="card-parts">
+                  <span class="card-part-link">P1 : Protocole de Linear Probing</span>
+                  <span class="card-part-link">P2 : La Recette du Fine-Tuning Réussi</span>
+                  <span class="card-part-link">P3 : Analyse Comparative des Courbes</span>
+                </div>
+              </a>
+              <a href="articles/article_5_partie_1.html" class="article-card">
+                <div class="card-meta">
+                  <span class="card-badge jepa-1-6">Série I-JEPA</span>
+                  <span class="card-num">Article 5</span>
+                </div>
+                <h3 class="card-title">Ouvrir la Boîte Noire</h3>
+                <p class="card-desc">Que comprend réellement un JEPA ? Utilisons des heatmaps d'attention, du clustering
+                  sémantique et des cartes d'influence mathématiques.</p>
+                <div class="card-parts">
+                  <span class="card-part-link">P1 : Attention du Predictor</span>
+                  <span class="card-part-link">P2 : Clustering Latent & Concepts</span>
+                  <span class="card-part-link">P3 : Cartes d'Influence de Classification</span>
+                </div>
+              </a>
+              <a href="articles/article_6_partie_1.html" class="article-card">
+                <div class="card-meta">
+                  <span class="card-badge jepa-1-6">Série I-JEPA</span>
+                  <span class="card-num">Article 6</span>
+                </div>
+                <h3 class="card-title">Le Guide du Praticien</h3>
+                <p class="card-desc">Boîte à outils diagnostique pour identifier le collapse de représentations,
+                  calibrer le masquage et aborder Tab-JEPA et V-JEPA.</p>
+                <div class="card-parts">
+                  <span class="card-part-link">P1 : Identifier et Corriger le Collapse</span>
+                  <span class="card-part-link">P2 : Ajuster le Ratio de Masquage</span>
+                  <span class="card-part-link">P3 : Hyperparamètres & Extensions</span>
+                </div>
+              </a>
+              <a href="articles/article_conclusion.html" class="article-card">
+                <div class="card-meta">
+                  <span class="card-badge jepa-1-6">Série I-JEPA</span>
+                  <span class="card-num">Bilan</span>
+                </div>
+                <h3 class="card-title">Le Verdict Empirique</h3>
+                <p class="card-desc">Conclusions clés, bilan des performances et réponse au débat scientifique sur le
+                  nombre d'époques d'entraînement.</p>
+                <div class="card-parts">
+                  <span class="card-part-link">Lire : Verdict Empirique & Débat Scientifique</span>
+                </div>
+              </a>
+            </div>
+          </section>
+          <section class="portal-section">
+            <div class="portal-section-header">
+              <h2 class="portal-section-title">Série Saccadic-JEPA : Vision Biologique Fovéale</h2>
+            </div>
+            <div class="portal-grid">
+              <a href="articles/article_7_partie_1.html" class="article-card">
+                <div class="card-meta">
+                  <span class="card-badge saccadic-7-9">Série Saccadic-JEPA</span>
+                  <span class="card-num">Article 7</span>
+                </div>
+                <h3 class="card-title">Recréer l'Œil Humain en Python</h3>
+                <p class="card-desc">Comment modéliser le flou périphérique de notre vision et économiser 90% des
+                  ressources de calcul en simulant la rétine.</p>
+                <div class="card-parts">
+                  <span class="card-part-link">P1 : Anatomie de la Rétine Humaine</span>
+                  <span class="card-part-link">P2 : Économie d'Énergie & Cortex Visuel</span>
+                  <span class="card-part-link">P3 : Algorithme de Fovéation en NumPy</span>
+                </div>
+              </a>
+              <a href="articles/article_8_partie_1.html" class="article-card">
+                <div class="card-meta">
+                  <span class="card-badge saccadic-7-9">Série Saccadic-JEPA</span>
+                  <span class="card-num">Article 8</span>
+                </div>
+                <h3 class="card-title">Saccadic-JEPA</h3>
+                <p class="card-desc">Forcer le réseau à comprendre la géométrie fine d'un objet en ne lui montrant que
+                  sa périphérie floue et en lui demandant de deviner la fovéa cible nette.</p>
+                <div class="card-parts">
+                  <span class="card-part-link">P1 : Concept du Saccadic-JEPA</span>
+                  <span class="card-part-link">P2 : Fovéation GPU en PyTorch</span>
+                  <span class="card-part-link">P3 : Entraînement SSL Haute Résolution</span>
+                </div>
+              </a>
+              <a href="articles/article_9_partie_1.html" class="article-card">
+                <div class="card-meta">
+                  <span class="card-badge saccadic-7-9">Série Saccadic-JEPA</span>
+                  <span class="card-num">Article 9</span>
+                </div>
+                <h3 class="card-title">Validation & Benchmarks</h3>
+                <p class="card-desc">Analyse finale des performances de Saccadic-JEPA en Linear Probing et Fine-Tuning à
+                  la résolution 128x128 sur CIFAR-10.</p>
+                <div class="card-parts">
+                  <span class="card-part-link">P1 : Data Efficiency avec 1% de labels</span>
+                  <span class="card-part-link">P2 : Impact du Nombre de Jetons & Résolution</span>
+                  <span class="card-part-link">P3 : Linear Probing vs Fine-Tuning</span>
+                </div>
+              </a>
+              <a href="articles/article_9.html" class="article-card">
+                <div class="card-meta">
+                  <span class="card-badge saccadic-7-9">Série Saccadic-JEPA</span>
+                  <span class="card-num">Fiche</span>
+                </div>
+                <h3 class="card-title">Saccadic-JEPA</h3>
+                <p class="card-desc">Comparatif chiffré des compétiteurs, stabilité de l'apprentissage (overfitting gap)
+                  et vitesse de convergence.</p>
+                <div class="card-parts">
+                  <span class="card-part-link">Lire : Le Grand Match de Benchmarks</span>
+                </div>
+              </a>
+            </div>
+          </section>
+          <section class="portal-section">
+            <div class="portal-section-header">
+              <h2 class="portal-section-title">Annexes & Notes Techniques</h2>
+            </div>
+            <div class="portal-grid">
+              <a href="articles/vision_humaine_fovea.html" class="article-card">
+                <div class="card-meta">
+                  <span class="card-badge tech-notes">Note Technique</span>
+                  <span class="card-num">Doc</span>
+                </div>
+                <h3 class="card-title">Anatomie de la Vision Humaine</h3>
+                <p class="card-desc">Détails biologiques sur le fonctionnement oculaire, la compression périphérique et
+                  le grossissement cortical.</p>
+                <div class="card-parts">
+                  <span class="card-part-link">Rétine, cônes et bâtonnets</span>
+                </div>
+              </a>
+              <a href="articles/test_vision_humaine_python.html" class="article-card">
+                <div class="card-meta">
+                  <span class="card-badge tech-notes">Note Technique</span>
+                  <span class="card-num">Doc</span>
+                </div>
+                <h3 class="card-title">Simulateur de Fovéation</h3>
+                <p class="card-desc">Comment utiliser foveate_image.py pour générer et débugger des images avec l'acuité
+                  visuelle humaine.</p>
+                <div class="card-parts">
+                  <span class="card-part-link">Protocole technique de mélange de calques</span>
+                </div>
+              </a>
+              <a href="articles/mask.html" class="article-card">
+                <div class="card-meta">
+                  <span class="card-badge tech-notes">Note Technique</span>
+                  <span class="card-num">Doc</span>
+                </div>
+                <h3 class="card-title">La Stratégie de Masquage</h3>
+                <p class="card-desc">Explications géométriques et analyse du code source masks.py pour comprendre le
+                  découpage en patches sans chevauchement.</p>
+                <div class="card-parts">
+                  <span class="card-part-link">Pourquoi masquer par grands blocs</span>
+                </div>
+              </a>
+              <a href="articles/finetuning_analysis.html" class="article-card">
+                <div class="card-meta">
+                  <span class="card-badge tech-notes">Note Technique</span>
+                  <span class="card-num">Doc</span>
+                </div>
+                <h3 class="card-title">Analyse Comparative Théorique</h3>
+                <p class="card-desc">Pourquoi les frontières droites (hyperplans) limitent le linear probing sur des
+                  petits réseaux comme ViT-Tiny.</p>
+                <div class="card-parts">
+                  <span class="card-part-link">Linear Probing vs Fine-Tuning ViT</span>
+                </div>
+              </a>
+              <a href="articles/articles_steps_demo.html" class="article-card">
+                <div class="card-meta">
+                  <span class="card-badge tech-notes">Note Technique</span>
+                  <span class="card-num">Doc</span>
+                </div>
+                <h3 class="card-title">Guide d'Exécution du Lab</h3>
+                <p class="card-desc">Le guide de commandes complet pour lancer les pré-entraînements, évaluations et
+                  visualisations.</p>
+                <div class="card-parts">
+                  <span class="card-part-link">Protocole étape par étape</span>
+                </div>
+              </a>
+            </div>
+          </section>
+        </div>
+        <div class="article-footer-nav">
+          <div></div>
+          <a href="articles/article_1_partie_1.html" class="footer-nav-link next">
+            <span class="footer-nav-label">Suivant →</span>
+            <span class="footer-nav-title">Fondations & Philosophie - Partie 1</span>
+          </a>
+        </div>
+      </div>
+    </main>
+  </div>
+
+  <!-- Scripts -->
+
+</body>
+
+</html>

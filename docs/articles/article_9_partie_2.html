@@ -1,0 +1,199 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Validation & Benchmarks — Partie 2 : Impact du Nombre de Jetons & Résolution | Tinkerer's Lab</title>
+    
+    <!-- Stylesheets -->
+    <link rel="stylesheet" href="../css/style.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.8.0/styles/github-dark.min.css">
+    
+    <!-- Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    
+    <!-- MathJax Configuration -->
+    <script>
+        window.MathJax = {
+            tex: {
+                inlineMath: [['$', '$'], ['\\(', '\\)']],
+                displayMath: [['$$', '$$'], ['\\[', '\\]']],
+                processEscapes: true
+            },
+            options: {
+                ignoreHtmlClass: 'tex2jax_ignore',
+                processHtmlClass: 'tex2jax_process'
+            }
+        };
+    </script>
+    <script id="MathJax-script" async src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
+    <script src="../js/sidebar.js" defer></script>
+</head>
+<body class="tex2jax_process">
+
+    <!-- Reading Progress Bar -->
+    <div class="progress-bar-container">
+        <div class="progress-bar" id="reading-progress"></div>
+    </div>
+
+    <div class="app-container">
+    
+        <!-- Mobile Navigation Header -->
+        <header class="mobile-header">
+            <button class="menu-toggle" id="menu-open-btn">
+                <svg width="24" height="24" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M4 6h16M4 12h16M4 18h16"/></svg>
+            </button>
+            <div class="sidebar-title">Tinkerer's Lab</div>
+            <div></div> <!-- spacer -->
+        </header>
+
+        <!-- Persistent Sidebar -->
+        <aside class="sidebar" id="app-sidebar"></aside>
+
+        <!-- Main Content -->
+        <main class="main-content">
+            <div class="article-layout">
+                <article class="article-container">
+                    <header class="article-header">
+                        <span class="article-category saccadic">Série Saccadic-JEPA</span>
+                        <h1>Validation & Benchmarks — Partie 2 : Impact du Nombre de Jetons & Résolution</h1>
+                        <p class="article-subtitle">Saccadic-JEPA face aux géants classiques</p>
+                    </header>
+                    
+                    <div class="article-body">
+                        <blockquote>
+<p><strong>Série Saccadic-JEPA : Vers une Vision Artificielle Biologiquement Inspirée</strong>
+<em>Dans cette deuxième partie, nous abordons un défi majeur de l'apprentissage automatique moderne : la complexité computationnelle de la haute résolution. Nous allons analyser l'impact du nombre de jetons (tokens) sur la vitesse d'apprentissage et comprendre comment la fovéation permet de contourner les limites mathématiques de l'attention des Transformers.</em></p>
+</blockquote>
+<hr />
+<h2 id="la-loi-de-l-attention-une-complexit-quadratique-o-n-2">🧮 La loi de l'attention : Une complexité quadratique ($O(N^2)$)</h2>
+<p>Le composant fondamental d'un <strong>Vision Transformer (ViT)</strong> est le mécanisme de <strong>Self-Attention</strong> (Auto-attention). Ce mécanisme permet à chaque patch d'image (jeton) d'interagir avec tous les autres jetons pour construire un contexte global.</p>
+<p>Mais cette puissance a un coût mathématique très lourd : la complexité du calcul d'attention est <strong>quadratique</strong> par rapport au nombre de jetons ($N$).</p>
+<ul>
+<li>Si nous doublons le nombre de jetons, le coût de calcul et l'empreinte mémoire ne doublent pas : ils sont multipliés par <strong>4</strong>.</li>
+<li>Si nous quadruplons le nombre de jetons, le coût est multiplié par <strong>16</strong>.</li>
+</ul>
+<p>Comparons nos deux configurations de résolution :</p>
+<pre><code>┌─────────────────────────────────┬──────────────────────────────────┐
+│        Mono-JEPA (32x32)        │     Saccadic-JEPA (128x128)      │
+├─────────────────────────────────┼──────────────────────────────────┤
+│ Image : 32 x 32 pixels          │ Image : 128 x 128 pixels         │
+│ Patches : 4 x 4 pixels          │ Patches : 8 x 8 pixels           │
+│ Grille : 8 x 8 = 64 jetons      │ Grille : 16 x 16 = 256 jetons    │
+└─────────────────────────────────┴──────────────────────────────────┘
+</code></pre>
+<p>Dans la transition de $32\times 32$ à $128\times 128$, en conservant une taille de patch raisonnable, le nombre de jetons passe de <strong>64 à 256</strong> (multiplié par 4). 
+Le coût de calcul du mécanisme d'attention interne est donc multiplié par <strong>$4^2 = 16$</strong>.</p>
+<hr />
+<h2 id="l-impact-sur-la-vitesse-de-convergence-en-ssl">🐢 L'impact sur la vitesse de convergence en SSL</h2>
+<p>Cette augmentation du nombre de jetons n'impacte pas seulement le temps de calcul par époque (exprimé en secondes) ; elle ralentit également la <strong>vitesse de convergence</strong> (le nombre d'époques nécessaires pour obtenir de bonnes représentations) :</p>
+<ol>
+<li><strong>La dilution de l'information sémantique</strong> :
+   Avec 256 jetons, la cible à prédire (le bloc de masquage) est plus éloignée des indices visibles. Le Predictor doit projeter des représentations sur de plus longues distances géométriques, ce qui rend la tâche de pré-entraînement beaucoup plus difficile.</li>
+<li><strong>Le problème du bruit haute fréquence</strong> :
+   En haute résolution ($128\times 128$), l'image contient beaucoup de détails fins (du bruit de texture, des variations locales de lumière). Le Professeur (Target Encoder) extrait des représentations très riches en haute fréquence, que l'Élève (Context Encoder) doit deviner à partir du contexte. Apprendre à structurer ces détails fins prend beaucoup plus de temps au réseau.</li>
+</ol>
+<h3 id="cons-quence-pratique-sur-notre-lab">Conséquence pratique sur notre Lab</h3>
+<ul>
+<li>Avec <strong>Mono-JEPA (32x32 et 64 jetons)</strong>, la convergence est rapide. Le modèle apprend une représentation globale décente dès 20 à 40 époques.</li>
+<li>Avec <strong>Saccadic-JEPA (128x128 et 256 jetons potentiels)</strong>, le modèle a besoin de <strong>120 à 200 époques</strong> pour déplier convenablement son espace latent et stabiliser ses prédictions haute résolution. À 20 époques, le modèle est encore grandement sous-entraîné.</li>
+</ul>
+<hr />
+<h2 id="comment-la-fov-ation-contourne-le-probl-me">👁️ Comment la Fovéation contourne le problème</h2>
+<p>C'est ici que l'inspiration biologique de Saccadic-JEPA révèle tout son génie. Pour traiter une scène à haute résolution sans faire exploser notre cerveau (qui a une limite de consommation de ~20 Watts), la nature n'utilise pas une résolution uniforme.</p>
+<p>En appliquant l'algorithme de fovéation, Saccadic-JEPA crée un <strong>gradient de résolution</strong> :</p>
+<pre><code>                  [ IMAGE HAUTE RÉSOLUTION (128x128) ]
+                                   │
+                                   ▼
+         ┌──────────────────────────────────────────────────┐
+         │              Flou périphérique                   │
+         │  (Élimination des détails haute fréquence inutile)│
+         └─────────────────┬────────────────────────────────┘
+                           │
+                           ▼
+         ┌──────────────────────────────────────────────────┐
+         │       Concentration des détails fins             │
+         │              uniquement sur la fovéa             │
+         └──────────────────────────────────────────────────┘
+</code></pre>
+<ol>
+<li><strong>Régularisation active</strong> : Le flou périphérique agit comme une compression d'information. L'encodeur de contexte n'a pas à traiter les détails haute fréquence de toute l'image, mais seulement de la zone de regard.</li>
+<li><strong>Réduction de la dimension effective</strong> : Dans des architectures plus avancées, cette approche fovéée permet de regrouper (pooling) ou de sous-échantillonner les jetons de la périphérie pour réduire le nombre total de jetons traités par l'encodeur de contexte, éliminant ainsi le goulot d'étranglement de la complexité $O(N^2)$.</li>
+</ol>
+<hr />
+<h2 id="conclusion-amp-transition">🧠 Conclusion &amp; Transition</h2>
+<p>Augmenter la résolution d'entrée multiplie le nombre de jetons et ralentit la convergence en raison de la complexité quadratique des Transformers. La fovéation de Saccadic-JEPA compense cette difficulté en filtrant le bruit périphérique inutile.</p>
+<p>Maintenant que nous comprenons comment ces représentations sont apprises efficacement, comment devons-nous les évaluer ? Quelle est la différence fondamentale entre tester un encodeur figé (<strong>Linear Probing</strong>) et l'adapter en le modifiant (<strong>Fine-Tuning</strong>) ?</p>
+<p>C'est ce que nous allons voir dans la troisième et dernière partie de notre article : <strong>Linear Probing vs Fine-Tuning</strong> !</p>
+<hr />
+<h3 id="d-fi-de-curiosit-n-2">🛠️ Défi de curiosité n°2</h3>
+<p><em>Si nous doublions la taille de l'image pour passer à $256\times 256$ pixels tout en gardant des patches de $16\times 16$, combien de jetons obtiendrions-nous ? Quel serait le facteur multiplicateur du coût de calcul de l'attention par rapport à notre grille 8x8 de CIFAR-10 ?</em></p>
+                    </div>
+                    
+                    <div class="article-footer-nav">
+  <a href="article_9_partie_1.html" class="footer-nav-link prev">
+    <span class="footer-nav-label">← Précédent</span>
+    <span class="footer-nav-title">Validation & Benchmarks - Partie 1</span>
+  </a>
+  <a href="article_9_partie_3.html" class="footer-nav-link next">
+    <span class="footer-nav-label">Suivant →</span>
+    <span class="footer-nav-title">Validation & Benchmarks - Partie 3</span>
+  </a>
+</div>
+                </article>
+                
+                <div class="toc-sidebar">
+  <div class="toc-title">Sur cette page</div>
+  <ul class="toc-list">
+    <li class=""><a href="#la-loi-de-l-attention-une-complexit-quadratique-o-n-2">🧮 La loi de l'attention : Une complexité quadratique ($O(N^2)$)</a></li>
+    <li class=""><a href="#l-impact-sur-la-vitesse-de-convergence-en-ssl">🐢 L'impact sur la vitesse de convergence en SSL</a></li>
+    <li class="toc-indent"><a href="#cons-quence-pratique-sur-notre-lab">Conséquence pratique sur notre Lab</a></li>
+    <li class=""><a href="#comment-la-fov-ation-contourne-le-probl-me">👁️ Comment la Fovéation contourne le problème</a></li>
+    <li class=""><a href="#conclusion-amp-transition">🧠 Conclusion &amp; Transition</a></li>
+    <li class="toc-indent"><a href="#d-fi-de-curiosit-n-2">🛠️ Défi de curiosité n°2</a></li>
+  </ul>
+</div>
+            </div>
+        </main>
+    </div>
+
+    <!-- Scripts -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.8.0/highlight.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/mermaid/dist/mermaid.min.js"></script>
+    
+    <script>
+        // Initialize Highlight.js
+        hljs.highlightAll();
+        
+        // Initialize Mermaid
+        mermaid.initialize({
+            theme: 'dark',
+            startOnLoad: false,
+            securityLevel: 'loose'
+        });
+
+        document.addEventListener("DOMContentLoaded", function() {
+            // 1. Convert Markdown pre-code blocks for Mermaid to actual divs
+            document.querySelectorAll("pre code.language-mermaid").forEach(function(el) {
+                const pre = el.parentElement;
+                const div = document.createElement("div");
+                div.className = "mermaid";
+                div.textContent = el.textContent;
+                pre.parentElement.replaceChild(div, pre);
+            });
+            
+            // Run Mermaid rendering
+            mermaid.run();
+            
+            // 2. Reading Progress Bar Logic
+            window.addEventListener('scroll', function() {
+                const winScroll = document.documentElement.scrollTop || document.body.scrollTop;
+                const height = document.documentElement.scrollHeight - document.documentElement.clientHeight;
+                const scrolled = (winScroll / height) * 100;
+                document.getElementById("reading-progress").style.width = scrolled + "%";
+            });
+        });
+    </script>
+</body>
+</html>

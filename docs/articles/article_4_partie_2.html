@@ -1,0 +1,257 @@
+<!DOCTYPE html>
+<html lang="fr">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Validation Empirique — Partie 2 : La Recette du Fine-Tuning Réussi | Tinkerer's Lab</title>
+
+    <!-- Stylesheets -->
+    <link rel="stylesheet" href="../css/style.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.8.0/styles/github-dark.min.css">
+
+    <!-- Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+
+    <!-- MathJax Configuration -->
+    <script>
+        window.MathJax = {
+            tex: {
+                inlineMath: [['$', '$'], ['\\(', '\\)']],
+                displayMath: [['$$', '$$'], ['\\[', '\\]']],
+                processEscapes: true
+            },
+            options: {
+                ignoreHtmlClass: 'tex2jax_ignore',
+                processHtmlClass: 'tex2jax_process'
+            }
+        };
+    </script>
+    <script id="MathJax-script" async src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
+    <script src="../js/sidebar.js" defer></script>
+</head>
+
+<body class="tex2jax_process">
+
+    <!-- Reading Progress Bar -->
+    <div class="progress-bar-container">
+        <div class="progress-bar" id="reading-progress"></div>
+    </div>
+
+    <div class="app-container">
+
+        <!-- Mobile Navigation Header -->
+        <header class="mobile-header">
+            <button class="menu-toggle" id="menu-open-btn">
+                <svg width="24" height="24" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" d="M4 6h16M4 12h16M4 18h16" />
+                </svg>
+            </button>
+            <div class="sidebar-title">Tinkerer's Lab</div>
+            <div></div> <!-- spacer -->
+        </header>
+
+        <!-- Persistent Sidebar -->
+        <aside class="sidebar" id="app-sidebar"></aside>
+
+        <!-- Main Content -->
+        <main class="main-content">
+            <div class="article-layout">
+                <article class="article-container">
+                    <header class="article-header">
+                        <span class="article-category jepa-1-6">Série I-JEPA</span>
+                        <h1>Validation Empirique — Partie 2 : La Recette du Fine-Tuning Réussi</h1>
+                        <p class="article-subtitle">Sonde Linéaire vs Fine-Tuning avec 1% de labels</p>
+                    </header>
+
+                    <div class="article-body">
+                        <blockquote>
+                            <p><strong>Série I-JEPA — Article 4 : Validation empirique</strong>
+                                <em>Dans cette deuxième partie, nous analysons les limites de la sonde linéaire. Nous
+                                    verrons pourquoi figer un modèle léger comme ViT-Tiny brise son potentiel et comment
+                                    le Fine-Tuning (ajustement fin) intervient pour tordre l'espace latent et libérer
+                                    toute la puissance sémantique de JEPA.</em>
+                            </p>
+                        </blockquote>
+                        <hr />
+                        <h2 id="pourquoi-la-sonde-lin-aire-est-elle-trop-rigide-pour-les-petits-mod-les">🚫 Pourquoi la
+                            sonde linéaire est-elle trop rigide pour les petits modèles ?</h2>
+                        <p>Dans la partie précédente, nous avons vu que le Linear Probing fige l'encodeur et n'entraîne
+                            qu'une couche linéaire simple. Si ce protocole fonctionne à merveille sur des modèles géants
+                            de centaines de millions de paramètres, il se heurte à un <strong>plafond de verre</strong>
+                            sur notre modèle léger ViT-Tiny (~2,7 millions de paramètres). </p>
+                        <p>Voici les deux raisons théoriques de cette limitation :</p>
+                        <h3 id="1-la-nature-non-lin-aire-des-concepts-r-els">1. La nature non-linéaire des concepts
+                            réels</h3>
+                        <p>Pendant le pré-entraînement JEPA, le modèle regroupe les patches par ressemblance sémantique
+                            (par exemple, regrouper les textures d'acier, de plastique, de plumes ou de feuillage).
+                            Cependant, ces concepts ne correspondent pas toujours de manière strictement rectiligne aux
+                            classes de CIFAR-10 :
+                        <ul>
+                            <li>Le concept "métal" se retrouve aussi bien chez les voitures (<code>automobile</code>)
+                                que chez les avions (<code>airplane</code>) ou les bateaux (<code>ship</code>).</li>
+                            <li>Le concept "ciel bleu" sert de décor à la fois aux avions et aux bateaux.</li>
+                        </ul>
+                        Une sonde linéaire ne peut tracer que des coupures droites (des hyperplans). Elle est incapable
+                        de plier, de tordre ou d'adapter l'espace pour démêler ces concepts partagés.</p>
+                        <h3 id="2-le-manque-de-sur-param-trage-over-parameterization">2. Le manque de sur-paramétrage
+                            (Over-parameterization)</h3>
+                        <p>Un modèle gigantesque (comme ViT-Huge) dispose d'une telle place dans ses dimensions internes
+                            qu'il peut projeter des concepts complexes de manière parfaitement rectiligne d'emblée. Un
+                            petit modèle comme <code>ViT-Tiny</code> n'a pas cette capacité. Ses représentations sont
+                            d'excellente qualité, mais elles forment des structures géométriques légèrement courbes ou
+                            entremêlées qui nécessitent d'être ajustées.</p>
+                        <hr />
+                        <h2 id="la-preuve-par-les-chiffres-r-sultats-de-notre-lab">📊 La preuve par les chiffres
+                            (Résultats de notre Lab)</h2>
+                        <p>Sur notre base de données CIFAR-10, la différence de performances mesurée est spectaculaire :
+                        </p>
+                        <table>
+                            <thead>
+                                <tr>
+                                    <th style="text-align: left;">Volume de Labels</th>
+                                    <th style="text-align: center;">Linear Probe (Gelé)</th>
+                                    <th style="text-align: center;">Fine-Tuning (Ajustement Fin)</th>
+                                    <th style="text-align: center;">Gain de Précision</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <tr>
+                                    <td style="text-align: left;"><strong>1%</strong> (500 images)</td>
+                                    <td style="text-align: center;">28.75%</td>
+                                    <td style="text-align: center;"><strong>45.02%</strong></td>
+                                    <td style="text-align: center;"><strong>+16.27%</strong></td>
+                                </tr>
+                                <tr>
+                                    <td style="text-align: left;"><strong>10%</strong> (5000 images)</td>
+                                    <td style="text-align: center;">46.29%</td>
+                                    <td style="text-align: center;"><strong>65.80%</strong></td>
+                                    <td style="text-align: center;"><strong>+19.51%</strong></td>
+                                </tr>
+                                <tr>
+                                    <td style="text-align: left;"><strong>100%</strong> (50000 images)</td>
+                                    <td style="text-align: center;">55.56%</td>
+                                    <td style="text-align: center;"><strong>80.22%</strong></td>
+                                    <td style="text-align: center;"><strong>+24.66%</strong></td>
+                                </tr>
+                            </tbody>
+                        </table>
+                        <p>En libérant les poids de l'encodeur, nous permettons au modèle d'ajuster ses représentations
+                            internes pour les rendre parfaitement séparables. À 10% de données, <strong>l'accuracy
+                                bondit de +19.51%</strong>, propulsant le modèle de 46.29% (déjà honorable) à 65.80%
+                            (hautement performant) !</p>
+                        <hr />
+                        <h2 id="la-solution-et-ses-dangers-le-fine-tuning-complet">💥 La solution et ses dangers : Le
+                            Fine-Tuning complet</h2>
+                        <p>Pour briser ce plafond de verre, nous passons au protocole de <strong>Fine-Tuning</strong>
+                            (ajustement fin). En PyTorch, cela consiste à autoriser les gradients à couler dans tout le
+                            réseau en réglant :</p>
+                        <pre><code class="language-python"># On autorise à nouveau la mise à jour des poids de l'encodeur
+for param in jepa_encoder.parameters():
+    param.requires_grad = True
+</code></pre>
+                        <p>Cependant, le Fine-Tuning sur de petits volumes de données (comme 1% ou 10%) apporte un
+                            danger majeur : le <strong>surapprentissage (overfitting)</strong> et l'<strong>oubli
+                                catastrophique (catastrophic forgetting)</strong>. </p>
+                        <p>Si nous entraînons l'ensemble des 2,7 millions de paramètres sur seulement 500 images, le
+                            modèle va très vite effacer la vision sémantique générale apprise par JEPA pour simplement
+                            mémoriser les pixels exacts de ces 500 images. En quelques époques, le modèle surapprend et
+                            perd tout son pouvoir de généralisation.</p>
+                        <hr />
+                        <h2 id="conclusion-amp-transition">🧠 Conclusion &amp; Transition</h2>
+                        <p>Le Fine-Tuning est une arme redoutable pour maximiser les performances des modèles de vision
+                            légers, mais c'est une arme à double tranchant. Sans garde-fou, elle détruit la richesse des
+                            représentations pré-entraînées.</p>
+                        <p>Comment ajuster finement les poids du réseau sans détruire l'intelligence acquise par JEPA ?
+                        </p>
+                        <p>C'est ce que nous allons découvrir dans la troisième partie de cet article en dévoilant
+                            <strong>notre recette secrète : les taux d'apprentissage différentiels et la data
+                                augmentation ciblée</strong> !
+                        </p>
+                        <hr />
+                        <h3 id="d-fi-curieux-n-2">🛠️ Défi curieux n°2</h3>
+                        <p><em>Imaginez un pianiste classique virtuose (le modèle JEPA pré-entraîné) qui souhaite
+                                apprendre le jazz (la tâche de classification). Si on le force à répéter en boucle une
+                                seule mélodie de 3 mesures pendant des jours (fine-tuning agressif sur seulement 1% de
+                                données), il jouera cette mélodie à la perfection mais risque d'altérer sa souplesse
+                                technique générale et d'oublier comment jouer d'autres morceaux (l'oubli
+                                catastrophique). À votre avis, comment le fait d'ajuster l'intégralité des connexions du
+                                réseau (tous les poids) sur un très petit jeu de données favorise-t-il cette perte de
+                                culture générale visuelle au profit d'un simple apprentissage par cœur ?</em></p>
+                    </div>
+
+                    <div class="article-footer-nav">
+                        <a href="article_4_partie_1.html" class="footer-nav-link prev">
+                            <span class="footer-nav-label">← Précédent</span>
+                            <span class="footer-nav-title">Validation Empirique - Partie 1</span>
+                        </a>
+                        <a href="article_4_partie_3.html" class="footer-nav-link next">
+                            <span class="footer-nav-label">Suivant →</span>
+                            <span class="footer-nav-title">Validation Empirique - Partie 3</span>
+                        </a>
+                    </div>
+                </article>
+
+                <div class="toc-sidebar">
+                    <div class="toc-title">Sur cette page</div>
+                    <ul class="toc-list">
+                        <li class=""><a
+                                href="#pourquoi-la-sonde-lin-aire-est-elle-trop-rigide-pour-les-petits-mod-les">🚫
+                                Pourquoi la sonde linéaire est-elle trop rigide pour les petits modèles ?</a></li>
+                        <li class="toc-indent"><a href="#1-la-nature-non-lin-aire-des-concepts-r-els">1. La nature
+                                non-linéaire des concepts réels</a></li>
+                        <li class="toc-indent"><a href="#2-le-manque-de-sur-param-trage-over-parameterization">2. Le
+                                manque de sur-paramétrage (Over-parameterization)</a></li>
+                        <li class=""><a href="#la-preuve-par-les-chiffres-r-sultats-de-notre-lab">📊 La preuve par les
+                                chiffres (Résultats de notre Lab)</a></li>
+                        <li class=""><a href="#la-solution-et-ses-dangers-le-fine-tuning-complet">💥 La solution et ses
+                                dangers : Le Fine-Tuning complet</a></li>
+                        <li class=""><a href="#conclusion-amp-transition">🧠 Conclusion &amp; Transition</a></li>
+                        <li class="toc-indent"><a href="#d-fi-curieux-n-2">🛠️ Défi curieux n°2</a></li>
+                    </ul>
+                </div>
+            </div>
+        </main>
+    </div>
+
+    <!-- Scripts -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.8.0/highlight.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/mermaid/dist/mermaid.min.js"></script>
+
+    <script>
+        // Initialize Highlight.js
+        hljs.highlightAll();
+
+        // Initialize Mermaid
+        mermaid.initialize({
+            theme: 'dark',
+            startOnLoad: false,
+            securityLevel: 'loose'
+        });
+
+        document.addEventListener("DOMContentLoaded", function () {
+            // 1. Convert Markdown pre-code blocks for Mermaid to actual divs
+            document.querySelectorAll("pre code.language-mermaid").forEach(function (el) {
+                const pre = el.parentElement;
+                const div = document.createElement("div");
+                div.className = "mermaid";
+                div.textContent = el.textContent;
+                pre.parentElement.replaceChild(div, pre);
+            });
+
+            // Run Mermaid rendering
+            mermaid.run();
+
+            // 2. Reading Progress Bar Logic
+            window.addEventListener('scroll', function () {
+                const winScroll = document.documentElement.scrollTop || document.body.scrollTop;
+                const height = document.documentElement.scrollHeight - document.documentElement.clientHeight;
+                const scrolled = (winScroll / height) * 100;
+                document.getElementById("reading-progress").style.width = scrolled + "%";
+            });
+        });
+    </script>
+</body>
+
+</html>

@@ -1,0 +1,192 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Saccadic-JEPA — Partie 2 : Fovéation GPU en PyTorch | Tinkerer's Lab</title>
+    
+    <!-- Stylesheets -->
+    <link rel="stylesheet" href="../css/style.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.8.0/styles/github-dark.min.css">
+    
+    <!-- Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    
+    <!-- MathJax Configuration -->
+    <script>
+        window.MathJax = {
+            tex: {
+                inlineMath: [['$', '$'], ['\\(', '\\)']],
+                displayMath: [['$$', '$$'], ['\\[', '\\]']],
+                processEscapes: true
+            },
+            options: {
+                ignoreHtmlClass: 'tex2jax_ignore',
+                processHtmlClass: 'tex2jax_process'
+            }
+        };
+    </script>
+    <script id="MathJax-script" async src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
+    <script src="../js/sidebar.js" defer></script>
+</head>
+<body class="tex2jax_process">
+
+    <!-- Reading Progress Bar -->
+    <div class="progress-bar-container">
+        <div class="progress-bar" id="reading-progress"></div>
+    </div>
+
+    <div class="app-container">
+    
+        <!-- Mobile Navigation Header -->
+        <header class="mobile-header">
+            <button class="menu-toggle" id="menu-open-btn">
+                <svg width="24" height="24" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M4 6h16M4 12h16M4 18h16"/></svg>
+            </button>
+            <div class="sidebar-title">Tinkerer's Lab</div>
+            <div></div> <!-- spacer -->
+        </header>
+
+        <!-- Persistent Sidebar -->
+        <aside class="sidebar" id="app-sidebar"></aside>
+
+        <!-- Main Content -->
+        <main class="main-content">
+            <div class="article-layout">
+                <article class="article-container">
+                    <header class="article-header">
+                        <span class="article-category saccadic">Série Saccadic-JEPA</span>
+                        <h1>Saccadic-JEPA — Partie 2 : Fovéation GPU en PyTorch</h1>
+                        <p class="article-subtitle">Apprendre des structures nettes à partir d'indices flous</p>
+                    </header>
+                    
+                    <div class="article-body">
+                        <blockquote>
+<p><strong>Série Saccadic-JEPA : Vers une Vision Artificielle Biologiquement Inspirée</strong>
+<em>Dans cette deuxième partie du huitième article, nous nous focalisons sur la pièce maîtresse du raisonnement spatial : le Predictor. Nous allons comprendre comment ce module léger agit comme un traducteur de résolution dans l'espace latent, capable de convertir des indices périphériques flous en représentations centrales nettes.</em></p>
+</blockquote>
+<hr />
+<h2 id="l-analogie-du-restaurateur-d-art">🎨 L'Analogie du Restaurateur d'Art</h2>
+<p>Pour bien comprendre le rôle du <strong>Predictor</strong> dans Saccadic-JEPA, imaginons un restaurateur d'art à qui l'on présente une toile dont le centre a été découpé et volé. Pour compliquer les choses, le reste de la toile (le cadre, l'arrière-plan, les personnages secondaires) a été fortement endommagé par l'humidité et les couleurs ont délavé (flou périphérique).</p>
+<p>Le travail de cet artiste n'est pas d'inventer un dessin au hasard. Il doit analyser les formes floues et dégradées qui restent sur les côtés pour <strong>imaginer et dessiner la zone manquante avec une précision chirurgicale, des détails nets et des couleurs vives</strong>.</p>
+<p>Dans Saccadic-JEPA, le Predictor est ce restaurateur d'art.
+* Le reste de la toile floue correspond au <strong>contexte fovéé</strong> ($s_x$).
+* La zone manquante nette correspond aux <strong>représentations cibles</strong> ($s_y$).</p>
+<hr />
+<h2 id="le-predictor-comme-pont-entre-deux-r-solutions">🗺️ Le Predictor comme pont entre deux résolutions</h2>
+<p>Dans I-JEPA standard, la tâche du Predictor est une simple interpolation spatiale : il prend des patches de l'image $A$ et remplit les blancs en se basant sur le voisinage à la même échelle.</p>
+<p>Dans Saccadic-JEPA, le Predictor doit accomplir une <strong>traduction d'échelle</strong> (<em>cross-resolution translation</em>) dans l'espace latent. Il reçoit :
+1. Les représentations du contexte $s_x$ issues de l'encodeur de contexte. Celles-ci ont été calculées sur des patches <strong>floutés</strong> de $128\times 128$ (donc pauvres en détails fins).
+2. Des <strong>jetons de masques (Mask Tokens)</strong> qui indiquent l'emplacement exact (les coordonnées géométriques) des patches cibles de la fovéa.</p>
+<p>À partir de cette entrée mixte, le Predictor doit générer $\hat{s}_y$, une prédiction qui doit correspondre point par point à la sortie de l'encodeur cible (le Professeur) qui, lui, a traité l'image <strong>originale nette</strong>.</p>
+<hr />
+<h2 id="dans-les-entrailles-du-code-pr-parer-et-alimenter-le-predictor">🛠️ Dans les entrailles du code : Préparer et alimenter le Predictor</h2>
+<p>Regardons comment cette étape de traduction est implémentée dans <code>saccadic_models.py</code> (lignes 94-109) :</p>
+<pre><code class="language-python"># 1. Récupérer les encodages de position (Positional Embeddings) des patches cibles
+pos_embed = self.context_encoder.pos_embed # (1, N, D)
+target_pos_embed = torch.gather(
+    pos_embed.expand(B, -1, -1),
+    1,
+    target_indices.unsqueeze(-1).expand(-1, -1, self.embed_dim)
+) # (B, K_y, D)
+
+# 2. Associer le jeton de masque appris aux coordonnées spatiales de la cible
+target_mask_tokens = self.mask_token.expand(B, K_y, -1) + target_pos_embed # (B, K_y, D)
+
+# 3. Concaténer les features du contexte flou (s_x) et les masques positionnels de la cible
+pred_inputs = torch.cat([s_x, target_mask_tokens], dim=1) # (B, K_x + K_y, D)
+
+# 4. Passer dans le Predictor (un Transformer léger de 4 blocs)
+pred_outputs = self.predictor(pred_inputs)
+
+# 5. Isoler uniquement la partie prédite pour les masques
+s_y_hat = pred_outputs[:, K_x:] # (B, K_y, D)
+</code></pre>
+<h3 id="pourquoi-l-encodage-de-position-est-il-vital">Pourquoi l'encodage de position est-il vital ?</h3>
+<p>Le jeton de masque générique <code>mask_token</code> est le même pour toutes les cibles. Si nous l'envoyions brut au Predictor, ce dernier ne saurait pas <em>où</em> se trouve la fovéa par rapport aux patches de contexte. En lui ajoutant <code>target_pos_embed</code>, on lui donne une boussole : <em>"Tu dois prédire les détails fins à la coordonnée $(X_i, Y_i)$"</em>.</p>
+<hr />
+<h2 id="la-perte-de-pr-diction-latente-mse-loss">⚖️ La Perte de Prédiction Latente (MSE Loss)</h2>
+<p>L'entraînement du modèle se fait en minimisant la différence entre la prédiction du Predictor ($\hat{s}_y$) et l'encodage net réel du Professeur ($s_y$) :</p>
+<p>$$\mathcal{L}_{\text{Saccadic}} = \frac{1}{K_y} \sum_{i=1}^{K_y} \|\hat{s}_{y, i} - s_{y, i}\|^2_2$$</p>
+<p>Puisque la perte est calculée dans l'<strong>espace latent</strong> (la dimension 192 de nos embeddings) et non dans l'espace des pixels :
+* Le Predictor n'est pas pénalisé s'il ne prédit pas le pixel exact d'un brin d'herbe ou d'un poil.
+* Il est pénalisé s'il ne saisit pas la structure sémantique globale de l'objet (par exemple, confondre une texture de plumes nettes avec une texture de métal lisse).</p>
+<hr />
+<h2 id="conclusion-amp-transition">🧠 Conclusion &amp; Transition</h2>
+<p>Le Predictor réalise un exploit de traduction : il prend une entrée dégradée, et guidé par des coordonnées spatiales, il parvient à recréer des structures nettes de haute résolution dans l'espace latent.</p>
+<p>Cependant, il reste une faille possible. Si l'Élève (Context Encoder) a le droit de tricher en regardant les pixels fins d'origine de la zone cible pour encoder le contexte, la tâche devient triviale et le modèle n'apprend rien.</p>
+<p>Comment s'assurer que l'Élève ne triche pas ? Comment mettre en œuvre le <strong>masquage strict et asymétrique</strong> ?</p>
+<p>C'est le sujet de la troisième partie : <strong>Le protocole anti-triche du masquage strict</strong> !</p>
+<hr />
+<h3 id="d-fi-de-curiosit-n-2">🛠️ Défi de curiosité n°2</h3>
+<p><em>Pourquoi le Predictor est-il un réseau séparé et beaucoup plus léger (ex. 4 couches d'attention) que l'encodeur de contexte (6 couches) ? Quel est le risque si nous utilisions un Predictor trop profond ou trop puissant par rapport à l'encodeur ?</em></p>
+                    </div>
+                    
+                    <div class="article-footer-nav">
+  <a href="article_8_partie_1.html" class="footer-nav-link prev">
+    <span class="footer-nav-label">← Précédent</span>
+    <span class="footer-nav-title">Saccadic-JEPA - Partie 1</span>
+  </a>
+  <a href="article_8_partie_3.html" class="footer-nav-link next">
+    <span class="footer-nav-label">Suivant →</span>
+    <span class="footer-nav-title">Saccadic-JEPA - Partie 3</span>
+  </a>
+</div>
+                </article>
+                
+                <div class="toc-sidebar">
+  <div class="toc-title">Sur cette page</div>
+  <ul class="toc-list">
+    <li class=""><a href="#l-analogie-du-restaurateur-d-art">🎨 L'Analogie du Restaurateur d'Art</a></li>
+    <li class=""><a href="#le-predictor-comme-pont-entre-deux-r-solutions">🗺️ Le Predictor comme pont entre deux résolutions</a></li>
+    <li class=""><a href="#dans-les-entrailles-du-code-pr-parer-et-alimenter-le-predictor">🛠️ Dans les entrailles du code : Préparer et alimenter le Predictor</a></li>
+    <li class="toc-indent"><a href="#pourquoi-l-encodage-de-position-est-il-vital">Pourquoi l'encodage de position est-il vital ?</a></li>
+    <li class=""><a href="#la-perte-de-pr-diction-latente-mse-loss">⚖️ La Perte de Prédiction Latente (MSE Loss)</a></li>
+    <li class=""><a href="#conclusion-amp-transition">🧠 Conclusion &amp; Transition</a></li>
+    <li class="toc-indent"><a href="#d-fi-de-curiosit-n-2">🛠️ Défi de curiosité n°2</a></li>
+  </ul>
+</div>
+            </div>
+        </main>
+    </div>
+
+    <!-- Scripts -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.8.0/highlight.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/mermaid/dist/mermaid.min.js"></script>
+    
+    <script>
+        // Initialize Highlight.js
+        hljs.highlightAll();
+        
+        // Initialize Mermaid
+        mermaid.initialize({
+            theme: 'dark',
+            startOnLoad: false,
+            securityLevel: 'loose'
+        });
+
+        document.addEventListener("DOMContentLoaded", function() {
+            // 1. Convert Markdown pre-code blocks for Mermaid to actual divs
+            document.querySelectorAll("pre code.language-mermaid").forEach(function(el) {
+                const pre = el.parentElement;
+                const div = document.createElement("div");
+                div.className = "mermaid";
+                div.textContent = el.textContent;
+                pre.parentElement.replaceChild(div, pre);
+            });
+            
+            // Run Mermaid rendering
+            mermaid.run();
+            
+            // 2. Reading Progress Bar Logic
+            window.addEventListener('scroll', function() {
+                const winScroll = document.documentElement.scrollTop || document.body.scrollTop;
+                const height = document.documentElement.scrollHeight - document.documentElement.clientHeight;
+                const scrolled = (winScroll / height) * 100;
+                document.getElementById("reading-progress").style.width = scrolled + "%";
+            });
+        });
+    </script>
+</body>
+</html>

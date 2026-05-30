@@ -1,0 +1,265 @@
+<!DOCTYPE html>
+<html lang="fr">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Passage à l'Échelle — Partie 1 : Pourquoi le Multi-Cibles ? | Tinkerer's Lab</title>
+
+    <!-- Stylesheets -->
+    <link rel="stylesheet" href="../css/style.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.8.0/styles/github-dark.min.css">
+
+    <!-- Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+
+    <!-- MathJax Configuration -->
+    <script>
+        window.MathJax = {
+            tex: {
+                inlineMath: [['$', '$'], ['\\(', '\\)']],
+                displayMath: [['$$', '$$'], ['\\[', '\\]']],
+                processEscapes: true
+            },
+            options: {
+                ignoreHtmlClass: 'tex2jax_ignore',
+                processHtmlClass: 'tex2jax_process'
+            }
+        };
+    </script>
+    <script id="MathJax-script" async src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
+    <script src="../js/sidebar.js" defer></script>
+</head>
+
+<body class="tex2jax_process">
+
+    <!-- Reading Progress Bar -->
+    <div class="progress-bar-container">
+        <div class="progress-bar" id="reading-progress"></div>
+    </div>
+
+    <div class="app-container">
+
+        <!-- Mobile Navigation Header -->
+        <header class="mobile-header">
+            <button class="menu-toggle" id="menu-open-btn">
+                <svg width="24" height="24" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" d="M4 6h16M4 12h16M4 18h16" />
+                </svg>
+            </button>
+            <div class="sidebar-title">Tinkerer's Lab</div>
+            <div></div> <!-- spacer -->
+        </header>
+
+        <!-- Persistent Sidebar -->
+        <aside class="sidebar" id="app-sidebar"></aside>
+
+        <!-- Main Content -->
+        <main class="main-content">
+            <div class="article-layout">
+                <article class="article-container">
+                    <header class="article-header">
+                        <span class="article-category jepa-1-6">Série I-JEPA</span>
+                        <h1>Passage à l'Échelle — Partie 1 : Pourquoi le Multi-Cibles ?</h1>
+                        <p class="article-subtitle">Prédire la cohérence spatiale globale sur GPU</p>
+                    </header>
+
+                    <div class="article-body">
+                        <blockquote>
+                            <p><strong>Série I-JEPA — Article 3 : Passer à l'échelle (Niveau 2)</strong>
+                                <em>Dans cette première partie de notre troisième article, nous nous rapprochons de
+                                    l'implémentation officielle de Meta. Nous verrons pourquoi prédire un seul grand
+                                    bloc central est insuffisant pour capturer toute la complexité d'une scène, et
+                                    comment l'échantillonnage de cibles multiples disjointes force le modèle à
+                                    développer une cohérence géométrique supérieure.</em>
+                            </p>
+                        </blockquote>
+                        <hr />
+                        <h2 id="le-probl-me-du-bloc-unique-une-vision-trop-locale">🏔️ Le problème du bloc unique : Une
+                            vision trop locale</h2>
+                        <p>Dans l'article précédent, nous avons implémenté un JEPA mono-cible : le modèle devait deviner
+                            un unique grand bloc carré de $4\times 4$ patches. C'est une excellente première étape, mais
+                            elle comporte des limites :</p>
+                        <ol>
+                            <li><strong>Uniformité du contexte</strong> : Si la cible est toujours au centre ou forme un
+                                seul bloc, le modèle s'habitue à n'extraire le contexte que depuis les bords extérieurs.
+                            </li>
+                            <li><strong>Manque de relations longue distance</strong> : Dans une scène réelle, les
+                                parties d'un même concept sémantique peuvent être disséminées (ex: les deux phares d'une
+                                voiture, les ailes d'un avion, les pattes d'un oiseau). Prédire un seul bloc contraint
+                                le réseau à une spéculation locale.</li>
+                            <li><strong>L'approche I-JEPA (Meta)</strong> : Pour forcer le modèle à apprendre la
+                                cohérence spatiale longue distance, le papier officiel propose d'échantillonner
+                                plusieurs blocs cibles disjoints (de 4 à 6 cibles de tailles aléatoires) et de les
+                                prédire en parallèle à partir d'un seul et même contexte partagé.</li>
+                        </ol>
+                        <p>Dans notre lab, nous implémentons ce standard sous la forme de <strong>4 cibles disjointes de
+                                $2\times 2$ patches</strong>.</p>
+                        <hr />
+                        <h2 id="la-contrainte-des-dimensions-fixes-viter-le-cauchemar-du-padding">🧩 La contrainte des
+                            dimensions fixes : Éviter le cauchemar du padding</h2>
+                        <p>En Deep Learning, les GPUs adorent les calculs matriciels réguliers. Si chaque image d'un lot
+                            (batch) avait un nombre de patches de contexte ou de cible différent, nous devrions :
+                        <ul>
+                            <li>Rajouter des jetons de remplissage inutiles (padding).</li>
+                            <li>Gérer des masques d'attention complexes à chaque couche pour empêcher le réseau de lire
+                                le padding.</li>
+                            <li>Ralentir considérablement la vitesse d'entraînement.</li>
+                        </ul>
+                        </p>
+                        <p>Pour contourner cette contrainte, notre fichier <code>masks_multi.py</code> utilise une règle
+                            géométrique élégante : <strong>les cibles ne doivent pas se chevaucher (mutuellement
+                                disjointes)</strong>.</p>
+                        <p>Grâce à cette contrainte :
+                        <ul>
+                            <li>Chaque cible a une taille fixe : $2 \times 2 = 4$ patches.</li>
+                            <li>Le nombre de cibles est fixe : $num\_targets = 4$.</li>
+                            <li>L'union de toutes les cibles fait une taille fixe : $4 \times 4 = 16$ patches.</li>
+                            <li>Le contexte restant fait toujours exactement : $64 - 16 = 48$ patches.</li>
+                        </ul>
+                        </p>
+                        <p>Les tenseurs ont ainsi des dimensions parfaites et constantes à chaque itération, sans aucun
+                            padding !</p>
+                        <pre><code>     Grille 8x8 avec 4 cibles disjointes (T1, T2, T3, T4) de 2x2 patches
+     ┌───┬───┬───┬───┬───┬───┬───┬───┐
+     │   │   │   │   │T3 │T3 │   │   │     Contexte visible ( ) : 48 patches
+     ├───┼───┼───┼───┼───┼───┼───┼───┤
+     │T1 │T1 │   │   │T3 │T3 │   │   │     Cibles masquées (T)  : 16 patches
+     ├───┼───┼───┼───┼───┼───┼───┼───┤
+     │T1 │T1 │   │   │   │   │   │   │     Cloisonnement : 
+     ├───┼───┼───┼───┼───┼───┼───┼───┤     Aucun chevauchement entre les 4 cibles
+     │   │   │   │   │   │   │T4 │T4 │     et aucun chevauchement avec le contexte.
+     ├───┼───┼───┼───┼───┼───┼───┼───┤
+     │   │T2 │T2 │   │   │   │T4 │T4 │
+     ├───┼───┼───┼───┼───┼───┼───┼───┤
+     │   │T2 │T2 │   │   │   │   │   │
+     └───┴───┴───┴───┴───┴───┴───┴───┘
+</code></pre>
+                        <hr />
+                        <h2 id="dans-les-entrailles-du-code-jepa-lab-masks-multi-py">🛠️ Dans les entrailles du code :
+                            <code>jepa_lab/masks_multi.py</code>
+                        </h2>
+                        <p>Analysons comment le script garantit cette disjonction géométrique. La boucle
+                            d'échantillonnage fonctionne par essai/erreur :</p>
+                        <pre><code class="language-python">for _ in range(num_targets):
+    found = False
+    # Tente jusqu'à 100 fois de trouver un bloc qui ne chevauche pas les précédents
+    for attempt in range(100):
+        # 1. Choisir des coordonnées aléatoires
+        r = random.randint(0, grid_size - target_size)
+        c = random.randint(0, grid_size - target_size)
+
+        # 2. Collecter les index de ce bloc
+        block = []
+        for i in range(target_size):
+            for j in range(target_size):
+                block.append((r + i) * grid_size + (c + j))
+
+        # 3. Vérifier s'il chevauche les cibles déjà sélectionnées
+        if not any(idx in used_indices for idx in block):
+            used_indices.update(block)
+            targets.append(block)
+            found = True
+            break # Bloc validé !
+</code></pre>
+                        <h3 id="le-m-canisme-de-secours-fallback">🛡️ Le mécanisme de secours (Fallback) :</h3>
+                        <p>Dans de très rares cas (si les 3 premiers blocs aléatoires sont placés de telle façon qu'il
+                            ne reste aucun espace libre de $2\times 2$ contigu), l'algorithme pourrait échouer après 100
+                            tentatives. </p>
+                        <p>Pour éviter de bloquer l'entraînement, un mécanisme de secours extrait les index non utilisés
+                            restants (<code>all_unused</code>) et les regroupe pour former la dernière cible. </p>
+                        <hr />
+                        <h2 id="conclusion-amp-transition">🧠 Conclusion &amp; Transition</h2>
+                        <p>L'échantillonnage multi-cibles disjointes nous donne une phrase sémantique de contexte de 48
+                            tokens stables et 4 cibles distinctes de 4 tokens à deviner. </p>
+                        <p>Mais un problème d'optimisation de taille se pose : pour calculer la prédiction de ces 4
+                            cibles indépendantes, devons-nous faire 4 boucles séquentielles dans notre Predictor ? Si
+                            oui, nos temps de calcul vont s'effondrer. </p>
+                        <p>C'est le défi que nous allons résoudre dans la deuxième partie de cet article en découvrant
+                            <strong>l'astuce de parallélisation et de vectorisation du Predictor sur GPU</strong> !
+                        </p>
+                        <hr />
+                        <h3 id="d-fi-curieux-n-1">🛠️ Défi curieux n°1</h3>
+                        <p><em>Imaginez que vous tentiez de comprendre le plan d'une grande ville. Si l'on vous cache
+                                uniquement le centre de la carte (une cible unique), vous pouvez facilement déduire ce
+                                qui s'y trouve en prolongeant les grands boulevards périphériques. En revanche, si l'on
+                                vous cache quatre monuments situés à des quartiers complètement opposés (nord, sud, est,
+                                ouest), vous devez analyser les relations spatiales à longue distance et comprendre
+                                l'organisation globale de la ville pour deviner la nature de chaque lieu masqué. À votre
+                                avis, comment le fait d'entraîner le modèle à prédire simultanément plusieurs cibles
+                                disjointes (plutôt qu'une seule) le force-t-il à développer une compréhension sémantique
+                                globale ?</em></p>
+                    </div>
+
+                    <div class="article-footer-nav">
+                        <a href="article_2_partie_3.html" class="footer-nav-link prev">
+                            <span class="footer-nav-label">← Précédent</span>
+                            <span class="footer-nav-title">Coder son premier JEPA - Partie 3</span>
+                        </a>
+                        <a href="article_3_partie_2.html" class="footer-nav-link next">
+                            <span class="footer-nav-label">Suivant →</span>
+                            <span class="footer-nav-title">Passage à l'Échelle - Partie 2</span>
+                        </a>
+                    </div>
+                </article>
+
+                <div class="toc-sidebar">
+                    <div class="toc-title">Sur cette page</div>
+                    <ul class="toc-list">
+                        <li class=""><a href="#le-probl-me-du-bloc-unique-une-vision-trop-locale">🏔️ Le problème du
+                                bloc unique : Une vision trop locale</a></li>
+                        <li class=""><a href="#la-contrainte-des-dimensions-fixes-viter-le-cauchemar-du-padding">🧩 La
+                                contrainte des dimensions fixes : Éviter le cauchemar du padding</a></li>
+                        <li class=""><a href="#dans-les-entrailles-du-code-jepa-lab-masks-multi-py">🛠️ Dans les
+                                entrailles du code : jepa_lab/masks_multi.py</a></li>
+                        <li class="toc-indent"><a href="#le-m-canisme-de-secours-fallback">🛡️ Le mécanisme de secours
+                                (Fallback) :</a></li>
+                        <li class=""><a href="#conclusion-amp-transition">🧠 Conclusion &amp; Transition</a></li>
+                        <li class="toc-indent"><a href="#d-fi-curieux-n-1">🛠️ Défi curieux n°1</a></li>
+                    </ul>
+                </div>
+            </div>
+        </main>
+    </div>
+
+    <!-- Scripts -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.8.0/highlight.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/mermaid/dist/mermaid.min.js"></script>
+
+    <script>
+        // Initialize Highlight.js
+        hljs.highlightAll();
+
+        // Initialize Mermaid
+        mermaid.initialize({
+            theme: 'dark',
+            startOnLoad: false,
+            securityLevel: 'loose'
+        });
+
+        document.addEventListener("DOMContentLoaded", function () {
+            // 1. Convert Markdown pre-code blocks for Mermaid to actual divs
+            document.querySelectorAll("pre code.language-mermaid").forEach(function (el) {
+                const pre = el.parentElement;
+                const div = document.createElement("div");
+                div.className = "mermaid";
+                div.textContent = el.textContent;
+                pre.parentElement.replaceChild(div, pre);
+            });
+
+            // Run Mermaid rendering
+            mermaid.run();
+
+            // 2. Reading Progress Bar Logic
+            window.addEventListener('scroll', function () {
+                const winScroll = document.documentElement.scrollTop || document.body.scrollTop;
+                const height = document.documentElement.scrollHeight - document.documentElement.clientHeight;
+                const scrolled = (winScroll / height) * 100;
+                document.getElementById("reading-progress").style.width = scrolled + "%";
+            });
+        });
+    </script>
+</body>
+
+</html>

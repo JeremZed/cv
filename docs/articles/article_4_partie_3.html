@@ -1,0 +1,267 @@
+<!DOCTYPE html>
+<html lang="fr">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Validation Empirique — Partie 3 : Analyse Comparative des Courbes | Tinkerer's Lab</title>
+
+    <!-- Stylesheets -->
+    <link rel="stylesheet" href="../css/style.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.8.0/styles/github-dark.min.css">
+
+    <!-- Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+
+    <!-- MathJax Configuration -->
+    <script>
+        window.MathJax = {
+            tex: {
+                inlineMath: [['$', '$'], ['\\(', '\\)']],
+                displayMath: [['$$', '$$'], ['\\[', '\\]']],
+                processEscapes: true
+            },
+            options: {
+                ignoreHtmlClass: 'tex2jax_ignore',
+                processHtmlClass: 'tex2jax_process'
+            }
+        };
+    </script>
+    <script id="MathJax-script" async src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
+    <script src="../js/sidebar.js" defer></script>
+</head>
+
+<body class="tex2jax_process">
+
+    <!-- Reading Progress Bar -->
+    <div class="progress-bar-container">
+        <div class="progress-bar" id="reading-progress"></div>
+    </div>
+
+    <div class="app-container">
+
+        <!-- Mobile Navigation Header -->
+        <header class="mobile-header">
+            <button class="menu-toggle" id="menu-open-btn">
+                <svg width="24" height="24" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" d="M4 6h16M4 12h16M4 18h16" />
+                </svg>
+            </button>
+            <div class="sidebar-title">Tinkerer's Lab</div>
+            <div></div> <!-- spacer -->
+        </header>
+
+        <!-- Persistent Sidebar -->
+        <aside class="sidebar" id="app-sidebar"></aside>
+
+        <!-- Main Content -->
+        <main class="main-content">
+            <div class="article-layout">
+                <article class="article-container">
+                    <header class="article-header">
+                        <span class="article-category jepa-1-6">Série I-JEPA</span>
+                        <h1>Validation Empirique — Partie 3 : Analyse Comparative des Courbes</h1>
+                        <p class="article-subtitle">Sonde Linéaire vs Fine-Tuning avec 1% de labels</p>
+                    </header>
+
+                    <div class="article-body">
+                        <blockquote>
+                            <p><strong>Série I-JEPA — Article 4 : Validation empirique</strong>
+                                <em>Dans cette troisième et dernière partie de notre quatrième article, nous détaillons
+                                    les outils techniques indispensables pour réaliser un Fine-Tuning robuste sans
+                                    tomber dans le piège de l'overfitting. Nous verrons comment programmer des taux
+                                    d'apprentissage différents selon les couches et comment la data augmentation protège
+                                    l'intelligence acquise par JEPA.</em>
+                            </p>
+                        </blockquote>
+                        <hr />
+                        <h2 id="levier-1-les-taux-d-apprentissage-diff-rentiels-discriminative-lrs">🎛️ Levier 1 : Les
+                            Taux d'Apprentissage Différentiels (Discriminative LRs)</h2>
+                        <p>Lorsque nous dégelons notre encodeur pour l'ajuster, nous faisons face à un dilemme :
+                        <ul>
+                            <li><strong>L'encodeur</strong> possède déjà des poids très riches issus de centaines
+                                d'époques de pré-entraînement SSL. Nous voulons qu'il s'adapte, mais très lentement,
+                                pour ne pas détruire ses connaissances géométriques.</li>
+                            <li><strong>La tête de classification</strong> linéaire vient d'être initialisée avec des
+                                poids aléatoires. Elle ne sait rien et doit apprendre le plus vite possible à associer
+                                les représentations sémantiques aux classes de CIFAR-10.</li>
+                        </ul>
+                        </p>
+                        <p>La solution technique consiste à utiliser des <strong>taux d'apprentissage
+                                différentiels</strong> (Discriminative Learning Rates). Nous appliquons un taux
+                            d'apprentissage 10 fois plus faible pour l'encodeur que pour la tête :</p>
+                        <p>$$\text{LR}_{\text{encoder}} = 10^{-4} \quad \text{vs} \quad \text{LR}_{\text{head}} =
+                            10^{-3}$$</p>
+                        <h3 id="l-impl-mentation-en-pytorch-evaluate-finetuning-py-lignes-66-79">🛠️ L'implémentation en
+                            PyTorch (<code>evaluate_finetuning.py</code>, lignes 66-79) :</h3>
+                        <p>Nous séparons les paramètres du modèle en deux groupes distincts avant de les fournir à
+                            l'optimiseur :</p>
+                        <pre><code class="language-python">encoder_params = []
+head_params = []
+for name, param in model.named_parameters():
+    if param.requires_grad:
+        if &quot;encoder&quot; in name:
+            encoder_params.append(param)
+        else:
+            head_params.append(param)
+
+# Configuration de l'optimiseur avec des hyperparamètres distincts
+optimizer = torch.optim.AdamW([
+    {&quot;params&quot;: encoder_params, &quot;lr&quot;: lr_encoder}, # lr = 1e-4
+    {&quot;params&quot;: head_params, &quot;lr&quot;: lr_head}       # lr = 1e-3
+], weight_decay=weight_decay)
+</code></pre>
+                        <p>Grâce à cette asymétrie d'apprentissage, la tête de classification absorbe rapidement le
+                            signal de supervision, tandis que l'encodeur agit comme une ancre stable, s'ajustant par
+                            micro-degrés sans subir d'oubli catastrophique.</p>
+                        <hr />
+                        <h2 id="levier-2-la-data-augmentation-cibl-e">🎨 Levier 2 : La Data Augmentation Ciblée</h2>
+                        <p>Si vous donnez exactement les mêmes images au modèle à chaque époque d'un dataset réduit à 1%
+                            (seulement 500 images), le réseau ViT-Tiny va finir par mémoriser les pixels exacts de
+                            chaque exemple.</p>
+                        <p>Pour l'en empêcher, nous appliquons une <strong>Data Augmentation</strong> avancée lors de
+                            l'entraînement (<code>evaluate_finetuning.py</code>) :</p>
+                        <pre><code class="language-python">transform_train = transforms.Compose([
+    transforms.RandomCrop(32, padding=4), # Décale légèrement l'image
+    transforms.RandomHorizontalFlip(),    # Retourne l'image horizontalement
+    transforms.ColorJitter(               # Modifie l'éclairage et les couleurs
+        brightness=0.2, 
+        contrast=0.2, 
+        saturation=0.2
+    ),
+    transforms.ToTensor(),
+    transforms.Normalize((0.4914, 0.4822, 0.4465), (0.2023, 0.1994, 0.2010))
+])
+</code></pre>
+                        <h3 id="pourquoi-le-colorjitter-est-il-crucial-pour-jepa">🧠 Pourquoi le ColorJitter est-il
+                            crucial pour JEPA ?</h3>
+                        <p>JEPA a été pré-entraîné sans étiquettes en apprenant à prédire des représentations latentes
+                            de blocs masqués. Il a appris à ignorer le bruit de pixel haute fréquence.
+                            En introduisant des variations de luminosité, de contraste et de saturation
+                            (<code>ColorJitter</code>), nous renforçons cette invariance aux couleurs. L'encodeur ne
+                            peut pas tricher en mémorisant une couleur de fond spécifique ; il est forcé de s'appuyer
+                            sur la forme géométrique et la structure sémantique des objets.</p>
+                        <hr />
+                        <h2 id="l-impact-du-warm-start-jepa-vs-supervised-scratch">🆚 L'impact du Warm-Start : JEPA vs
+                            Supervised Scratch</h2>
+                        <p>Entraîner un modèle à partir de zéro (<em>from scratch</em>) sur des budgets de données
+                            ultra-réduits est extrêmement difficile. À <strong>1% de données</strong> (500 images), le
+                            modèle supervisé classique part de poids complètement aléatoires. Il doit apprendre
+                            simultanément à "voir" (détecter des bords, des coins, des textures) et à "classer". Avec
+                            seulement 50 exemples par classe, il échoue et plafonne à <strong>26.51%</strong> d'accuracy
+                            (le hasard complet étant à 10%).</p>
+                        <p>Le modèle initialisé avec nos poids JEPA bénéficie d'un <strong>Warm-Start</strong>
+                            (démarrage à chaud) : il sait déjà analyser la géométrie d'une scène. Il n'a plus qu'à
+                            apprendre à catégoriser. Grâce à cette maturité visuelle préalable, il atteint
+                            <strong>45.02%</strong> d'accuracy, écrasant le modèle supervisé.
+                        </p>
+                        <hr />
+                        <h2 id="conclusion-de-l-article-4-amp-perspectives">🎬 Conclusion de l'Article 4 &amp;
+                            Perspectives</h2>
+                        <p>Notre diagnostic empirique est sans appel :
+                        <ol>
+                            <li>Figer l'encodeur (Linear Probing) est idéal pour mesurer la séparabilité théorique, mais
+                                trop restrictif pour les petits modèles (<strong>Partie 1</strong>).</li>
+                            <li>Le Fine-Tuning complet libère le potentiel de ViT-Tiny en lui permettant d'ajuster son
+                                espace sémantique (<strong>Partie 2</strong>).</li>
+                            <li>L'utilisation de taux d'apprentissage différentiels ($10^{-4}$ vs $10^{-3}$) et de la
+                                data augmentation protège l'encodeur du surapprentissage (<strong>Partie 3</strong>).
+                        </ol>
+
+                        <p>Nos modèles pré-entraînés avec JEPA se révèlent d'une redoutable efficacité dans les régimes
+                            à très faible volume de données.</p>
+                        <p>Mais une question demeure en suspens : que se passe-t-il réellement à l'intérieur des couches
+                            d'attention de notre ViT ? Comment JEPA parvient-il à focaliser son attention sur les objets
+                            plutôt que sur le décor ?</p>
+                        <p>C'est ce que nous allons découvrir dans l'<strong>Article 5 : Ouvrir la boîte noire —
+                                Visualisation et Interprétation sémantique (XAI)</strong> en générant des cartes de
+                            chaleur d'attention (<em>attention heatmaps</em>) !</p>
+                        <hr />
+                        <h3 id="d-fi-curieux-n-3">🛠️ Défi curieux n°3</h3>
+                        <p><em>Imaginez une collaboration entre un artisan chevronné (l'encodeur pré-entraîné) et son
+                                nouvel apprenti (la tête de classification) pour concevoir un nouveau produit. Pour que
+                                le projet réussisse, l'apprenti doit apprendre les règles de l'atelier le plus vite
+                                possible (taux d'apprentissage élevé), tandis que l'artisan chevronné ne doit ajuster
+                                ses gestes séculaires que par micro-détails (taux d'apprentissage très faible) sous
+                                peine de perdre son savoir-faire d'origine. À votre avis, si l'artisan se mettait à
+                                réapprendre ses bases à la même vitesse rapide que l'apprenti (mêmes taux
+                                d'apprentissage élevés pour toutes les couches), quel serait le risque pour la qualité
+                                et la stabilité des créations finales de l'atelier ?</em></p>
+                    </div>
+
+                    <div class="article-footer-nav">
+                        <a href="article_4_partie_2.html" class="footer-nav-link prev">
+                            <span class="footer-nav-label">← Précédent</span>
+                            <span class="footer-nav-title">Validation Empirique - Partie 2</span>
+                        </a>
+                        <a href="article_5_partie_1.html" class="footer-nav-link next">
+                            <span class="footer-nav-label">Suivant →</span>
+                            <span class="footer-nav-title">Ouvrir la Boîte Noire - Partie 1</span>
+                        </a>
+                    </div>
+                </article>
+
+                <div class="toc-sidebar">
+                    <div class="toc-title">Sur cette page</div>
+                    <ul class="toc-list">
+                        <li class=""><a href="#levier-1-les-taux-d-apprentissage-diff-rentiels-discriminative-lrs">🎛️
+                                Levier 1 : Les Taux d'Apprentissage Différentiels (Discriminative LRs)</a></li>
+                        <li class="toc-indent"><a
+                                href="#l-impl-mentation-en-pytorch-evaluate-finetuning-py-lignes-66-79">🛠️
+                                L'implémentation en PyTorch (evaluate_finetuning.py, lignes 66-79) :</a></li>
+                        <li class=""><a href="#levier-2-la-data-augmentation-cibl-e">🎨 Levier 2 : La Data Augmentation
+                                Ciblée</a></li>
+                        <li class="toc-indent"><a href="#pourquoi-le-colorjitter-est-il-crucial-pour-jepa">🧠 Pourquoi
+                                le ColorJitter est-il crucial pour JEPA ?</a></li>
+                        <li class=""><a href="#l-impact-du-warm-start-jepa-vs-supervised-scratch">🆚 L'impact du
+                                Warm-Start : JEPA vs Supervised Scratch</a></li>
+                        <li class=""><a href="#conclusion-de-l-article-4-amp-perspectives">🎬 Conclusion de l'Article 4
+                                &amp; Perspectives</a></li>
+                        <li class="toc-indent"><a href="#d-fi-curieux-n-3">🛠️ Défi curieux n°3</a></li>
+                    </ul>
+                </div>
+            </div>
+        </main>
+    </div>
+
+    <!-- Scripts -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.8.0/highlight.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/mermaid/dist/mermaid.min.js"></script>
+
+    <script>
+        // Initialize Highlight.js
+        hljs.highlightAll();
+
+        // Initialize Mermaid
+        mermaid.initialize({
+            theme: 'dark',
+            startOnLoad: false,
+            securityLevel: 'loose'
+        });
+
+        document.addEventListener("DOMContentLoaded", function () {
+            // 1. Convert Markdown pre-code blocks for Mermaid to actual divs
+            document.querySelectorAll("pre code.language-mermaid").forEach(function (el) {
+                const pre = el.parentElement;
+                const div = document.createElement("div");
+                div.className = "mermaid";
+                div.textContent = el.textContent;
+                pre.parentElement.replaceChild(div, pre);
+            });
+
+            // Run Mermaid rendering
+            mermaid.run();
+
+            // 2. Reading Progress Bar Logic
+            window.addEventListener('scroll', function () {
+                const winScroll = document.documentElement.scrollTop || document.body.scrollTop;
+                const height = document.documentElement.scrollHeight - document.documentElement.clientHeight;
+                const scrolled = (winScroll / height) * 100;
+                document.getElementById("reading-progress").style.width = scrolled + "%";
+            });
+        });
+    </script>
+</body>
+
+</html>

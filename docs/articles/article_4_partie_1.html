@@ -1,0 +1,357 @@
+<!DOCTYPE html>
+<html lang="fr">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Validation Empirique — Partie 1 : Protocole de Linear Probing | Tinkerer's Lab</title>
+
+    <!-- Stylesheets -->
+    <link rel="stylesheet" href="../css/style.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.8.0/styles/github-dark.min.css">
+
+    <!-- Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+
+    <!-- MathJax Configuration -->
+    <script>
+        window.MathJax = {
+            tex: {
+                inlineMath: [['$', '$'], ['\\(', '\\)']],
+                displayMath: [['$$', '$$'], ['\\[', '\\]']],
+                processEscapes: true
+            },
+            options: {
+                ignoreHtmlClass: 'tex2jax_ignore',
+                processHtmlClass: 'tex2jax_process'
+            }
+        };
+    </script>
+    <script id="MathJax-script" async src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
+    <script src="../js/sidebar.js" defer></script>
+</head>
+
+<body class="tex2jax_process">
+
+    <!-- Reading Progress Bar -->
+    <div class="progress-bar-container">
+        <div class="progress-bar" id="reading-progress"></div>
+    </div>
+
+    <div class="app-container">
+
+        <!-- Mobile Navigation Header -->
+        <header class="mobile-header">
+            <button class="menu-toggle" id="menu-open-btn">
+                <svg width="24" height="24" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" d="M4 6h16M4 12h16M4 18h16" />
+                </svg>
+            </button>
+            <div class="sidebar-title">Tinkerer's Lab</div>
+            <div></div> <!-- spacer -->
+        </header>
+
+        <!-- Persistent Sidebar -->
+        <aside class="sidebar" id="app-sidebar"></aside>
+
+        <!-- Main Content -->
+        <main class="main-content">
+            <div class="article-layout">
+                <article class="article-container">
+                    <header class="article-header">
+                        <span class="article-category jepa-1-6">Série I-JEPA</span>
+                        <h1>Validation Empirique — Partie 1 : Protocole de Linear Probing</h1>
+                        <p class="article-subtitle">Sonde Linéaire vs Fine-Tuning avec 1% de labels</p>
+                    </header>
+
+                    <div class="article-body">
+                        <blockquote>
+                            <p><strong>Série I-JEPA — Article 4 : Validation empirique</strong>
+                                <em>Dans cette première partie de notre quatrième article, nous découvrons la méthode
+                                    reine pour mesurer la qualité des représentations apprises par une IA sans étiquette
+                                    : le Linear Probing (sonde linéaire). Nous verrons pourquoi le fait de figer notre
+                                    réseau est le seul moyen honnête d'évaluer ses connaissances.</em>
+                            </p>
+                        </blockquote>
+                        <hr />
+                        <h2 id="qu-est-ce-qu-une-bonne-repr-sentation">🧐 Qu'est-ce qu'une "bonne" représentation ?</h2>
+                        <p>Notre JEPA a tourné pendant des heures pour prédire des blocs masqués dans l'espace latent.
+                            Son encodeur de contexte sait désormais traduire une image en une suite de 64 vecteurs de
+                            dimension 192. </p>
+                        <p>Mais comment savoir si ces vecteurs contiennent des informations utiles ? Comment mesurer
+                            s'ils ont "compris" ce qu'est une voiture, un bateau ou un oiseau ?</p>
+                        <p>En apprentissage auto-supervisé, nous utilisons une méthode d'évaluation appelée
+                            <strong>Linear Probing</strong> (sonde linéaire).
+                        </p>
+                        <p>L'idée est simple : nous venons brancher une unique couche linéaire (une matrice de
+                            projection très simple) au-dessus de notre encodeur pré-entraîné, et nous entraînons
+                            <strong>uniquement</strong> cette couche finale sur CIFAR-10 pour classer les images.
+                        </p>
+                        <pre><code>      Image d'entrée (32x32) ──► [ ENCODEUR JEPA ] ──► Représentations (192) 
+                                      │
+                                (Poids Gelés)
+                                      │
+                                      ▼
+                               [ TÊTE LINÉAIRE ] ◄── Entraînée (Apprend à classer)
+                                      │
+                                      ▼
+                                 Classe (0-9)
+</code></pre>
+                        <hr />
+                        <h2 id="pourquoi-geler-l-encodeur-est-indispensable">🧊 Pourquoi geler l'encodeur est
+                            indispensable ?</h2>
+                        <p>C'est la règle d'or du Linear Probing : <strong>les poids de l'encodeur doivent être
+                                complètement gelés (<code>requires_grad = False</code>).</strong></p>
+                        <p>Pourquoi cette contrainte ?
+                        <ol>
+                            <li><strong>Mesurer la séparabilité linéaire</strong> : Si nous permettions à l'encodeur de
+                                se modifier, les performances finales refléteraient la capacité du réseau à s'adapter à
+                                la tâche de classification, et non pas la qualité intrinsèque des connaissances acquises
+                                durant la phase auto-supervisée (JEPA).</li>
+                            <li><strong>L'analogie du prof</strong> : Imaginez un étudiant qui passe un examen de
+                                géographie. Le Linear Probing consiste à tester ses connaissances acquises en lui posant
+                                des questions directes. Si vous l'autorisez à réviser et à apprendre de nouvelles choses
+                                pendant l'examen, vous ne mesurez plus ce qu'il savait au départ.</li>
+                            <li><strong>Déplier le collecteur (Manifold Untangling)</strong> : Les images de CIFAR-10 à
+                                l'état brut (les pixels) forment un espace chaotique et non linéaire. Un classifieur
+                                linéaire simple (qui ne peut tracer que des lignes ou des hyperplans droits) est
+                                incapable de séparer des chats d'avions à partir des pixels bruts. Si le Linear Probing
+                                réussit avec notre encodeur gelé, cela prouve que JEPA a réussi à
+                                <strong>"déplier"</strong> l'espace pour rendre les classes linéairement séparables.
+                            </li>
+                        </ol>
+                        <pre><code>       Pixels Bruts (Intriqués)              Représentations JEPA (Dépliées)
+
+            ▲                                      ▲
+            │  o   *   o                           │  *   *  │  o   o
+            │    *   o   *                         │    *    │    o
+            │  o   *   o                           │  *   *  │  o   o
+            └─────────────►                        └─────────┴───►
+         (Impossible à séparer                  (Séparable par une simple 
+          par une ligne droite)                    ligne droite / hyperplan)
+</code></pre>
+                        <hr />
+                        <h2 id="dans-les-entrailles-du-code-jepa-lab-evaluate-py">🛠️ Dans les entrailles du code :
+                            <code>jepa_lab/evaluate.py</code>
+                        </h2>
+                        <p>Voyons comment ce protocole s'écrit en PyTorch dans notre script de diagnostic
+                            <code>evaluate.py</code>.
+                        </p>
+                        <h3 id="1-le-gel-des-param-tres-de-l-encodeur">1. Le gel des paramètres de
+                            l'encodeur :</h3>
+                        <p>Après avoir chargé les poids de notre JEPA pré-entraîné, nous parcourons tous les paramètres
+                            du Context Encoder pour désactiver le calcul de gradients :</p>
+                        <pre><code class="language-python"># 1. On extrait l'encodeur de contexte
+jepa_encoder = jepa_wrapper.context_encoder
+
+# 2. On fige ses poids
+for param in jepa_encoder.parameters():
+    param.requires_grad = False
+</code></pre>
+                        <h3 id="2-la-structure-de-classification-models-py">2. La structure de classification
+                            (<code>models.py</code>) :</h3>
+                        <p>La classe <code>ViTClassifier</code> encapsule notre encodeur et greffe la sonde linéaire :
+                        </p>
+                        <pre><code class="language-python">class ViTClassifier(nn.Module):
+    def __init__(self, encoder, embed_dim=192, num_classes=10):
+        super().__init__()
+        self.encoder = encoder
+        self.head = nn.Linear(embed_dim, num_classes) # La sonde linéaire !
+
+    def forward(self, x):
+        features = self.encoder(x)   # Sortie : (B, 64, 192)
+        pooled = features.mean(dim=1) # Global Average Pooling -&gt; (B, 192)
+        out = self.head(pooled)       # Projection linéaire -&gt; (B, 10)
+        return out
+</code></pre>
+                        <h3 id="3-la-rigueur-du-mode-d-valuation">3. La rigueur du mode d'évaluation :</h3>
+                        <p>Lors de l'entraînement de la tête linéaire, il y a un piège : si l'encodeur contient des
+                            couches de <strong>Dropout</strong>, celles-ci se comportent différemment en mode train
+                            (aléatoires) et eval (figées). Pour garantir que l'encodeur se comporte comme un extracteur
+                            de caractéristiques déterministe et stable, nous le forçons en mode <code>.eval()</code>
+                            pendant l'entraînement de la tête :</p>
+                        <pre><code class="language-python">if is_linear_probe:
+    model.encoder.eval() # L'encodeur reste figé, dropout désactivé
+    model.head.train()    # Seule la tête linéaire apprend
+</code></pre>
+                        <hr />
+                        <h2 id="r-sultats-empiriques-comparaison-et-surapprentissage">📊 Résultats Empiriques :
+                            Comparaison et Surapprentissage</h2>
+                        <p>Grâce à notre script d'évaluation <code>evaluate.py</code>, nous avons obtenu les résultats
+                            suivants sur CIFAR-10 après 15 époques d'entraînement des classifieurs :</p>
+                        <h3 id="tableau-comparatif-des-performances-accuracy">Tableau Comparatif des Performances
+                            (Accuracy %)</h3>
+                        <table>
+                            <thead>
+                                <tr>
+                                    <th style="text-align: left;">Fraction Labellisée</th>
+                                    <th style="text-align: center;">JEPA Mono Linear Probe</th>
+                                    <th style="text-align: center;">JEPA Multi Linear Probe</th>
+                                    <th style="text-align: center;">Supervised Scratch</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <tr>
+                                    <td style="text-align: left;"><strong>1%</strong> (500 imgs)</td>
+                                    <td style="text-align: center;"><strong>28.75%</strong></td>
+                                    <td style="text-align: center;">25.40%</td>
+                                    <td style="text-align: center;">26.31%</td>
+                                </tr>
+                                <tr>
+                                    <td style="text-align: left;"><strong>10%</strong> (5000 imgs)</td>
+                                    <td style="text-align: center;"><strong>46.29%</strong></td>
+                                    <td style="text-align: center;">38.23%</td>
+                                    <td style="text-align: center;">41.32%</td>
+                                </tr>
+                                <tr>
+                                    <td style="text-align: left;"><strong>100%</strong> (50000)</td>
+                                    <td style="text-align: center;">55.56%</td>
+                                    <td style="text-align: center;">46.20%</td>
+                                    <td style="text-align: center;"><strong>69.83%</strong></td>
+                                </tr>
+                            </tbody>
+                        </table>
+                        <h3 id="analyse-de-la-robustesse-face-au-surapprentissage-overfitting">🔍 Analyse de la
+                            robustesse face au surapprentissage (Overfitting)</h3>
+                        <p>Lorsque l'on observe et compare les courbes d'apprentissage, un enseignement théorique
+                            capital se valide en pratique :</p>
+                        <ol>
+                            <li>
+                                <p><strong>JEPA Mono &amp; Multi (Immunité totale contre l'overfitting)</strong> :
+                                    Puisque l'encodeur est gelé, seule la tête de classification linéaire ($192 \times
+                                    10 = 1920$ paramètres) apprend. Le nombre de paramètres est trop faible pour
+                                    permettre la mémorisation par cœur du jeu de données. Les précisions d'entraînement
+                                    et de test restent donc fusionnées.
+                                    Mieux encore : à <strong>10% de labels</strong>, le modèle JEPA Mono affiche
+                                    <code>41.4% (Train) -&gt; 46.3% (Test)</code>. La performance en test dépasse celle
+                                    en train ! Les augmentations de données (crop, flip) appliquées à l'entraînement
+                                    rendent la tâche plus complexe, mais le modèle généralise si bien qu'il survole les
+                                    tests sur les images propres.
+                                </p>
+                            </li>
+                            <li>
+                                <p><strong>Supervised Scratch (Surapprentissage marqué)</strong> :
+                                    À l'inverse, le modèle entraîné à partir de zéro doit apprendre en même temps à voir
+                                    (extracteur de caractéristiques) et à catégoriser (classifieur), ajustant les
+                                    <strong>5,7 millions de paramètres</strong> de son architecture ViT-Tiny.
+                                </p>
+                            </li>
+                            <li>Avec <strong>1% de labels</strong> (seulement 50 images par classe), le modèle Scratch
+                                surapprend instantanément : il grimpe à <code>33.4%</code> d'accuracy en train mais
+                                plafonne à <code>26.3%</code> en test, avec une perte de test qui commence à diverger
+                                (<code>1.847</code> en train vs <code>1.970</code> en test).</li>
+                            <li>Avec <strong>10% de labels</strong>, le phénomène persiste : le train atteint
+                                <code>43.8%</code> contre seulement <code>41.3%</code> en test.
+                            </li>
+                        </ol>
+                        <p>Ces résultats démontrent l'efficacité de données (data efficiency) de JEPA : dans les régimes
+                            à faibles données (1% et 10%), les connaissances pré-entraînées et gelées surpassent un
+                            modèle supervisé complet tout en garantissant une généralisation parfaite.</p>
+                        <p><img alt="Courbes d'apprentissage" src="../images/learning_curves.png" />
+                            <em>Figure 1 : Courbes d'entraînement et de test (pertes et précisions) montrant la
+                                stabilité de la sonde linéaire face au surapprentissage du modèle Scratch.</em>
+                        </p>
+                        <p><img alt="Comparaison des performances" src="../images/comparison_results.png" />
+                            <em>Figure 2 : Graphique comparatif des performances de classification selon la fraction de
+                                données étiquetées.</em>
+                        </p>
+                        <hr />
+                        <h2 id="conclusion-amp-transition">🧠 Conclusion &amp; Transition</h2>
+                        <p>Le Linear Probing est le diagnostic standard des modèles de fondation en IA. C'est le juge de
+                            paix. </p>
+                        <p>Cependant, lorsque l'on applique ce protocole rigide sur des petits modèles (comme notre
+                            configuration ViT-Tiny à 6M de paramètres), on se heurte rapidement à un plafond de verre de
+                            performances. La sonde linéaire se révèle parfois trop restrictive pour exploiter toute la
+                            richesse du modèle.</p>
+                        <p>C'est ce que nous allons analyser dans la deuxième partie de cet article en comprenant
+                            <strong>les limites du Linear Probing sur ViT-Tiny et la nécessité d'introduire le
+                                Fine-Tuning</strong> !
+                        </p>
+                        <hr />
+                        <h3 id="d-fi-curieux-n-1">🛠️ Défi curieux n°1</h3>
+                        <p><em>Imaginez que vous deviez trier une bibliothèque de 50 000 livres sans en lire le contenu, simplement en regroupant les livres de thématiques similaires dans les mêmes allées (ce qui correspond au pré-entraînement auto-supervisé de JEPA). Le Linear Probing consiste à tester ce rangement en essayant de classifier les livres à l'aide d'étiquettes simples (comme « Sciences » ou « Fiction ») uniquement en pointant du doigt des allées entières (décision linéaire simple), sans le droit de déplacer aucun livre (l'encodeur est gelé). À votre avis, si le rangement initial de la bibliothèque était chaotique ou basé uniquement sur la couleur des couvertures (faibles représentations), pourquoi une sonde linéaire échouerait-elle totalement par rapport à une méthode qui réorganiserait entièrement la bibliothèque ?</em></p>
+                    </div>
+
+                    <div class="article-footer-nav">
+                        <a href="article_3_partie_3.html" class="footer-nav-link prev">
+                            <span class="footer-nav-label">← Précédent</span>
+                            <span class="footer-nav-title">Passage à l'Échelle - Partie 3</span>
+                        </a>
+                        <a href="article_4_partie_2.html" class="footer-nav-link next">
+                            <span class="footer-nav-label">Suivant →</span>
+                            <span class="footer-nav-title">Validation Empirique - Partie 2</span>
+                        </a>
+                    </div>
+                </article>
+
+                <div class="toc-sidebar">
+                    <div class="toc-title">Sur cette page</div>
+                    <ul class="toc-list">
+                        <li class=""><a href="#qu-est-ce-qu-une-bonne-repr-sentation">🧐 Qu'est-ce qu'une "bonne"
+                                représentation ?</a></li>
+                        <li class=""><a href="#pourquoi-geler-l-encodeur-est-indispensable">🧊 Pourquoi geler l'encodeur
+                                est indispensable ?</a></li>
+                        <li class=""><a href="#dans-les-entrailles-du-code-jepa-lab-evaluate-py">🛠️ Dans les entrailles
+                                du code : jepa_lab/evaluate.py</a></li>
+                        <li class="toc-indent"><a href="#1-le-gel-des-param-tres-de-l-encodeur-lignes-216-220">1. Le gel
+                                des paramètres de l'encodeur (lignes 216-220) :</a></li>
+                        <li class="toc-indent"><a href="#2-la-structure-de-classification-models-py-ligne-629">2. La
+                                structure de classification (models.py, ligne 629) :</a></li>
+                        <li class="toc-indent"><a href="#3-la-rigueur-du-mode-d-valuation-lignes-79-83">3. La rigueur du
+                                mode d'évaluation (lignes 79-83) :</a></li>
+                        <li class=""><a href="#r-sultats-empiriques-comparaison-et-surapprentissage">📊 Résultats
+                                Empiriques : Comparaison et Surapprentissage</a></li>
+                        <li class="toc-indent"><a href="#tableau-comparatif-des-performances-accuracy">Tableau
+                                Comparatif des Performances (Accuracy %)</a></li>
+                        <li class="toc-indent"><a
+                                href="#analyse-de-la-robustesse-face-au-surapprentissage-overfitting">🔍 Analyse de la
+                                robustesse face au surapprentissage (Overfitting)</a></li>
+                        <li class=""><a href="#conclusion-amp-transition">🧠 Conclusion &amp; Transition</a></li>
+                        <li class="toc-indent"><a href="#d-fi-curieux-n-1">🛠️ Défi curieux n°1</a></li>
+                    </ul>
+                </div>
+            </div>
+        </main>
+    </div>
+
+    <!-- Scripts -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.8.0/highlight.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/mermaid/dist/mermaid.min.js"></script>
+
+    <script>
+        // Initialize Highlight.js
+        hljs.highlightAll();
+
+        // Initialize Mermaid
+        mermaid.initialize({
+            theme: 'dark',
+            startOnLoad: false,
+            securityLevel: 'loose'
+        });
+
+        document.addEventListener("DOMContentLoaded", function () {
+            // 1. Convert Markdown pre-code blocks for Mermaid to actual divs
+            document.querySelectorAll("pre code.language-mermaid").forEach(function (el) {
+                const pre = el.parentElement;
+                const div = document.createElement("div");
+                div.className = "mermaid";
+                div.textContent = el.textContent;
+                pre.parentElement.replaceChild(div, pre);
+            });
+
+            // Run Mermaid rendering
+            mermaid.run();
+
+            // 2. Reading Progress Bar Logic
+            window.addEventListener('scroll', function () {
+                const winScroll = document.documentElement.scrollTop || document.body.scrollTop;
+                const height = document.documentElement.scrollHeight - document.documentElement.clientHeight;
+                const scrolled = (winScroll / height) * 100;
+                document.getElementById("reading-progress").style.width = scrolled + "%";
+            });
+        });
+    </script>
+</body>
+
+</html>

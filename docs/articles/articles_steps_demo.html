@@ -1,0 +1,321 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Guide d'Exécution du Lab | Tinkerer's Lab</title>
+    
+    <!-- Stylesheets -->
+    <link rel="stylesheet" href="../css/style.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.8.0/styles/github-dark.min.css">
+    
+    <!-- Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    
+    <!-- MathJax Configuration -->
+    <script>
+        window.MathJax = {
+            tex: {
+                inlineMath: [['$', '$'], ['\\(', '\\)']],
+                displayMath: [['$$', '$$'], ['\\[', '\\]']],
+                processEscapes: true
+            },
+            options: {
+                ignoreHtmlClass: 'tex2jax_ignore',
+                processHtmlClass: 'tex2jax_process'
+            }
+        };
+    </script>
+    <script id="MathJax-script" async src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
+    <script src="../js/sidebar.js" defer></script>
+</head>
+<body class="tex2jax_process">
+
+    <!-- Reading Progress Bar -->
+    <div class="progress-bar-container">
+        <div class="progress-bar" id="reading-progress"></div>
+    </div>
+
+    <div class="app-container">
+    
+        <!-- Mobile Navigation Header -->
+        <header class="mobile-header">
+            <button class="menu-toggle" id="menu-open-btn">
+                <svg width="24" height="24" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M4 6h16M4 12h16M4 18h16"/></svg>
+            </button>
+            <div class="sidebar-title">Tinkerer's Lab</div>
+            <div></div> <!-- spacer -->
+        </header>
+
+        <!-- Persistent Sidebar -->
+        <aside class="sidebar" id="app-sidebar"></aside>
+
+        <!-- Main Content -->
+        <main class="main-content">
+            <div class="article-layout">
+                <article class="article-container">
+                    <header class="article-header">
+                        <span class="article-category technical">Annexe Technique</span>
+                        <h1>Guide d'Exécution du Lab</h1>
+                        <p class="article-subtitle">Protocole étape par étape</p>
+                    </header>
+                    
+                    <div class="article-body">
+                        <p>Ce document décrit le protocole exact à suivre pour exécuter l'ensemble des scripts du laboratoire, générer les modèles pré-entraînés, évaluer leurs performances (Linear Probing vs Fine-Tuning) et produire les visuels pédagogiques à injecter dans la suite d'articles <strong>JEPA-Lab</strong>.</p>
+<hr />
+<h2 id="sch-ma-global-d-ex-cution">🗺️ Schéma global d'exécution</h2>
+<pre><code class="language-mermaid">graph TD
+    A[Étape 1 : Pré-entraînement SSL] --&gt; B[Étape 2 : Visualisations du Masquage]
+    B --&gt; C[Étape 3 : Évaluation par Linear Probing]
+    C --&gt; D[Étape 4 : Évaluation par Fine-Tuning]
+    D --&gt; E[Étape 5 : Explicabilité &amp; XAI]
+</code></pre>
+<hr />
+<h2 id="protocole-d-ex-cution">🛠️ Protocole d'exécution</h2>
+<p>Toutes les commandes doivent être exécutées depuis la racine du workspace : <code>/home/jeremy/workspaces/jepa-lab</code>.</p>
+<hr />
+<h3 id="tape-1-pr-entra-nement-auto-supervis-ssl">Étape 1 : Pré-entraînement Auto-Supervisé (SSL)</h3>
+<p><em>En lien avec : </em><em>Article 2</em><em> (Mono-cible) et </em><em>Article 3</em><em> (Multi-cibles).</em></p>
+<p>Ces commandes lancent le pré-entraînement non supervisé de l'encodeur de contexte ViT-Tiny sur CIFAR-10.</p>
+<ol>
+<li><strong>Pré-entraînement Multi-cibles (200 époques)</strong> :
+    <code>bash
+    python3 jepa_lab/train_jepa_multi.py --epochs 200 --patience 200 --batch-size 128 --lr 1e-3 --save-path jepa_lab/runs/jepa_cifar10_multi.pth</code></li>
+<li><strong>Pré-entraînement Mono-cible (100 époques)</strong> :
+    <code>bash
+    python3 jepa_lab/train_jepa.py --epochs 100 --patience 100 --batch-size 128 --lr 1e-3 --save-path jepa_lab/runs/jepa_cifar10.pth</code></li>
+</ol>
+<hr />
+<h3 id="tape-2-visualisation-g-om-trique-du-masquage">Étape 2 : Visualisation géométrique du masquage</h3>
+<p><em>En lien avec : </em><em>Article 2 - Partie 3</em><em> (Contrainte spatiale du masquage).</em></p>
+<p>Ce script charge une image aléatoire de CIFAR-10 et illustre comment les patches sont masqués pour créer les blocs de Contexte $X$ et de Cible $Y$.</p>
+<pre><code class="language-bash">python3 jepa_lab/visualize.py
+</code></pre>
+<ul>
+<li><strong>Résultat généré</strong> : <code>masking_visualization.png</code></li>
+<li><strong>Usage</strong> : À insérer dans l'article 2 pour illustrer concrètement le masquage par grand bloc contigu.</li>
+</ul>
+<hr />
+<h3 id="tape-3-valuation-par-linear-probing-sonde-lin-aire">Étape 3 : Évaluation par Linear Probing (Sonde Linéaire)</h3>
+<p><em>En lien avec : </em><em>Article 4 - Partie 1</em><em> (Protocole d'évaluation).</em></p>
+<p>Ce script entraîne un classifieur linéaire simple sur les caractéristiques gelées des encodeurs Mono-cible et Multi-cibles, et le compare à un modèle supervisé appris à partir de zéro (<em>from scratch</em>) sur des fractions de données étiquetées (1%, 10%, 100%).</p>
+<pre><code class="language-bash">python3 jepa_lab/evaluate.py --epochs 15
+</code></pre>
+<ul>
+<li><strong>Résultats générés</strong> : <ul>
+<li>Scores d'accuracy imprimés dans le terminal pour chaque fraction.</li>
+<li>Poids du classifieur mono-cible sauvegardés sous <code>jepa_lab/runs/jepa_mono_classifier_frac_1.00.pth</code> (nécessaire pour l'étape 5).</li>
+</ul>
+</li>
+<li><strong>Usage</strong> : Valider la performance de base et illustrer le "plafond de verre" de la sonde linéaire pour l'Article 4 - Partie 2.</li>
+</ul>
+<hr />
+<h3 id="tape-4-valuation-par-fine-tuning-ajustement-fin">Étape 4 : Évaluation par Fine-Tuning (Ajustement Fin)</h3>
+<p><em>En lien avec : </em><em>Article 4 - Partie 2 &amp; Partie 3</em><em> (Recette du Fine-Tuning).</em></p>
+<p>Ce script entraîne le modèle en dégelant l'encodeur avec des taux d'apprentissage différentiels ($10^{-4}$ pour l'encodeur, $10^{-3}$ pour la tête) et une data augmentation ciblée pour éviter le surapprentissage.</p>
+<pre><code class="language-bash">python3 jepa_lab/evaluate_finetuning.py --epochs 15
+</code></pre>
+<ul>
+<li><strong>Résultats générés</strong> :<ul>
+<li><code>learning_curves_finetuning.png</code> : Courbes de perte et d'accuracy durant l'entraînement.</li>
+<li><code>comparison_results_finetuning.png</code> : Graphique comparant les performances finales (Linear Probe vs Fine-Tuning vs Scratch).</li>
+</ul>
+</li>
+<li><strong>Usage</strong> : Preuve empirique des gains de +28% de performance à injecter dans l'Article 4.</li>
+</ul>
+<hr />
+<h3 id="tape-5-explicabilit-amp-interpr-tabilit-xai">Étape 5 : Explicabilité &amp; Interprétabilité (XAI)</h3>
+<p><em>En lien avec : </em><em>Article 5</em><em> (Ouvrir la boîte noire).</em></p>
+<p>Ces scripts permettent de visualiser ce que comprend et ce que regarde le réseau.</p>
+<ol>
+<li>
+<p><strong>Cartes d'attention du Predictor (Article 5 - Partie 1)</strong> :
+    Projetez l'attention que les jetons cibles masqués portent sur les patches visibles pour imaginer les formes.
+    <code>bash
+    python3 jepa_lab/visualize_attention.py --image-idx 4 --mode mono --save-path attention_heatmap_mono.png</code></p>
+<ul>
+<li><strong>Résultat généré</strong> : <code>attention_heatmap_mono.png</code></li>
+</ul>
+</li>
+<li>
+<p><strong>Clustering latent et concepts émergents (Article 5 - Partie 2)</strong> :
+    Exécutez un K-Means à 6 classes pour faire apparaître les concepts sémantiques spontanés (ciel, herbe, poils...) et segmenter des images de test.
+    <code>bash
+    python3 jepa_lab/visualize_latent_concepts.py --k 6 --save-path latent_concepts.png</code></p>
+<ul>
+<li><strong>Résultat généré</strong> : <code>latent_concepts.png</code></li>
+</ul>
+</li>
+<li>
+<p><strong>Cartes d'influence de classification (Article 5 - Partie 3)</strong> :
+    Calculez la contribution exacte de chaque patch aux décisions correctes et incorrectes du classifieur.
+    <code>bash
+    python3 jepa_lab/visualize_classification.py --classifier-weights jepa_lab/runs/jepa_mono_classifier_frac_1.00.pth --save-path classification_influence.png</code></p>
+<ul>
+<li><strong>Résultat généré</strong> : <code>classification_influence.png</code></li>
+</ul>
+</li>
+</ol>
+<hr />
+<h3 id="tape-6-pipeline-saccadic-jepa-fov-ation-amp-saccades">Étape 6 : Pipeline Saccadic-JEPA (Fovéation &amp; Saccades)</h3>
+<p><em>En lien avec : </em><em>Article Bonus / Spécial</em><em> (Approche biologiquement inspirée).</em></p>
+<p>Cette section détaille les commandes pour exécuter et évaluer la preuve de concept du Saccadic-JEPA.</p>
+<ol>
+<li>
+<p><strong>Pré-entraînement Auto-Supervisé (Saccadic-JEPA)</strong> :
+    Lance le pré-entraînement du modèle Saccadic-JEPA sur CIFAR-10 redimensionné à 128x128.
+    <code>bash
+    python3 jepa_lab/train_saccadic_jepa.py --epochs 20 --patience 20 --batch-size 128 --lr 1e-3 --save-path jepa_lab/runs/saccadic_jepa_cifar10.pth</code></p>
+<ul>
+<li><strong>Résultat généré</strong> : Checkpoint enregistré sous <code>jepa_lab/runs/saccadic_jepa_cifar10.pth</code>.</li>
+</ul>
+</li>
+<li>
+<p><strong>Évaluation linéaire (Linear Probing 128x128)</strong> :
+    Entraîne un classifieur linéaire sur les représentations gelées de Saccadic-JEPA et les compare à un modèle supervisé appris à partir de zéro (<em>from scratch</em>) sur 128x128.
+    <code>bash
+    python3 jepa_lab/evaluate_saccadic.py --epochs 15 --saccadic-weights jepa_lab/runs/saccadic_jepa_cifar10.pth</code></p>
+<ul>
+<li>
+<p><strong>Résultats générés</strong> :</p>
+<ul>
+<li>Graphique comparatif de précision enregistré sous <code>comparison_saccadic_results.png</code>.</li>
+<li>Courbes de perte et d'accuracy enregistrées sous <code>learning_curves_saccadic.png</code>.</li>
+<li>Tableau comparatif imprimé dans la console pour les fractions 1%, 10% et 100%.</li>
+</ul>
+</li>
+<li>
+<p><strong>Résultats empiriques finaux de notre entraînement complet</strong> :
+    <code>=========================================================================
+                          SACCADIC-JEPA COMPARISON TABLE                     
+    =========================================================================
+    | Label Fraction | Saccadic-JEPA (128x128) | Mono-JEPA (32x32) | Supervised Scratch (128x128) |
+    |----------------|-------------------------|-------------------|------------------------------|
+    |              1% | 32.37%                  | 28.66%            | 24.72%                       |
+    |             10% | 44.67%                  | 46.50%            | 39.45%                       |
+    |            100% | 54.12%                  | 55.46%            | 59.98%                       |
+    =========================================================================</code></p>
+</li>
+<li>
+<p><strong>Analyse rapide</strong> :</p>
+<ul>
+<li>À <strong>1% de labels</strong>, Saccadic-JEPA surpasse de manière spectaculaire ses concurrents avec <strong>32.37%</strong> (vs 28.66% pour Mono-JEPA et 24.72% pour le modèle Scratch). Cela valide l'hypothèse selon laquelle les représentations fovéées riches et asymétriques offrent une généralisation exceptionnelle sous forte contrainte de données.</li>
+<li>À <strong>10% et 100% de labels</strong>, Saccadic-JEPA reste très compétitif. Il bat largement le modèle Scratch à 10% (<strong>44.67%</strong> vs <strong>39.45%</strong>) et se place au coude-à-coude avec Mono-JEPA. À 100%, il s'établit à <strong>54.12%</strong>, proche du Mono-JEPA standard (<strong>55.46%</strong>).</li>
+</ul>
+</li>
+<li>
+<p><strong>Illustration de comparaison</strong> :
+    <img alt="Comparaison Saccadic-JEPA" src="../images/comparison_saccadic_results.png" />
+    <em>Graphique comparatif des performances de classification linéaire pour Saccadic-JEPA.</em></p>
+</li>
+</ul>
+</li>
+<li>
+<p><strong>Évaluation par Fine-Tuning (Ajustement Fin Saccadic-JEPA)</strong> :
+    Dégèle l'encodeur ViT de Saccadic-JEPA pour le réentraîner sur les tâches cibles avec des taux d'apprentissage différentiels ($10^{-4}$ pour l'encodeur, $10^{-3}$ pour la tête) à la résolution 128x128.
+    <code>bash
+    python3 jepa_lab/evaluate_saccadic_finetuning.py --epochs 15 --saccadic-weights jepa_lab/runs/saccadic_jepa_cifar10.pth</code></p>
+<ul>
+<li>
+<p><strong>Résultats générés</strong> :</p>
+<ul>
+<li>Graphique comparatif de précision enregistré sous <code>comparison_saccadic_results_finetuning.png</code>.</li>
+<li>Courbes d'apprentissage (Loss &amp; Accuracy) enregistrées sous <code>learning_curves_saccadic_finetuning.png</code>.</li>
+<li>Poids du classifieur finetuné sauvegardés sous <code>jepa_lab/runs/saccadic_jepa_ft_classifier_frac_*.pth</code>.</li>
+</ul>
+</li>
+<li>
+<p><strong>Résultats empiriques finaux du Fine-Tuning</strong> :
+    <code>=========================================================================
+                     SACCADIC-JEPA FINE-TUNING COMPARISON TABLE              
+    =========================================================================
+    | Label Fraction | Saccadic-JEPA (128x128) | Mono-JEPA (32x32) | Supervised Scratch (128x128) |
+    |----------------|-------------------------|-------------------|------------------------------|
+    |              1% | 28.85%                  | 46.79%            | 24.23%                       |
+    |             10% | 57.34%                  | 65.80%            | 37.87%                       |
+    |            100% | 76.10%                  | 80.17%            | 59.17%                       |
+    =========================================================================</code></p>
+</li>
+<li>
+<p><strong>Analyse rapide</strong> :</p>
+<ul>
+<li>À <strong>1% de labels</strong>, le Fine-Tuning provoque une destruction locale des représentations (oubli catastrophique), ce qui explique pourquoi Saccadic-JEPA est un peu plus faible ici (<strong>28.85%</strong>) qu'avec une sonde linéaire gelée (<strong>32.37%</strong>).</li>
+<li>À <strong>10% et 100% de labels</strong>, le Fine-Tuning fait décoller les performances de Saccadic-JEPA. À 100%, il atteint <strong>76.10%</strong>, écrasant complètement le modèle Scratch de près de 17% absolus (<strong>59.17%</strong>).</li>
+</ul>
+</li>
+<li>
+<p><strong>Illustration de comparaison</strong> :
+    <img alt="Comparaison Saccadic-JEPA Fine-Tuning" src="../images/comparison_saccadic_results_finetuning.png" />
+    <em>Graphique comparatif des performances de classification après Fine-Tuning.</em></p>
+</li>
+</ul>
+</li>
+</ol>
+                    </div>
+                    
+                    <div class="article-footer-nav">
+  <a href="finetuning_analysis.html" class="footer-nav-link prev">
+    <span class="footer-nav-label">← Précédent</span>
+    <span class="footer-nav-title">Analyse Comparative Théorique</span>
+  </a>
+  <div></div>
+</div>
+                </article>
+                
+                <div class="toc-sidebar">
+  <div class="toc-title">Sur cette page</div>
+  <ul class="toc-list">
+    <li class=""><a href="#sch-ma-global-d-ex-cution">🗺️ Schéma global d'exécution</a></li>
+    <li class=""><a href="#protocole-d-ex-cution">🛠️ Protocole d'exécution</a></li>
+    <li class="toc-indent"><a href="#tape-1-pr-entra-nement-auto-supervis-ssl">Étape 1 : Pré-entraînement Auto-Supervisé (SSL)</a></li>
+    <li class="toc-indent"><a href="#tape-2-visualisation-g-om-trique-du-masquage">Étape 2 : Visualisation géométrique du masquage</a></li>
+    <li class="toc-indent"><a href="#tape-3-valuation-par-linear-probing-sonde-lin-aire">Étape 3 : Évaluation par Linear Probing (Sonde Linéaire)</a></li>
+    <li class="toc-indent"><a href="#tape-4-valuation-par-fine-tuning-ajustement-fin">Étape 4 : Évaluation par Fine-Tuning (Ajustement Fin)</a></li>
+    <li class="toc-indent"><a href="#tape-5-explicabilit-amp-interpr-tabilit-xai">Étape 5 : Explicabilité &amp; Interprétabilité (XAI)</a></li>
+    <li class="toc-indent"><a href="#tape-6-pipeline-saccadic-jepa-fov-ation-amp-saccades">Étape 6 : Pipeline Saccadic-JEPA (Fovéation &amp; Saccades)</a></li>
+  </ul>
+</div>
+            </div>
+        </main>
+    </div>
+
+    <!-- Scripts -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.8.0/highlight.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/mermaid/dist/mermaid.min.js"></script>
+    
+    <script>
+        // Initialize Highlight.js
+        hljs.highlightAll();
+        
+        // Initialize Mermaid
+        mermaid.initialize({
+            theme: 'dark',
+            startOnLoad: false,
+            securityLevel: 'loose'
+        });
+
+        document.addEventListener("DOMContentLoaded", function() {
+            // 1. Convert Markdown pre-code blocks for Mermaid to actual divs
+            document.querySelectorAll("pre code.language-mermaid").forEach(function(el) {
+                const pre = el.parentElement;
+                const div = document.createElement("div");
+                div.className = "mermaid";
+                div.textContent = el.textContent;
+                pre.parentElement.replaceChild(div, pre);
+            });
+            
+            // Run Mermaid rendering
+            mermaid.run();
+            
+            // 2. Reading Progress Bar Logic
+            window.addEventListener('scroll', function() {
+                const winScroll = document.documentElement.scrollTop || document.body.scrollTop;
+                const height = document.documentElement.scrollHeight - document.documentElement.clientHeight;
+                const scrolled = (winScroll / height) * 100;
+                document.getElementById("reading-progress").style.width = scrolled + "%";
+            });
+        });
+    </script>
+</body>
+</html>
