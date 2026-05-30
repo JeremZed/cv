@@ -1,18 +1,19 @@
 <!DOCTYPE html>
 <html lang="fr">
+
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Saccadic-JEPA — Partie 3 : Entraînement SSL Haute Résolution | Tinkerer's Lab</title>
-    
+
     <!-- Stylesheets -->
     <link rel="stylesheet" href="../css/style.css">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.8.0/styles/github-dark.min.css">
-    
+
     <!-- Fonts -->
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    
+
     <!-- MathJax Configuration -->
     <script>
         window.MathJax = {
@@ -30,6 +31,7 @@
     <script id="MathJax-script" async src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
     <script src="../js/sidebar.js" defer></script>
 </head>
+
 <body class="tex2jax_process">
 
     <!-- Reading Progress Bar -->
@@ -38,11 +40,13 @@
     </div>
 
     <div class="app-container">
-    
+
         <!-- Mobile Navigation Header -->
         <header class="mobile-header">
             <button class="menu-toggle" id="menu-open-btn">
-                <svg width="24" height="24" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M4 6h16M4 12h16M4 18h16"/></svg>
+                <svg width="24" height="24" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" d="M4 6h16M4 12h16M4 18h16" />
+                </svg>
             </button>
             <div class="sidebar-title">Tinkerer's Lab</div>
             <div></div> <!-- spacer -->
@@ -60,24 +64,49 @@
                         <h1>Saccadic-JEPA — Partie 3 : Entraînement SSL Haute Résolution</h1>
                         <p class="article-subtitle">Apprendre des structures nettes à partir d'indices flous</p>
                     </header>
-                    
+
                     <div class="article-body">
                         <blockquote>
-<p><strong>Série Saccadic-JEPA : Vers une Vision Artificielle Biologiquement Inspirée</strong>
-<em>Dans cette troisième et dernière partie de notre huitième article, nous nous attaquons à la sécurité de l'apprentissage. Les réseaux de neurones sont des tricheurs nés : s'il existe un raccourci pour minimiser la perte sans comprendre l'image, ils le trouveront. Découvrons comment le masquage strict et asymétrique empêche l'Élève de copier sur le Professeur.</em></p>
-</blockquote>
-<hr />
-<h2 id="la-loi-du-moindre-effort-en-machine-learning">🦊 La loi du moindre effort en Machine Learning</h2>
-<p>En apprentissage supervisé comme en auto-supervisé, les modèles souffrent d'un biais fondamental : <strong>l'apprentissage par raccourcis</strong> (<em>shortcut learning</em>). Si un réseau peut résoudre un problème en mémorisant un bruit de fond, un pixel spécifique, ou en faisant un simple copier-coller de texture, il le fera, au détriment de l'apprentissage de véritables concepts sémantiques.</p>
-<p>Dans Saccadic-JEPA, nous voulons que le Predictor devine la structure nette d'une zone cible $B$ à partir d'un contexte flouté centré sur $A$. </p>
-<p>Mais que se passerait-il si l'encodeur de contexte (l'Élève) pouvait voir l'emplacement de la zone cible $B$ pendant qu'il analyse le contexte ?
-1. <strong>Si la cible $B$ est proche du regard $A$</strong> : Elle apparaîtra nette dans l'image fovéée. L'Élève encodera directement les détails fins de la cible. Le Predictor n'aura plus qu'à copier ces informations. L'apprentissage est saboté.
-2. <strong>Si la cible $B$ est loin du regard $A$</strong> : Elle apparaîtra floue. L'Élève encodera la forme grossière de la cible et la transmettra au Predictor. Ce dernier n'aura qu'à faire un simple travail de "défloutage" local de caractéristiques, sans avoir besoin de déduire la cible à partir de son environnement.</p>
-<hr />
-<h2 id="la-parade-l-exclusion-stricte-par-masquage-d-index">🛡️ La parade : L'exclusion stricte par masquage d'index</h2>
-<p>Pour empêcher ce sabotage, Saccadic-JEPA combine la fovéation optique et le <strong>masquage par index disjoints</strong>.</p>
-<p>Le mécanisme repose sur le découpage en patches du Vision Transformer. Sur notre image de $128\times 128$ pixels découpée en patches de $16\times 16$, nous obtenons une grille de $8\times 8 = 64$ patches.</p>
-<pre><code>                  GRILLE DE 64 PATCHES (8x8)
+                            <p><strong>Série Saccadic-JEPA : Vers une Vision Artificielle Biologiquement
+                                    Inspirée</strong>
+                                <em>Dans cette troisième et dernière partie de notre huitième article, nous nous
+                                    attaquons à la sécurité de l'apprentissage. Les réseaux de neurones sont des
+                                    tricheurs nés : s'il existe un raccourci pour minimiser la perte sans comprendre
+                                    l'image, ils le trouveront. Découvrons comment le masquage strict et asymétrique
+                                    empêche l'Élève de copier sur le Professeur.</em>
+                            </p>
+                        </blockquote>
+                        <hr />
+                        <h2 id="la-loi-du-moindre-effort-en-machine-learning">🦊 La loi du moindre effort en Machine
+                            Learning</h2>
+                        <p>En apprentissage supervisé comme en auto-supervisé, les modèles souffrent d'un biais
+                            fondamental : <strong>l'apprentissage par raccourcis</strong> (<em>shortcut learning</em>).
+                            Si un réseau peut résoudre un problème en mémorisant un bruit de fond, un pixel spécifique,
+                            ou en faisant un simple copier-coller de texture, il le fera, au détriment de
+                            l'apprentissage de véritables concepts sémantiques.</p>
+                        <p>Dans Saccadic-JEPA, nous voulons que le Predictor devine la structure nette d'une zone cible
+                            $B$ à partir d'un contexte flouté centré sur $A$. </p>
+                        <p>Mais que se passerait-il si l'encodeur de contexte (l'Élève) pouvait voir l'emplacement de la
+                            zone cible $B$ pendant qu'il analyse le contexte ?
+                        <ol>
+                            <li><strong>Si la cible $B$ est proche du regard $A$</strong> : Elle apparaîtra nette dans
+                                l'image fovéée. L'Élève encodera directement les détails fins de la cible. Le Predictor
+                                n'aura plus qu'à copier ces informations. L'apprentissage est saboté.</li>
+                            <li><strong>Si la cible $B$ est loin du regard $A$</strong> : Elle apparaîtra floue. L'Élève
+                                encodera la forme grossière de la cible et la transmettra au Predictor. Ce dernier
+                                n'aura qu'à faire un simple travail de "défloutage" local de caractéristiques, sans
+                                avoir besoin de déduire la cible à partir de son environnement.</li>
+                        </ol>
+                        </p>
+                        <hr />
+                        <h2 id="la-parade-l-exclusion-stricte-par-masquage-d-index">🛡️ La parade : L'exclusion stricte
+                            par masquage d'index</h2>
+                        <p>Pour empêcher ce sabotage, Saccadic-JEPA combine la fovéation optique et le <strong>masquage
+                                par index disjoints</strong>.</p>
+                        <p>Le mécanisme repose sur le découpage en patches du Vision Transformer. Sur notre image de
+                            $128\times 128$ pixels découpée en patches de $16\times 16$, nous obtenons une grille de
+                            $8\times 8 = 64$ patches.</p>
+                        <pre><code>                  GRILLE DE 64 PATCHES (8x8)
 
          ┌───┬───┬───┬───┬───┬───┬───┬───┐
          │ C │ C │ C │ C │ C │ C │ C │ C │   C = Patches du Contexte
@@ -95,18 +124,29 @@
          │ C │ C │ C │ C │ C │ C │ C │ C │
          └───┴───┴───┴───┴───┴───┴───┴───┘
 </code></pre>
-<p>Lors de chaque passe d'entraînement :
-1. La fonction <code>sample_masks</code> sélectionne un grand bloc cible $T$ de $4\times 4$ patches.
-2. Elle sépare la liste des 64 index de patches en deux sous-ensembles :
-   * <code>target_indices</code> : Les 16 patches appartenant au bloc cible.
-   * <code>context_indices</code> : Les 48 patches restants.
-3. <strong>Règle d'or</strong> : L'intersection entre ces deux groupes est strictement vide :
-   $$\text{Context Indices} \cap \text{Target Indices} = \emptyset$$</p>
-<p>Lorsque nous alimentons le Context Encoder (<code>self.context_encoder</code>), nous ne lui donnons <strong>que</strong> la liste des <code>context_indices</code>. Le réseau ne reçoit tout simplement pas les tokens de la cible. Pour lui, la zone cible n'existe pas, elle est physiquement absente de sa mémoire de calcul.</p>
-<hr />
-<h2 id="zoom-sur-le-code-de-s-lection-disjoint-jepa-lab-masks-py">💻 Zoom sur le code de sélection disjoint : <code>jepa_lab/masks.py</code></h2>
-<p>C'est au cœur de la fonction <code>sample_masks</code> que ce mur de sécurité est érigé :</p>
-<pre><code class="language-python"># Sélection aléatoire de l'origine du bloc cible (carré de taille target_size)
+                        <p>Lors de chaque passe d'entraînement :
+                        <ol>
+                            <li>La fonction <code>sample_masks</code> sélectionne un grand bloc cible $T$ de $4\times 4$
+                                patches.</li>
+                            <li>Elle sépare la liste des 64 index de patches en deux sous-ensembles :
+                                <ul>
+                                    <li><code>target_indices</code> : Les 16 patches appartenant au bloc cible.</li>
+                                    <li><code>context_indices</code> : Les 48 patches restants.</li>
+                                </ul>
+                            </li>
+                            <li><strong>Règle d'or</strong> : L'intersection entre ces deux groupes est strictement vide
+                                :
+                                $$\text{Context Indices} \cap \text{Target Indices} = \emptyset$$</li>
+                        </ol>
+                        <p>Lorsque nous alimentons le Context Encoder (<code>self.context_encoder</code>), nous ne lui
+                            donnons <strong>que</strong> la liste des <code>context_indices</code>. Le réseau ne reçoit
+                            tout simplement pas les tokens de la cible. Pour lui, la zone cible n'existe pas, elle est
+                            physiquement absente de sa mémoire de calcul.</p>
+                        <hr />
+                        <h2 id="zoom-sur-le-code-de-s-lection-disjoint-jepa-lab-masks-py">💻 Zoom sur le code de
+                            sélection disjoint : <code>jepa_lab/masks.py</code></h2>
+                        <p>C'est au cœur de la fonction <code>sample_masks</code> que ce mur de sécurité est érigé :</p>
+                        <pre><code class="language-python"># Sélection aléatoire de l'origine du bloc cible (carré de taille target_size)
 row = random.randint(0, grid_size - target_size)
 col = random.randint(0, grid_size - target_size)
 
@@ -120,47 +160,73 @@ for r in range(row, row + target_size):
 all_patches = set(range(grid_size * grid_size))
 context_patches = list(all_patches - set(target_patches))
 </code></pre>
-<p>Grâce à cette soustraction d'ensembles (<code>all_patches - set(target_patches)</code>), la triche est mathématiquement impossible.</p>
-<hr />
-<h2 id="l-effet-combin-fov-ation-masquage">👁️ L'effet combiné : Fovéation + Masquage</h2>
-<p>Dans Saccadic-JEPA, ces deux forces s'associent pour créer la tâche idéale d'apprentissage auto-supervisé :
-* Le regard du modèle est fixé sur le point $A$ (la fovéa du contexte est nette, la périphérie est floue).
-* La cible à deviner se trouve sur le bloc $B$.
-* Le bloc $B$ est découpé et jeté à la poubelle pour l'Élève.
-* Le Predictor doit reconstruire la signature sémantique nette de $B$ en s'appuyant uniquement sur les patches contextuels restants, qui sont de plus en plus flous à mesure qu'ils s'éloignent de $A$.</p>
-<p>C'est cette double contrainte — <strong>ne pas voir la cible</strong> et <strong>n'avoir qu'un contexte dégradé en périphérie</strong> — qui force le modèle à développer des représentations latentes d'une robustesse exceptionnelle, capables de capturer l'essence géométrique globale des images.</p>
-<hr />
-<h2 id="conclusion">🧠 Conclusion</h2>
-<p>Vous comprenez désormais l'architecture complète de Saccadic-JEPA : une simulation d'œil fovéé, un encodeur élève plongé dans un contexte asymétrique et masqué, un prof détenant la vérité haute résolution, et un Predictor jouant le rôle de traducteur géométrique.</p>
-<p>Dans le prochain et dernier article, nous allons analyser les résultats empiriques de ce modèle sur CIFAR-10 et comprendre pourquoi la route vers la performance passe par un entraînement à l'échelle de 120 époques.</p>
-<hr />
-<h3 id="d-fi-de-curiosit-n-3">🛠️ Défi de curiosité n°3</h3>
-<p><em>Si l'on réduisait la taille du bloc cible à $1\times 1$ patch (soit un tout petit carré de $16\times 16$ pixels), comment le réseau parviendrait-il à tricher sans tricher ? (Indice : Pensez aux bordures immédiates et à la continuité locale des lignes ou des textures).</em></p>
+                        <p>Grâce à cette soustraction d'ensembles (<code>all_patches - set(target_patches)</code>), la
+                            triche est mathématiquement impossible.</p>
+                        <hr />
+                        <h2 id="l-effet-combin-fov-ation-masquage">👁️ L'effet combiné : Fovéation + Masquage</h2>
+                        <p>Dans Saccadic-JEPA, ces deux forces s'associent pour créer la tâche idéale d'apprentissage
+                            auto-supervisé :
+                        <ul>
+                            <li>Le regard du modèle est fixé sur le point $A$ (la fovéa du contexte est nette, la
+                                périphérie est floue).</li>
+                            <li>La cible à deviner se trouve sur le bloc $B$.</li>
+                            <li>Le bloc $B$ est découpé et jeté à la poubelle pour l'Élève.</li>
+                            <li>Le Predictor doit reconstruire la signature sémantique nette de $B$ en s'appuyant
+                                uniquement sur les patches contextuels restants, qui sont de plus en plus flous à mesure
+                                qu'ils s'éloignent de $A$.</li>
+                        </ul>
+                        <p>C'est cette double contrainte — <strong>ne pas voir la cible</strong> et <strong>n'avoir
+                                qu'un contexte dégradé en périphérie</strong> — qui force le modèle à développer
+                            des
+                            représentations latentes d'une robustesse exceptionnelle, capables de capturer
+                            l'essence
+                            géométrique globale des images.</p>
+                        <hr />
+                        <h2 id="conclusion">🧠 Conclusion</h2>
+                        <p>Vous comprenez désormais l'architecture complète de Saccadic-JEPA : une simulation
+                            d'œil
+                            fovéé, un encodeur élève plongé dans un contexte asymétrique et masqué, un prof
+                            détenant la
+                            vérité haute résolution, et un Predictor jouant le rôle de traducteur géométrique.
+                        </p>
+                        <p>Dans le prochain et dernier article, nous allons analyser les résultats empiriques de
+                            ce
+                            modèle sur CIFAR-10 et comprendre pourquoi la route vers la performance passe par un
+                            entraînement à l'échelle de 120 époques.</p>
+                        <hr />
+                        <h3 id="d-fi-curieux-n-3">🛠️ Défi curieux n°3</h3>
+                        <p><em><strong>Le piège de la continuité des textures :</strong> Imaginez que nous décidions de masquer uniquement de toutes petites zones isolées (de minuscules carrés de $16\times 16$ pixels éparpillés, correspondant à un seul patch) au lieu de grands blocs cohérents de $64\times 64$ pixels.
+                        <br>1. Comment le Predictor parviendrait-il à "deviner" les caractéristiques cibles très facilement par interpolation locale (par exemple en prolongeant simplement la couleur ou une ligne continue d'un patch voisin) sans rien comprendre à la structure globale de l'objet ?
+                        <br>2. En quoi le masquage de grands blocs contigus empêche-t-il cette triche locale et force-t-il le modèle à s'appuyer sur sa compréhension sémantique globale ?</em></p>
                     </div>
-                    
+
                     <div class="article-footer-nav">
-  <a href="article_8_partie_2.html" class="footer-nav-link prev">
-    <span class="footer-nav-label">← Précédent</span>
-    <span class="footer-nav-title">Saccadic-JEPA - Partie 2</span>
-  </a>
-  <a href="article_9_partie_1.html" class="footer-nav-link next">
-    <span class="footer-nav-label">Suivant →</span>
-    <span class="footer-nav-title">Validation & Benchmarks - Partie 1</span>
-  </a>
-</div>
+                        <a href="article_8_partie_2.html" class="footer-nav-link prev">
+                            <span class="footer-nav-label">← Précédent</span>
+                            <span class="footer-nav-title">Saccadic-JEPA - Partie 2</span>
+                        </a>
+                        <a href="article_9_partie_1.html" class="footer-nav-link next">
+                            <span class="footer-nav-label">Suivant →</span>
+                            <span class="footer-nav-title">Validation & Benchmarks - Partie 1</span>
+                        </a>
+                    </div>
                 </article>
-                
+
                 <div class="toc-sidebar">
-  <div class="toc-title">Sur cette page</div>
-  <ul class="toc-list">
-    <li class=""><a href="#la-loi-du-moindre-effort-en-machine-learning">🦊 La loi du moindre effort en Machine Learning</a></li>
-    <li class=""><a href="#la-parade-l-exclusion-stricte-par-masquage-d-index">🛡️ La parade : L'exclusion stricte par masquage d'index</a></li>
-    <li class=""><a href="#zoom-sur-le-code-de-s-lection-disjoint-jepa-lab-masks-py">💻 Zoom sur le code de sélection disjoint : jepa_lab/masks.py</a></li>
-    <li class=""><a href="#l-effet-combin-fov-ation-masquage">👁️ L'effet combiné : Fovéation + Masquage</a></li>
-    <li class=""><a href="#conclusion">🧠 Conclusion</a></li>
-    <li class="toc-indent"><a href="#d-fi-de-curiosit-n-3">🛠️ Défi de curiosité n°3</a></li>
-  </ul>
-</div>
+                    <div class="toc-title">Sur cette page</div>
+                    <ul class="toc-list">
+                        <li class=""><a href="#la-loi-du-moindre-effort-en-machine-learning">🦊 La loi du moindre effort
+                                en Machine Learning</a></li>
+                        <li class=""><a href="#la-parade-l-exclusion-stricte-par-masquage-d-index">🛡️ La parade :
+                                L'exclusion stricte par masquage d'index</a></li>
+                        <li class=""><a href="#zoom-sur-le-code-de-s-lection-disjoint-jepa-lab-masks-py">💻 Zoom sur le
+                                code de sélection disjoint : jepa_lab/masks.py</a></li>
+                        <li class=""><a href="#l-effet-combin-fov-ation-masquage">👁️ L'effet combiné : Fovéation +
+                                Masquage</a></li>
+                        <li class=""><a href="#conclusion">🧠 Conclusion</a></li>
+                        <li class="toc-indent"><a href="#d-fi-curieux-n-3">🛠️ Défi curieux n°3</a></li>
+                    </ul>
+                </div>
             </div>
         </main>
     </div>
@@ -168,11 +234,11 @@ context_patches = list(all_patches - set(target_patches))
     <!-- Scripts -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.8.0/highlight.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/mermaid/dist/mermaid.min.js"></script>
-    
+
     <script>
         // Initialize Highlight.js
         hljs.highlightAll();
-        
+
         // Initialize Mermaid
         mermaid.initialize({
             theme: 'dark',
@@ -180,21 +246,21 @@ context_patches = list(all_patches - set(target_patches))
             securityLevel: 'loose'
         });
 
-        document.addEventListener("DOMContentLoaded", function() {
+        document.addEventListener("DOMContentLoaded", function () {
             // 1. Convert Markdown pre-code blocks for Mermaid to actual divs
-            document.querySelectorAll("pre code.language-mermaid").forEach(function(el) {
+            document.querySelectorAll("pre code.language-mermaid").forEach(function (el) {
                 const pre = el.parentElement;
                 const div = document.createElement("div");
                 div.className = "mermaid";
                 div.textContent = el.textContent;
                 pre.parentElement.replaceChild(div, pre);
             });
-            
+
             // Run Mermaid rendering
             mermaid.run();
-            
+
             // 2. Reading Progress Bar Logic
-            window.addEventListener('scroll', function() {
+            window.addEventListener('scroll', function () {
                 const winScroll = document.documentElement.scrollTop || document.body.scrollTop;
                 const height = document.documentElement.scrollHeight - document.documentElement.clientHeight;
                 const scrolled = (winScroll / height) * 100;
@@ -203,4 +269,5 @@ context_patches = list(all_patches - set(target_patches))
         });
     </script>
 </body>
+
 </html>

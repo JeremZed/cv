@@ -1,18 +1,19 @@
 <!DOCTYPE html>
 <html lang="fr">
+
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Saccadic-JEPA — Partie 1 : Concept du Saccadic-JEPA | Tinkerer's Lab</title>
-    
+
     <!-- Stylesheets -->
     <link rel="stylesheet" href="../css/style.css">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.8.0/styles/github-dark.min.css">
-    
+
     <!-- Fonts -->
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    
+
     <!-- MathJax Configuration -->
     <script>
         window.MathJax = {
@@ -30,6 +31,7 @@
     <script id="MathJax-script" async src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
     <script src="../js/sidebar.js" defer></script>
 </head>
+
 <body class="tex2jax_process">
 
     <!-- Reading Progress Bar -->
@@ -38,11 +40,13 @@
     </div>
 
     <div class="app-container">
-    
+
         <!-- Mobile Navigation Header -->
         <header class="mobile-header">
             <button class="menu-toggle" id="menu-open-btn">
-                <svg width="24" height="24" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M4 6h16M4 12h16M4 18h16"/></svg>
+                <svg width="24" height="24" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" d="M4 6h16M4 12h16M4 18h16" />
+                </svg>
             </button>
             <div class="sidebar-title">Tinkerer's Lab</div>
             <div></div> <!-- spacer -->
@@ -60,24 +64,43 @@
                         <h1>Saccadic-JEPA — Partie 1 : Concept du Saccadic-JEPA</h1>
                         <p class="article-subtitle">Apprendre des structures nettes à partir d'indices flous</p>
                     </header>
-                    
+
                     <div class="article-body">
                         <blockquote>
-<p><strong>Série Saccadic-JEPA : Vers une Vision Artificielle Biologiquement Inspirée</strong>
-<em>Dans cette première partie de notre huitième article, nous présentons le paradigme Saccadic-JEPA. Nous allons voir comment cette architecture rompt la symétrie des modèles auto-supervisés classiques en opposant un Élève (Context Encoder) plongé dans le flou périphérique à un Professeur (Target Encoder) qui détient la vérité nette et détaillée.</em></p>
-</blockquote>
-<hr />
-<h2 id="rappel-la-sym-trie-de-i-jepa-standard">🪞 Rappel : La symétrie de I-JEPA standard</h2>
-<p>Dans le modèle I-JEPA classique (Mono ou Multi-cibles), la tâche de pré-entraînement repose sur un masquage purement géométrique. </p>
-<p>Les deux branches du réseau (le <strong>Context Encoder</strong> et le <strong>Target Encoder</strong>) travaillent sur <strong>la même image d'origine</strong> à résolution uniforme (par exemple, $32\times 32$ pixels) :
-1. L'image d'origine est découpée en patches.
-2. L'Élève (Context Encoder) reçoit uniquement les patches du contexte (ex: 48 patches visibles).
-3. Le Professeur (Target Encoder) reçoit l'image entière pour en extraire les représentations cibles (ex: 16 patches masqués).</p>
-<p>Bien qu'asymétrique dans son architecture (l'Élève a des gradients actifs, le Professeur est mis à jour par EMA), le modèle reste <strong>symétrique dans sa représentation d'entrée</strong> : les deux encodeurs analysent des patches issus de la même qualité d'image.</p>
-<hr />
-<h2 id="le-saut-conceptuel-de-saccadic-jepa-l-asym-trie-de-r-solution">⚡ Le saut conceptuel de Saccadic-JEPA : L'asymétrie de résolution</h2>
-<p><strong>Saccadic-JEPA</strong> rompt délibérément cette symétrie en introduisant une asymétrie de résolution inspirée de la vision humaine :</p>
-<pre><code>                               ┌───────────────────────────┐
+                            <p><strong>Série Saccadic-JEPA : Vers une Vision Artificielle Biologiquement
+                                    Inspirée</strong>
+                                <em>Dans cette première partie de notre huitième article, nous présentons le paradigme
+                                    Saccadic-JEPA. Nous allons voir comment cette architecture rompt la symétrie des
+                                    modèles auto-supervisés classiques en opposant un Élève (Context Encoder) plongé
+                                    dans le flou périphérique à un Professeur (Target Encoder) qui détient la vérité
+                                    nette et détaillée.</em>
+                            </p>
+                        </blockquote>
+                        <hr />
+                        <h2 id="rappel-la-sym-trie-de-i-jepa-standard">🪞 Rappel : La symétrie de I-JEPA standard</h2>
+                        <p>Dans le modèle I-JEPA classique (Mono ou Multi-cibles), la tâche de pré-entraînement repose
+                            sur un masquage purement géométrique. </p>
+                        <p>Les deux branches du réseau (le <strong>Context Encoder</strong> et le <strong>Target
+                                Encoder</strong>) travaillent sur <strong>la même image d'origine</strong> à résolution
+                            uniforme (par exemple, $32\times 32$ pixels) :
+                        <ol>
+                            <li>L'image d'origine est découpée en patches.</li>
+                            <li>L'Élève (Context Encoder) reçoit uniquement les patches du contexte (ex: 48 patches
+                                visibles).</li>
+                            <li>Le Professeur (Target Encoder) reçoit l'image entière pour en extraire les
+                                représentations cibles (ex: 16 patches masqués).</li>
+                        </ol>
+                        </p>
+                        <p>Bien qu'asymétrique dans son architecture (l'Élève a des gradients actifs, le Professeur est
+                            mis à jour par EMA), le modèle reste <strong>symétrique dans sa représentation
+                                d'entrée</strong> : les deux encodeurs analysent des patches issus de la même qualité
+                            d'image.</p>
+                        <hr />
+                        <h2 id="le-saut-conceptuel-de-saccadic-jepa-l-asym-trie-de-r-solution">⚡ Le saut conceptuel de
+                            Saccadic-JEPA : L'asymétrie de résolution</h2>
+                        <p><strong>Saccadic-JEPA</strong> rompt délibérément cette symétrie en introduisant une
+                            asymétrie de résolution inspirée de la vision humaine :</p>
+                        <pre><code>                               ┌───────────────────────────┐
                                │   Image Nette Originale   │
                                │        x (128x128)        │
                                └─────────────┬─────────────┘
@@ -98,20 +121,56 @@
            │      (ÉLÈVE)        │                       │    (PROFESSEUR)     │
            └─────────────────────┘                       └─────────────────────┘
 </code></pre>
-<p>Dans ce paradigme :
-1. <strong>L'Élève (Context Encoder - Branche $y$)</strong> : Reçoit une image <strong>fovéée</strong> (<code>foveated_x</code>), c'est-à-dire nette uniquement sur son point de fixation actuel $A$, et fortement floutée et désaturée sur toute sa périphérie. C'est la simulation de ce que l'œil humain perçoit.
-2. <strong>Le Professeur (Target Encoder - Branche $x$)</strong> : Reçoit l'image <strong>originale nette</strong> (<code>x</code>), sans aucune dégradation. Il extrait les représentations latentes idéales à haute résolution.</p>
-<hr />
-<h2 id="pourquoi-cette-asym-trie-force-t-elle-le-mod-le-tre-intelligent">🎯 Pourquoi cette asymétrie force-t-elle le modèle à être intelligent ?</h2>
-<p>En opposant une entrée floue à une cible nette, nous forçons le Predictor à accomplir une tâche beaucoup plus difficile et sémantique : <strong>il doit projeter des représentations périphériques dégradées pour reconstituer (imaginer) les caractéristiques géométriques précises et nettes de la cible.</strong></p>
-<ul>
-<li><strong>Éviter le simple appariement de pixels</strong> : Si l'Élève voyait l'image nette, le modèle pourrait se contenter d'apprendre des corrélations de textures locales simples.</li>
-<li><strong>Apprendre les invariants de formes</strong> : Pour deviner qu'une tache floue et grise en périphérie correspond en réalité à la structure métallique d'une aile d'avion (qu'il doit prédire sous forme de caractéristiques nettes), le modèle est contraint de comprendre le concept d'un "avion" et de ses composants à un niveau d'abstraction élevé.</li>
-</ul>
-<hr />
-<h2 id="dans-les-entrailles-du-code-le-flux-asym-trique">🛠️ Dans les entrailles du code : Le flux asymétrique</h2>
-<p>Cette asymétrie d'entrée est codée dans la méthode <code>forward</code> de notre classe <code>SaccadicJEPA</code> (<code>jepa_lab/saccadic_models.py</code>) :</p>
-<pre><code class="language-python">def forward(self, x, context_indices, target_indices, context_fixations=None):
+                        <p>Dans ce paradigme :
+                        <ol>
+                            <li><strong>L'Élève (Context Encoder - Branche $y$)</strong> : Reçoit une image
+                                <strong>fovéée</strong> (<code>foveated_x</code>), c'est-à-dire nette uniquement sur
+                                son
+                                point de fixation actuel $A$, et fortement floutée et désaturée sur toute sa
+                                périphérie. C'est la simulation de ce que l'œil humain perçoit.
+                            </li>
+                            <li><strong>Le Professeur (Target Encoder - Branche $x$)</strong> : Reçoit l'image
+                                <strong>originale nette</strong> (<code>x</code>), sans aucune dégradation. Il extrait
+                                les
+                                représentations latentes idéales à haute résolution.
+                            </li>
+                        </ol>
+                        <hr />
+                        <h2 id="pourquoi-cette-asym-trie-force-t-elle-le-mod-le-tre-intelligent">🎯 Pourquoi
+                            cette
+                            asymétrie force-t-elle le modèle à être intelligent ?</h2>
+                        <p>En opposant une entrée floue à une cible nette, nous forçons le Predictor à accomplir
+                            une
+                            tâche beaucoup plus difficile et sémantique : <strong>il doit projeter des
+                                représentations
+                                périphériques dégradées pour reconstituer (imaginer) les caractéristiques
+                                géométriques
+                                précises et nettes de la cible.</strong></p>
+                        <ul>
+                            <li><strong>Éviter le simple appariement de pixels</strong> : Si l'Élève voyait
+                                l'image
+                                nette, le modèle pourrait se contenter d'apprendre des corrélations de textures
+                                locales
+                                simples.</li>
+                            <li><strong>Apprendre les invariants de formes</strong> : Pour deviner qu'une tache
+                                floue et
+                                grise en périphérie correspond en réalité à la structure métallique d'une aile
+                                d'avion
+                                (qu'il doit prédire sous forme de caractéristiques nettes), le modèle est
+                                contraint de
+                                comprendre le concept d'un "avion" et de ses composants à un niveau
+                                d'abstraction élevé.
+                            </li>
+                        </ul>
+                        <hr />
+                        <h2 id="dans-les-entrailles-du-code-le-flux-asym-trique">🛠️ Dans les entrailles du code
+                            : Le
+                            flux asymétrique</h2>
+                        <p>Cette asymétrie d'entrée est codée dans la méthode <code>forward</code> de notre
+                            classe
+                            <code>SaccadicJEPA</code> (<code>jepa_lab/saccadic_models.py</code>) :
+                        </p>
+                        <pre><code class="language-python">def forward(self, x, context_indices, target_indices, context_fixations=None):
     # x : batch d'images originales nettes (B, 3, 128, 128)
     B = x.shape[0]
 
@@ -133,42 +192,59 @@
 
     # ... le Predictor doit prédire s_y à partir de s_x ...
 </code></pre>
-<p>Remarquez la séparation nette à l'étape 3 et 4 :
-* <code>self.target_encoder</code> reçoit l'image brute nette <code>x</code>.
-* <code>self.context_encoder</code> reçoit l'image dégradée <code>foveated_x</code>.</p>
-<hr />
-<h2 id="conclusion-amp-transition">🧠 Conclusion &amp; Transition</h2>
-<p>En brisant la symétrie de résolution, Saccadic-JEPA émule le fonctionnement du cerveau : nous utilisons nos indices périphériques flous pour anticiper ce que nous allons regarder ensuite.</p>
-<p>Mais quel est le rôle exact du Predictor dans cette configuration ? Comment parvient-il à faire le pont entre ces deux espaces de résolution différents pour projeter les représentations ?</p>
-<p>C'est ce que nous allons explorer dans la deuxième partie de cet article : <strong>Le rôle du Predictor comme traducteur d'échelle</strong> !</p>
-<hr />
-<h3 id="d-fi-de-curiosit-n-1">🛠️ Défi de curiosité n°1</h3>
-<p><em>En lisant la méthode <code>forward</code> ci-dessus, observez que le <code>target_encoder</code> est enveloppé dans un bloc <code>with torch.no_grad():</code>. Pourquoi ? Quel est le mécanisme mathématique qui met à jour les poids du professeur si le calcul des gradients est désactivé sur sa branche ?</em></p>
+                        <p>Remarquez la séparation nette à l'étape 3 et 4 :
+                            * <code>self.target_encoder</code> reçoit l'image brute nette <code>x</code>.
+                            * <code>self.context_encoder</code> reçoit l'image dégradée <code>foveated_x</code>.
+                        </p>
+                        <hr />
+                        <h2 id="conclusion-amp-transition">🧠 Conclusion &amp; Transition</h2>
+                        <p>En brisant la symétrie de résolution, Saccadic-JEPA émule le fonctionnement du
+                            cerveau : nous
+                            utilisons nos indices périphériques flous pour anticiper ce que nous allons regarder
+                            ensuite.</p>
+                        <p>Mais quel est le rôle exact du Predictor dans cette configuration ? Comment
+                            parvient-il à
+                            faire le pont entre ces deux espaces de résolution différents pour projeter les
+                            représentations ?</p>
+                        <p>C'est ce que nous allons explorer dans la deuxième partie de cet article : <strong>Le
+                                rôle du
+                                Predictor comme traducteur d'échelle</strong> !</p>
+                        <hr />
+                        <h3 id="d-fi-curieux-n-1">🛠️ Défi curieux n°1</h3>
+                        <p><em><strong>Le jeu du témoin et du dessinateur :</strong> Imaginez un jeu collaboratif :
+                        <br>- Le <strong>Témoin</strong> (le Target Encoder) a sous les yeux une photo haute résolution extrêmement nette et détaillée d'un objet (ex: un oiseau rare).
+                        <br>- Le <strong>Dessinateur</strong> (le Context Encoder) ne voit cette photo qu'à travers une vitre dépolie très floue, sauf au centre. Il doit pourtant dessiner la partie manquante et floue en haute résolution.
+                        <br>1. Si le Dessinateur s'entraînait en regardant la même photo nette que le Témoin, pourquoi le jeu se limiterait-il à du recopiage mécanique sans apprentissage des formes ?
+                        <br>2. En quoi le fait de forcer le Dessinateur à travailler dans le flou tout en étant évalué par rapport à la photo nette du Témoin l'oblige-t-il à développer une compréhension sémantique de l'objet ?</em></p>
                     </div>
-                    
+
                     <div class="article-footer-nav">
-  <a href="article_7_partie_3.html" class="footer-nav-link prev">
-    <span class="footer-nav-label">← Précédent</span>
-    <span class="footer-nav-title">Recréer l'Œil Humain en Python - Partie 3</span>
-  </a>
-  <a href="article_8_partie_2.html" class="footer-nav-link next">
-    <span class="footer-nav-label">Suivant →</span>
-    <span class="footer-nav-title">Saccadic-JEPA - Partie 2</span>
-  </a>
-</div>
+                        <a href="article_7_partie_3.html" class="footer-nav-link prev">
+                            <span class="footer-nav-label">← Précédent</span>
+                            <span class="footer-nav-title">Recréer l'Œil Humain en Python - Partie 3</span>
+                        </a>
+                        <a href="article_8_partie_2.html" class="footer-nav-link next">
+                            <span class="footer-nav-label">Suivant →</span>
+                            <span class="footer-nav-title">Saccadic-JEPA - Partie 2</span>
+                        </a>
+                    </div>
                 </article>
-                
+
                 <div class="toc-sidebar">
-  <div class="toc-title">Sur cette page</div>
-  <ul class="toc-list">
-    <li class=""><a href="#rappel-la-sym-trie-de-i-jepa-standard">🪞 Rappel : La symétrie de I-JEPA standard</a></li>
-    <li class=""><a href="#le-saut-conceptuel-de-saccadic-jepa-l-asym-trie-de-r-solution">⚡ Le saut conceptuel de Saccadic-JEPA : L'asymétrie de résolution</a></li>
-    <li class=""><a href="#pourquoi-cette-asym-trie-force-t-elle-le-mod-le-tre-intelligent">🎯 Pourquoi cette asymétrie force-t-elle le modèle à être intelligent ?</a></li>
-    <li class=""><a href="#dans-les-entrailles-du-code-le-flux-asym-trique">🛠️ Dans les entrailles du code : Le flux asymétrique</a></li>
-    <li class=""><a href="#conclusion-amp-transition">🧠 Conclusion &amp; Transition</a></li>
-    <li class="toc-indent"><a href="#d-fi-de-curiosit-n-1">🛠️ Défi de curiosité n°1</a></li>
-  </ul>
-</div>
+                    <div class="toc-title">Sur cette page</div>
+                    <ul class="toc-list">
+                        <li class=""><a href="#rappel-la-sym-trie-de-i-jepa-standard">🪞 Rappel : La symétrie de I-JEPA
+                                standard</a></li>
+                        <li class=""><a href="#le-saut-conceptuel-de-saccadic-jepa-l-asym-trie-de-r-solution">⚡ Le saut
+                                conceptuel de Saccadic-JEPA : L'asymétrie de résolution</a></li>
+                        <li class=""><a href="#pourquoi-cette-asym-trie-force-t-elle-le-mod-le-tre-intelligent">🎯
+                                Pourquoi cette asymétrie force-t-elle le modèle à être intelligent ?</a></li>
+                        <li class=""><a href="#dans-les-entrailles-du-code-le-flux-asym-trique">🛠️ Dans les entrailles
+                                du code : Le flux asymétrique</a></li>
+                        <li class=""><a href="#conclusion-amp-transition">🧠 Conclusion &amp; Transition</a></li>
+                        <li class="toc-indent"><a href="#d-fi-curieux-n-1">🛠️ Défi curieux n°1</a></li>
+                    </ul>
+                </div>
             </div>
         </main>
     </div>
@@ -176,11 +252,11 @@
     <!-- Scripts -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.8.0/highlight.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/mermaid/dist/mermaid.min.js"></script>
-    
+
     <script>
         // Initialize Highlight.js
         hljs.highlightAll();
-        
+
         // Initialize Mermaid
         mermaid.initialize({
             theme: 'dark',
@@ -188,21 +264,21 @@
             securityLevel: 'loose'
         });
 
-        document.addEventListener("DOMContentLoaded", function() {
+        document.addEventListener("DOMContentLoaded", function () {
             // 1. Convert Markdown pre-code blocks for Mermaid to actual divs
-            document.querySelectorAll("pre code.language-mermaid").forEach(function(el) {
+            document.querySelectorAll("pre code.language-mermaid").forEach(function (el) {
                 const pre = el.parentElement;
                 const div = document.createElement("div");
                 div.className = "mermaid";
                 div.textContent = el.textContent;
                 pre.parentElement.replaceChild(div, pre);
             });
-            
+
             // Run Mermaid rendering
             mermaid.run();
-            
+
             // 2. Reading Progress Bar Logic
-            window.addEventListener('scroll', function() {
+            window.addEventListener('scroll', function () {
                 const winScroll = document.documentElement.scrollTop || document.body.scrollTop;
                 const height = document.documentElement.scrollHeight - document.documentElement.clientHeight;
                 const scrolled = (winScroll / height) * 100;
@@ -211,4 +287,5 @@
         });
     </script>
 </body>
+
 </html>

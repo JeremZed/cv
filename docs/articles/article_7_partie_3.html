@@ -1,18 +1,19 @@
 <!DOCTYPE html>
 <html lang="fr">
+
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Recréer l'Œil Humain en Python — Partie 3 : Algorithme de Fovéation en NumPy | Tinkerer's Lab</title>
-    
+
     <!-- Stylesheets -->
     <link rel="stylesheet" href="../css/style.css">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.8.0/styles/github-dark.min.css">
-    
+
     <!-- Fonts -->
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    
+
     <!-- MathJax Configuration -->
     <script>
         window.MathJax = {
@@ -30,6 +31,7 @@
     <script id="MathJax-script" async src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
     <script src="../js/sidebar.js" defer></script>
 </head>
+
 <body class="tex2jax_process">
 
     <!-- Reading Progress Bar -->
@@ -38,11 +40,13 @@
     </div>
 
     <div class="app-container">
-    
+
         <!-- Mobile Navigation Header -->
         <header class="mobile-header">
             <button class="menu-toggle" id="menu-open-btn">
-                <svg width="24" height="24" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M4 6h16M4 12h16M4 18h16"/></svg>
+                <svg width="24" height="24" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" d="M4 6h16M4 12h16M4 18h16" />
+                </svg>
             </button>
             <div class="sidebar-title">Tinkerer's Lab</div>
             <div></div> <!-- spacer -->
@@ -60,47 +64,83 @@
                         <h1>Recréer l'Œil Humain en Python — Partie 3 : Algorithme de Fovéation en NumPy</h1>
                         <p class="article-subtitle">Fovéation, cônes/bâtonnets et acuité visuelle</p>
                     </header>
-                    
+
                     <div class="article-body">
                         <blockquote>
-<p><strong>Série Saccadic-JEPA : Vers une Vision Artificielle Biologiquement Inspirée</strong>
-<em>Dans cette troisième et dernière partie du septième article, nous passons à la pratique. Nous allons voir comment modéliser mathématiquement le gradient de netteté de l'œil sans effondrer les performances de calcul, et comment exécuter notre propre simulateur de fovéation en Python.</em></p>
-</blockquote>
-<hr />
-<h2 id="le-pi-ge-de-l-approche-na-ve">🐢 Le piège de l'approche naïve</h2>
-<p>Si vous essayez de coder un flou fovéal de manière intuitive, vous risquez de vous heurter à un mur de lenteur. </p>
-<p>L'approche naïve consisterait à dire : <em>"Pour chaque pixel de l'image, je calcule sa distance au point de regard, j'en déduis un rayon de flou gaussien spécifique (petit au centre, grand en périphérie), et j'applique un filtre local."</em></p>
-<p>Bien que correcte sur le plan théorique, cette méthode est <strong>un désastre informatique</strong>. Faire varier la taille du noyau de convolution pour chaque pixel nécessite des boucles imbriquées complexes. Traiter une seule image de taille moyenne prendrait plusieurs secondes en Python. Dans un pipeline d'apprentissage où notre GPU doit ingérer des centaines d'images par seconde, cette approche est inutilisable.</p>
-<hr />
-<h2 id="la-solution-le-m-lange-de-calques-multi-r-solutions">⚡ La solution : Le mélange de calques multi-résolutions</h2>
-<p>Pour contourner cette limite, nous utilisons une technique empruntée au jeu vidéo et au traitement d'images professionnel : le <strong>multi-resolution layer blending</strong>.</p>
-<p>Le principe est simple :
-1. <strong>Génération de calques globaux</strong> : On crée une poignée de versions uniformément floutées et désaturées de l'image d'origine (par exemple 4 calques : Nette, Flou Léger, Flou Moyen, Flou Fort).
-2. <strong>Matrice des distances</strong> : On calcule une seule fois la distance de chaque pixel au centre du regard $(c_x, c_y)$ sur toute l'image (opération matricielle ultra-rapide).
-3. <strong>Fusion par masques de transition</strong> : On mélange ces calques en utilisant des masques de transparence douce pour obtenir un rendu dégradé parfait.</p>
-<p>Cette suite d'opérations est entièrement vectorisée en NumPy (ou en PyTorch sur GPU), ce qui la rend quasi-instantanée.</p>
-<hr />
-<h2 id="les-math-matiques-des-masques-sigmo-des">📐 Les mathématiques des masques sigmoïdes</h2>
-<p>Pour obtenir des transitions fluides sans voir de "cercles" ou de "marches d'escalier" artificiels sur l'image fovéée, nous utilisons la fonction logistique (ou <strong>sigmoïde</strong>). </p>
-<p>La fonction sigmoïde permet de définir des transitions douces entre 0 (transparence totale) et 1 (opacité totale) autour d'un rayon de transition $r$ avec une pente $s$ :</p>
-<p>$$\text{sigmoid}(d, r, s) = \frac{1}{1 + e^{-s \cdot (d - r)}}$$</p>
-<p>Pour modéliser nos 4 zones de vision (Fovéa, Para-fovéa, Péri-fovéa, Périphérie), nous définissons trois rayons de démarcation ($r_0, r_1, r_2$) et calculons trois masques sigmoïdes ($P_0, P_1, P_2$).</p>
-<p>Nous calculons ensuite les poids de mélange ($W_0, W_1, W_2, W_3$) de chaque calque pour chaque pixel :
-* <strong>Poids du calque Net (Fovéa)</strong> :
-  $$W_0 = 1.0 - P_0$$
-* <strong>Poids du calque Flou Léger (Para-fovéa)</strong> :
-  $$W_1 = P_0 \times (1.0 - P_1)$$
-* <strong>Poids du calque Flou Moyen (Péri-fovéa)</strong> :
-  $$W_2 = P_0 \times P_1 \times (1.0 - P_2)$$
-* <strong>Poids du calque Flou Fort (Périphérie)</strong> :
-  $$W_3 = P_0 \times P_1 \times P_2$$</p>
-<blockquote>
-<p>💡 <strong>Propriété mathématique cruciale</strong> : La somme de ces poids est égale à exactement $1.0$ en tout point de l'image ($W_0 + W_1 + W_2 + W_3 = 1.0$), ce qui garantit qu'aucune perte ou gain d'intensité lumineuse n'apparaît lors de la fusion.</p>
-</blockquote>
-<hr />
-<h2 id="dans-les-entrailles-du-code-jepa-lab-explications-foveate-image-py">🛠️ Dans les entrailles du code : <code>jepa_lab/explications/foveate_image.py</code></h2>
-<p>Le script <code>foveate_image.py</code> applique cette logique en Python. Voyons comment la grille de distances et la fusion sont codées :</p>
-<pre><code class="language-python"># 1. Grille de coordonnées et distances radiales
+                            <p><strong>Série Saccadic-JEPA : Vers une Vision Artificielle Biologiquement
+                                    Inspirée</strong>
+                                <em>Dans cette troisième et dernière partie du septième article, nous passons à la
+                                    pratique. Nous allons voir comment modéliser mathématiquement le gradient de netteté
+                                    de l'œil sans effondrer les performances de calcul, et comment exécuter notre propre
+                                    simulateur de fovéation en Python.</em>
+                            </p>
+                        </blockquote>
+                        <hr />
+                        <h2 id="le-pi-ge-de-l-approche-na-ve">🐢 Le piège de l'approche naïve</h2>
+                        <p>Si vous essayez de coder un flou fovéal de manière intuitive, vous risquez de vous heurter à
+                            un mur de lenteur. </p>
+                        <p>L'approche naïve consisterait à dire : <em>"Pour chaque pixel de l'image, je calcule sa
+                                distance au point de regard, j'en déduis un rayon de flou gaussien spécifique (petit au
+                                centre, grand en périphérie), et j'applique un filtre local."</em></p>
+                        <p>Bien que correcte sur le plan théorique, cette méthode est <strong>un désastre
+                                informatique</strong>. Faire varier la taille du noyau de convolution pour chaque pixel
+                            nécessite des boucles imbriquées complexes. Traiter une seule image de taille moyenne
+                            prendrait plusieurs secondes en Python. Dans un pipeline d'apprentissage où notre GPU doit
+                            ingérer des centaines d'images par seconde, cette approche est inutilisable.</p>
+                        <hr />
+                        <h2 id="la-solution-le-m-lange-de-calques-multi-r-solutions">⚡ La solution : Le mélange de
+                            calques multi-résolutions</h2>
+                        <p>Pour contourner cette limite, nous utilisons une technique empruntée au jeu vidéo et au
+                            traitement d'images professionnel : le <strong>multi-resolution layer blending</strong>.</p>
+                        <p>Le principe est simple :
+                        <ol>
+                            <li><strong>Génération de calques globaux</strong> : On crée une poignée de versions
+                                uniformément floutées et désaturées de l'image d'origine (par exemple 4 calques : Nette,
+                                Flou Léger, Flou Moyen, Flou Fort).
+                            </li>
+                            <li><strong>Matrice des distances</strong> : On calcule une seule fois la distance de chaque
+                                pixel au centre du regard $(c_x, c_y)$ sur toute l'image (opération matricielle
+                                ultra-rapide).
+                            </li>
+                            <li><strong>Fusion par masques de transition</strong> : On mélange ces calques en utilisant
+                                des masques de transparence douce pour obtenir un rendu dégradé parfait.
+                            </li>
+                        </ol>
+                        <p>Cette suite d'opérations est entièrement vectorisée en NumPy (ou en PyTorch sur GPU), ce qui
+                            la rend quasi-instantanée.</p>
+                        <hr />
+                        <h2 id="les-math-matiques-des-masques-sigmo-des">📐 Les mathématiques des masques sigmoïdes</h2>
+                        <p>Pour obtenir des transitions fluides sans voir de "cercles" ou de "marches d'escalier"
+                            artificiels sur l'image fovéée, nous utilisons la fonction logistique (ou
+                            <strong>sigmoïde</strong>).
+                        </p>
+                        <p>La fonction sigmoïde permet de définir des transitions douces entre 0 (transparence totale)
+                            et 1 (opacité totale) autour d'un rayon de transition $r$ avec une pente $s$ :</p>
+                        <p>$$\text{sigmoid}(d, r, s) = \frac{1}{1 + e^{-s \cdot (d - r)}}$$</p>
+                        <p>Pour modéliser nos 4 zones de vision (Fovéa, Para-fovéa, Péri-fovéa, Périphérie), nous
+                            définissons trois rayons de démarcation ($r_0, r_1, r_2$) et calculons trois masques
+                            sigmoïdes ($P_0, P_1, P_2$).</p>
+                        <p>Nous calculons ensuite les poids de mélange ($W_0, W_1, W_2, W_3$) de chaque calque pour
+                            chaque pixel :
+                            * <strong>Poids du calque Net (Fovéa)</strong> :
+                            $$W_0 = 1.0 - P_0$$
+                            * <strong>Poids du calque Flou Léger (Para-fovéa)</strong> :
+                            $$W_1 = P_0 \times (1.0 - P_1)$$
+                            * <strong>Poids du calque Flou Moyen (Péri-fovéa)</strong> :
+                            $$W_2 = P_0 \times P_1 \times (1.0 - P_2)$$
+                            * <strong>Poids du calque Flou Fort (Périphérie)</strong> :
+                            $$W_3 = P_0 \times P_1 \times P_2$$</p>
+                        <blockquote>
+                            <p>💡 <strong>Propriété mathématique cruciale</strong> : La somme de ces poids est égale à
+                                exactement $1.0$ en tout point de l'image ($W_0 + W_1 + W_2 + W_3 = 1.0$), ce qui
+                                garantit qu'aucune perte ou gain d'intensité lumineuse n'apparaît lors de la fusion.</p>
+                        </blockquote>
+                        <hr />
+                        <h2 id="dans-les-entrailles-du-code-jepa-lab-explications-foveate-image-py">🛠️ Dans les
+                            entrailles du code : <code>jepa_lab/explications/foveate_image.py</code></h2>
+                        <p>Le script <code>foveate_image.py</code> applique cette logique en Python. Voyons comment la
+                            grille de distances et la fusion sont codées :</p>
+                        <pre><code class="language-python"># 1. Grille de coordonnées et distances radiales
 x = np.arange(W)
 y = np.arange(H)
 xx, yy = np.meshgrid(x, y)
@@ -127,60 +167,90 @@ W3 = np.expand_dims(W3, axis=-1)
 # Image fovéée finale
 foveated = W0 * layer_fovea + W1 * layer_para + W2 * layer_peri + W3 * layer_peripheral
 </code></pre>
-<hr />
-<h2 id="comment-lancer-le-simulateur">🚀 Comment lancer le simulateur ?</h2>
-<p>Vous pouvez tester le script directement sur votre machine pour générer des visuels.</p>
-<h3 id="1-g-n-rer-une-image-de-test-synth-tique">1. Générer une image de test synthétique</h3>
-<p>Pour évaluer la perte de lisibilité des textes en vision périphérique, générez une image contenant des mires de texte :</p>
-<pre><code class="language-bash">python3 jepa_lab/explications/foveate_image.py --output vision_humaine_clean.png
+                        <hr />
+                        <h2 id="comment-lancer-le-simulateur">🚀 Comment lancer le simulateur ?</h2>
+                        <p>Vous pouvez tester le script directement sur votre machine pour générer des visuels.</p>
+                        <h3 id="1-g-n-rer-une-image-de-test-synth-tique">1. Générer une image de test synthétique</h3>
+                        <p>Pour évaluer la perte de lisibilité des textes en vision périphérique, générez une image
+                            contenant des mires de texte :</p>
+                        <pre><code class="language-bash">python3 jepa_lab/explications/foveate_image.py --output vision_humaine_clean.png
 </code></pre>
-<h3 id="2-afficher-les-limites-des-zones-mode-d-bug">2. Afficher les limites des zones (Mode Débug)</h3>
-<p>Dessinez les cercles correspondants aux rayons de transition ($r_0, r_1, r_2$) pour visualiser les limites rétiniennes :</p>
-<pre><code class="language-bash">python3 jepa_lab/explications/foveate_image.py --debug --output vision_humaine_debug.png
+                        <p><img alt="Rendu de l'effet de fovéation propre" src="../images/vision_humaine_clean.png" />
+                            <em>Figure 1 : Rendu final du simulateur de fovéation. Seule la zone centrale ciblée par le
+                                regard reste nette.</em>
+                        </p>
+                        <h3 id="2-afficher-les-limites-des-zones-mode-d-bug">2. Afficher les limites des zones (Mode
+                            Débug)</h3>
+                        <p>Dessinez les cercles correspondants aux rayons de transition ($r_0, r_1, r_2$) pour
+                            visualiser les limites rétiniennes :</p>
+                        <pre><code class="language-bash">python3 jepa_lab/explications/foveate_image.py --debug --output vision_humaine_debug.png
 </code></pre>
-<h3 id="3-appliquer-l-effet-sur-votre-propre-image">3. Appliquer l'effet sur votre propre image</h3>
-<p>Vous pouvez cibler un point de regard précis sur une de vos images (ex: X=450, Y=300) :</p>
-<pre><code class="language-bash">python3 jepa_lab/explications/foveate_image.py --image votre_image.jpg --x 450 --y 300 --output vision_perso.png
+                        <p><img alt="Limites des zones en mode débug" src="../images/vision_humaine_debug.png" />
+                            <em>Figure 2 : Mode débug affichant les rayons de transition de la fovéa, para-fovéa et
+                                péri-fovéa.</em>
+                        </p>
+                        <h3 id="3-appliquer-l-effet-sur-votre-propre-image">3. Appliquer l'effet sur votre propre image
+                        </h3>
+                        <p>Vous pouvez cibler un point de regard précis sur une de vos images (ex: X=450, Y=300) :</p>
+                        <pre><code class="language-bash">python3 jepa_lab/explications/foveate_image.py --image votre_image.jpg --x 450 --y 300 --output vision_perso.png
 </code></pre>
-<hr />
-<h2 id="conclusion-amp-transition">🧠 Conclusion &amp; Transition</h2>
-<p>Vous disposez désormais d'un algorithme de fovéation fluide, performant et biologiquement fondé. Dans le cadre de <strong>Saccadic-JEPA</strong>, nous transposons cette idée en PyTorch pour appliquer cet effet directement à la volée sur les batchs d'entraînement CIFAR-10.</p>
-<p>Maintenant que nous savons générer des images fovéées, comment concevoir un Vision Transformer capable d'exploiter cette asymétrie ? Comment configurer les masques cibles de reconstruction ?</p>
-<p>C'est ce que nous allons voir dans le prochain article : <strong>Article 8 : L'Architecture Saccadic-JEPA — Apprendre des structures nettes à partir d'indices flous</strong> !</p>
-<hr />
-<h3 id="d-fi-de-curiosit-n-3">🛠️ Défi de curiosité n°3</h3>
-                        <p><em><strong>La métaphore du projecteur de théâtre (pente de transition) :</strong> Imaginez un projecteur sur une scène qui éclaire un acteur au centre :
-                        <br>1. Si le projecteur a des bords découpés de manière ultra-nette (pente infinie, sans transition sigmoïdale), quel sera l'impact visuel à la frontière de la lumière ? Pourquoi cela génère-t-il de faux contours géométriques néfastes pour l'apprentissage du réseau ?
-                        <br>2. Comment la transition douce sigmoïdale permet-elle au réseau de fusionner harmonieusement les résolutions sans créer de discontinuités de gradients ?</em></p>
+                        <hr />
+                        <h2 id="conclusion-amp-transition">🧠 Conclusion &amp; Transition</h2>
+                        <p>Vous disposez désormais d'un algorithme de fovéation fluide, performant et biologiquement
+                            fondé. Dans le cadre de <strong>Saccadic-JEPA</strong>, nous transposons cette idée en
+                            PyTorch pour appliquer cet effet directement à la volée sur les batchs d'entraînement
+                            CIFAR-10.</p>
+                        <p>Maintenant que nous savons générer des images fovéées, comment concevoir un Vision
+                            Transformer capable d'exploiter cette asymétrie ? Comment configurer les masques cibles de
+                            reconstruction ?</p>
+                        <p>C'est ce que nous allons voir dans le prochain article : <strong>Article 8 : L'Architecture
+                                Saccadic-JEPA — Apprendre des structures nettes à partir d'indices flous</strong> !</p>
+                        <hr />
+                        <h3 id="d-fi-curieux-n-3">🛠️ Défi curieux n°3</h3>
+                        <p><em><strong>La métaphore du projecteur de théâtre (pente de transition) :</strong> Imaginez
+                                un projecteur sur une scène qui éclaire un acteur au centre :
+                                <br>1. Si le projecteur a des bords découpés de manière ultra-nette (pente infinie, sans
+                                transition douce), quel sera l'impact visuel à la frontière de la lumière ? En quoi cela
+                                crée-t-il de faux contours géométriques parasites qui induiraient en erreur un réseau de
+                                neurones lors de son apprentissage ?
+                                <br>2. Comment le fait de simuler une transition douce (par une sigmoïde) permet-il au
+                                réseau de fusionner les résolutions sans créer de discontinuités de gradients
+                                artificielles ?</em></p>
                     </div>
-                    
+
                     <div class="article-footer-nav">
-  <a href="article_7_partie_2.html" class="footer-nav-link prev">
-    <span class="footer-nav-label">← Précédent</span>
-    <span class="footer-nav-title">Recréer l'Œil Humain en Python - Partie 2</span>
-  </a>
-  <a href="article_8_partie_1.html" class="footer-nav-link next">
-    <span class="footer-nav-label">Suivant →</span>
-    <span class="footer-nav-title">Saccadic-JEPA - Partie 1</span>
-  </a>
-</div>
+                        <a href="article_7_partie_2.html" class="footer-nav-link prev">
+                            <span class="footer-nav-label">← Précédent</span>
+                            <span class="footer-nav-title">Recréer l'Œil Humain en Python - Partie 2</span>
+                        </a>
+                        <a href="article_8_partie_1.html" class="footer-nav-link next">
+                            <span class="footer-nav-label">Suivant →</span>
+                            <span class="footer-nav-title">Saccadic-JEPA - Partie 1</span>
+                        </a>
+                    </div>
                 </article>
-                
+
                 <div class="toc-sidebar">
-  <div class="toc-title">Sur cette page</div>
-  <ul class="toc-list">
-    <li class=""><a href="#le-pi-ge-de-l-approche-na-ve">🐢 Le piège de l'approche naïve</a></li>
-    <li class=""><a href="#la-solution-le-m-lange-de-calques-multi-r-solutions">⚡ La solution : Le mélange de calques multi-résolutions</a></li>
-    <li class=""><a href="#les-math-matiques-des-masques-sigmo-des">📐 Les mathématiques des masques sigmoïdes</a></li>
-    <li class=""><a href="#dans-les-entrailles-du-code-jepa-lab-explications-foveate-image-py">🛠️ Dans les entrailles du code : jepa_lab/explications/foveate_image.py</a></li>
-    <li class=""><a href="#comment-lancer-le-simulateur">🚀 Comment lancer le simulateur ?</a></li>
-    <li class="toc-indent"><a href="#1-g-n-rer-une-image-de-test-synth-tique">1. Générer une image de test synthétique</a></li>
-    <li class="toc-indent"><a href="#2-afficher-les-limites-des-zones-mode-d-bug">2. Afficher les limites des zones (Mode Débug)</a></li>
-    <li class="toc-indent"><a href="#3-appliquer-l-effet-sur-votre-propre-image">3. Appliquer l'effet sur votre propre image</a></li>
-    <li class=""><a href="#conclusion-amp-transition">🧠 Conclusion &amp; Transition</a></li>
-    <li class="toc-indent"><a href="#d-fi-de-curiosit-n-3">🛠️ Défi de curiosité n°3</a></li>
-  </ul>
-</div>
+                    <div class="toc-title">Sur cette page</div>
+                    <ul class="toc-list">
+                        <li class=""><a href="#le-pi-ge-de-l-approche-na-ve">🐢 Le piège de l'approche naïve</a></li>
+                        <li class=""><a href="#la-solution-le-m-lange-de-calques-multi-r-solutions">⚡ La solution : Le
+                                mélange de calques multi-résolutions</a></li>
+                        <li class=""><a href="#les-math-matiques-des-masques-sigmo-des">📐 Les mathématiques des masques
+                                sigmoïdes</a></li>
+                        <li class=""><a href="#dans-les-entrailles-du-code-jepa-lab-explications-foveate-image-py">🛠️
+                                Dans les entrailles du code : jepa_lab/explications/foveate_image.py</a></li>
+                        <li class=""><a href="#comment-lancer-le-simulateur">🚀 Comment lancer le simulateur ?</a></li>
+                        <li class="toc-indent"><a href="#1-g-n-rer-une-image-de-test-synth-tique">1. Générer une image
+                                de test synthétique</a></li>
+                        <li class="toc-indent"><a href="#2-afficher-les-limites-des-zones-mode-d-bug">2. Afficher les
+                                limites des zones (Mode Débug)</a></li>
+                        <li class="toc-indent"><a href="#3-appliquer-l-effet-sur-votre-propre-image">3. Appliquer
+                                l'effet sur votre propre image</a></li>
+                        <li class=""><a href="#conclusion-amp-transition">🧠 Conclusion &amp; Transition</a></li>
+                        <li class="toc-indent"><a href="#d-fi-curieux-n-3">🛠️ Défi curieux n°3</a></li>
+                    </ul>
+                </div>
             </div>
         </main>
     </div>
@@ -188,11 +258,11 @@ foveated = W0 * layer_fovea + W1 * layer_para + W2 * layer_peri + W3 * layer_per
     <!-- Scripts -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.8.0/highlight.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/mermaid/dist/mermaid.min.js"></script>
-    
+
     <script>
         // Initialize Highlight.js
         hljs.highlightAll();
-        
+
         // Initialize Mermaid
         mermaid.initialize({
             theme: 'dark',
@@ -200,21 +270,21 @@ foveated = W0 * layer_fovea + W1 * layer_para + W2 * layer_peri + W3 * layer_per
             securityLevel: 'loose'
         });
 
-        document.addEventListener("DOMContentLoaded", function() {
+        document.addEventListener("DOMContentLoaded", function () {
             // 1. Convert Markdown pre-code blocks for Mermaid to actual divs
-            document.querySelectorAll("pre code.language-mermaid").forEach(function(el) {
+            document.querySelectorAll("pre code.language-mermaid").forEach(function (el) {
                 const pre = el.parentElement;
                 const div = document.createElement("div");
                 div.className = "mermaid";
                 div.textContent = el.textContent;
                 pre.parentElement.replaceChild(div, pre);
             });
-            
+
             // Run Mermaid rendering
             mermaid.run();
-            
+
             // 2. Reading Progress Bar Logic
-            window.addEventListener('scroll', function() {
+            window.addEventListener('scroll', function () {
                 const winScroll = document.documentElement.scrollTop || document.body.scrollTop;
                 const height = document.documentElement.scrollHeight - document.documentElement.clientHeight;
                 const scrolled = (winScroll / height) * 100;
@@ -223,4 +293,5 @@ foveated = W0 * layer_fovea + W1 * layer_para + W2 * layer_peri + W3 * layer_per
         });
     </script>
 </body>
+
 </html>

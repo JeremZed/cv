@@ -1,18 +1,19 @@
 <!DOCTYPE html>
 <html lang="fr">
+
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Recréer l'Œil Humain en Python — Partie 2 : Économie d'Énergie & Cortex Visuel | Tinkerer's Lab</title>
-    
+
     <!-- Stylesheets -->
     <link rel="stylesheet" href="../css/style.css">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.8.0/styles/github-dark.min.css">
-    
+
     <!-- Fonts -->
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    
+
     <!-- MathJax Configuration -->
     <script>
         window.MathJax = {
@@ -30,6 +31,7 @@
     <script id="MathJax-script" async src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
     <script src="../js/sidebar.js" defer></script>
 </head>
+
 <body class="tex2jax_process">
 
     <!-- Reading Progress Bar -->
@@ -38,11 +40,13 @@
     </div>
 
     <div class="app-container">
-    
+
         <!-- Mobile Navigation Header -->
         <header class="mobile-header">
             <button class="menu-toggle" id="menu-open-btn">
-                <svg width="24" height="24" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M4 6h16M4 12h16M4 18h16"/></svg>
+                <svg width="24" height="24" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" d="M4 6h16M4 12h16M4 18h16" />
+                </svg>
             </button>
             <div class="sidebar-title">Tinkerer's Lab</div>
             <div></div> <!-- spacer -->
@@ -60,18 +64,30 @@
                         <h1>Recréer l'Œil Humain en Python — Partie 2 : Économie d'Énergie & Cortex Visuel</h1>
                         <p class="article-subtitle">Fovéation, cônes/bâtonnets et acuité visuelle</p>
                     </header>
-                    
+
                     <div class="article-body">
                         <blockquote>
-<p><strong>Série Saccadic-JEPA : Vers une Vision Artificielle Biologiquement Inspirée</strong>
-<em>Dans cette deuxième partie du septième article, nous nous penchons sur le traitement cérébral de l'information visuelle. Nous allons découvrir comment le cortex visuel primaire applique un facteur de grossissement disproportionné à la fovéa, et pourquoi ce principe d'économie d'énergie est la clé pour concevoir des IA de vision à haute résolution.</em></p>
-</blockquote>
-<hr />
-<h2 id="v1-la-carte-d-form-e-de-notre-cerveau">🗺️ V1 : La carte déformée de notre cerveau</h2>
-<p>Dans la partie précédente, nous avons vu que notre rétine concentre ses capteurs haute résolution (les cônes) dans une zone centrale minuscule de $1\text{ à }2^\circ$ : la fovéa.</p>
-<p>Mais l'asymétrie ne s'arrête pas à l'œil. Lorsque les signaux électriques quittent la rétine via le nerf optique, ils se dirigent vers le <strong>cortex visuel primaire</strong> (appelé zone <strong>V1</strong>), situé à l'arrière du cerveau.</p>
-<p>Si vous pensiez que le cerveau projetait l'image de la rétine sur une grille plane et proportionnelle, vous vous trompez. V1 applique une déformation géométrique spectaculaire appelée le <strong>grossissement cortical</strong> (ou <em>cortical magnification</em>).</p>
-<pre><code>         CHAMP VISUEL (Rétine)               REPRÉSENTATION DANS LE CORTEX (V1)
+                            <p><strong>Série Saccadic-JEPA : Vers une Vision Artificielle Biologiquement
+                                    Inspirée</strong>
+                                <em>Dans cette deuxième partie du septième article, nous nous penchons sur le traitement
+                                    cérébral de l'information visuelle. Nous allons découvrir comment le cortex visuel
+                                    primaire applique un facteur de grossissement disproportionné à la fovéa, et
+                                    pourquoi ce principe d'économie d'énergie est la clé pour concevoir des IA de vision
+                                    à haute résolution.</em>
+                            </p>
+                        </blockquote>
+                        <hr />
+                        <h2 id="v1-la-carte-d-form-e-de-notre-cerveau">🗺️ V1 : La carte déformée de notre cerveau</h2>
+                        <p>Dans la partie précédente, nous avons vu que notre rétine concentre ses capteurs haute
+                            résolution (les cônes) dans une zone centrale minuscule de $1\text{ à }2^\circ$ : la fovéa.
+                        </p>
+                        <p>Mais l'asymétrie ne s'arrête pas à l'œil. Lorsque les signaux électriques quittent la rétine
+                            via le nerf optique, ils se dirigent vers le <strong>cortex visuel primaire</strong> (appelé
+                            zone <strong>V1</strong>), situé à l'arrière du cerveau.</p>
+                        <p>Si vous pensiez que le cerveau projetait l'image de la rétine sur une grille plane et
+                            proportionnelle, vous vous trompez. V1 applique une déformation géométrique spectaculaire
+                            appelée le <strong>grossissement cortical</strong> (ou <em>cortical magnification</em>).</p>
+                        <pre><code>         CHAMP VISUEL (Rétine)               REPRÉSENTATION DANS LE CORTEX (V1)
 
          ┌───────────────────┐                     ┌─────────┬─────────┐
          │    Périphérie     │                     │         │         │
@@ -85,75 +101,133 @@
          └───────────────────┘                     └───────────────────┘
          F = Fovéa (&lt; 2% de l'espace)               Fovéa = 50% de la surface de V1
 </code></pre>
-<p>Près de <strong>50 % de la surface du cortex visuel primaire V1</strong> est dédiée exclusivement au traitement des informations issues de la fovéa, alors que celle-ci ne représente que <strong>1 à 2 % de notre champ de vision géométrique</strong> !</p>
-<p>Le reste du cortex (les 50 % restants) doit se partager le traitement des 98 % restants de notre champ de vision périphérique.</p>
-<hr />
-<h2 id="la-formule-math-matique-du-grossissement">📐 La formule mathématique du grossissement</h2>
-<p>Ce facteur de grossissement cortical, noté $M$, diminue de façon drastique au fur et à mesure que l'on s'éloigne du centre du regard (excentricité $e$). </p>
-<p>Les neurobiologistes modélisent cette baisse par une relation de type loi de puissance inverse :</p>
-<p>$$M(e) \approx \frac{M_0}{1 + \frac{e}{e_0}}$$</p>
-<p>Où :
-* $M_0$ est le facteur de grossissement au centre exact de la fovéa (exprimé en millimètres de cortex par degré d'angle visuel).
-* $e$ est l'excentricité (la distance angulaire par rapport au centre du regard).
-* $e_0$ est une constante de transition (généralement évaluée à environ $0.8^\circ$ chez l'humain).</p>
-<p><strong>Ce que cela signifie concrètement</strong> : la représentation corticale d'un objet rétrécit à mesure qu'il s'éloigne de votre point de fixation. Si vous regardez un cercle de $1\text{ cm}$ de diamètre, le cerveau utilisera 100 fois plus de neurones pour l'analyser s'il est au centre de votre regard que s'il est situé à $20^\circ$ en périphérie !</p>
-<hr />
-<h2 id="pourquoi-cette-d-formation-la-contrainte-nerg-tique">⚡ Pourquoi cette déformation ? La contrainte énergétique</h2>
-<p>Pourquoi la nature a-t-elle sélectionné une architecture aussi asymétrique et étrange ?</p>
-<p><strong>La réponse est simple : la survie et l'énergie.</strong></p>
-<p>Le cerveau humain consomme déjà environ <strong>20 % de l'énergie quotidienne</strong> de notre corps, alors qu'il ne représente que 2 % de notre poids. Le traitement visuel est l'un des postes les plus gourmands de ce budget énergétique.</p>
-<p>Faisons un calcul simple :
-* Si notre cerveau devait traiter l'intégralité de notre champ visuel périphérique ($180^\circ$ d'angle) avec la même résolution de cônes et le même câblage 1:1 que la fovéa :
-  1. Notre nerf optique ne ferait pas la taille d'un câble de chargeur, mais celle d'un <strong>tronc d'arbre</strong>.
-  2. Notre cerveau devrait être <strong>10 fois plus gros</strong> pour abriter les neurones de traitement.
-  3. Nos besoins caloriques quotidiens exploseraient, rendant la survie impossible pour nos ancêtres chasseurs-cueilleurs.</p>
-<p>Le grossissement cortical est donc le système de <strong>compression de données</strong> le plus sophistiqué de la nature. Il permet de maintenir une résolution maximale sur l'objet d'intérêt immédiat (une proie, un outil, un mot) tout en surveillant le reste du monde à très bas coût de calcul.</p>
-<hr />
-<h2 id="le-lien-avec-l-ia-la-limite-des-vision-transformers-vit">🤖 Le lien avec l'IA : La limite des Vision Transformers (ViT)</h2>
-<p>Cette leçon de la biologie est directement applicable aux limites actuelles de l'intelligence artificielle en vision :</p>
-<p>Les modèles de vision classiques, comme le <strong>Vision Transformer (ViT)</strong> standard, découpent l'image d'entrée en une grille uniforme de patches et appliquent le mécanisme de Self-Attention (Attention sur soi) à tous les patches avec la même importance.</p>
-<p>Cela pose un problème mathématique majeur :
-* La complexité de calcul de l'attention est <strong>quadratique</strong> par rapport au nombre de patches ($O(N^2)$).
-* Si vous passez d'une image CIFAR-10 de $32\times 32$ (64 patches) à une image de $128\times 128$ (256 patches), le temps de calcul et la mémoire requise ne sont pas multipliés par 4, mais par <strong>16</strong> !
-* À des résolutions industrielles ($1024\times 1024$), les ViT classiques s'effondrent sous le poids du calcul.</p>
-<p>C'est là que le principe du <strong>grossissement cortical</strong> et des saccades prend tout son sens pour l'IA :</p>
-<blockquote>
-<p><em>"Plutôt que de faire tourner des opérations d'attention lourdes sur toute l'image en haute résolution, pourquoi ne pas limiter le traitement haute résolution à une petite zone d'intérêt (la fovéa) et traiter le reste de l'image (le contexte périphérique) avec des représentations légères et compressées ?"</em></p>
-</blockquote>
-<p>C'est précisément la philosophie derrière <strong>Saccadic-JEPA</strong>.</p>
-<hr />
-<h2 id="conclusion-amp-transition">🧠 Conclusion &amp; Transition</h2>
-<p>Le grossissement cortical nous enseigne que pour être efficace, un système visuel doit savoir trier et compresser l'information de manière spatiale : beaucoup de ressources au centre, très peu sur les côtés.</p>
-<p>Mais comment traduire ce gradient biologique de netteté sous forme de code informatique ? Comment flouter et dégrader la périphérie d'une image en Python tout en garantissant des transitions douces et rapides ?</p>
-<p>C'est ce que nous allons voir dans la troisième partie en plongeant dans les mathématiques de notre <strong>simulateur de calques multi-résolutions</strong> !</p>
-<hr />
-<h3 id="d-fi-de-curiosit-n-2">🛠️ Défi de curiosité n°2</h3>
-<p><em>D'après vous, si un réseau de neurones de vision est entraîné uniquement sur des images fovéées (nettes au centre, floues sur les côtés), sera-t-il plus ou moins sensible aux biais de texture en arrière-plan (par exemple, confondre un bateau parce qu'il y a du ciel bleu en arrière-plan) ? Pourquoi ?</em></p>
+                        <p>Près de <strong>50 % de la surface du cortex visuel primaire V1</strong> est dédiée
+                            exclusivement au traitement des informations issues de la fovéa, alors que celle-ci ne
+                            représente que <strong>1 à 2 % de notre champ de vision géométrique</strong> !</p>
+                        <p>Le reste du cortex (les 50 % restants) doit se partager le traitement des 98 % restants de
+                            notre champ de vision périphérique.</p>
+                        <hr />
+                        <h2 id="la-formule-math-matique-du-grossissement">📐 La formule mathématique du grossissement
+                        </h2>
+                        <p>Ce facteur de grossissement cortical, noté $M$, diminue de façon drastique au fur et à mesure
+                            que l'on s'éloigne du centre du regard (excentricité $e$). </p>
+                        <p>Les neurobiologistes modélisent cette baisse par une relation de type loi de puissance
+                            inverse :</p>
+                        <p>$$M(e) \approx \frac{M_0}{1 + \frac{e}{e_0}}$$
+                        <p>
+                            Où :
+                        <ul>
+                            <li>$M_0$ est le facteur de grossissement au centre exact de la fovéa (exprimé en
+                                millimètres de cortex par degré d'angle visuel).</li>
+                            <li>$e$ est l'excentricité (la distance angulaire par rapport au centre du regard).</li>
+                            <li>$e_0$ est une constante de transition (généralement évaluée à environ $0.8^\circ$ chez
+                                l'humain).</li>
+                        </ul>
+                        </p>
+                        <p><strong>Ce que cela signifie concrètement</strong> : la représentation corticale d'un objet
+                            rétrécit à mesure qu'il s'éloigne de votre point de fixation. Si vous regardez un cercle de
+                            $1\text{ cm}$ de diamètre, le cerveau utilisera 100 fois plus de neurones pour l'analyser
+                            s'il est au centre de votre regard que s'il est situé à $20^\circ$ en périphérie !</p>
+                        <hr />
+                        <h2 id="pourquoi-cette-d-formation-la-contrainte-nerg-tique">⚡ Pourquoi cette déformation ? La
+                            contrainte énergétique</h2>
+                        <p>Pourquoi la nature a-t-elle sélectionné une architecture aussi asymétrique et étrange ?</p>
+                        <p><strong>La réponse est simple : la survie et l'énergie.</strong></p>
+                        <p>Le cerveau humain consomme déjà environ <strong>20 % de l'énergie quotidienne</strong> de
+                            notre corps, alors qu'il ne représente que 2 % de notre poids. Le traitement visuel est l'un
+                            des postes les plus gourmands de ce budget énergétique.</p>
+                        <p>Faisons un calcul simple :
+                            Si notre cerveau devait traiter l'intégralité de notre champ visuel périphérique
+                            ($180^\circ$ d'angle) avec la même résolution de cônes et le même câblage 1:1 que la fovéa :
+                        <ol>
+                            <li>Notre nerf optique ne ferait pas la taille d'un câble de chargeur, mais celle d'un
+                                <strong>tronc d'arbre</strong>.
+                            </li>
+                            <li>Notre cerveau devrait être <strong>10 fois plus gros</strong> pour abriter les neurones
+                                de traitement.</li>
+                            <li>Nos besoins caloriques quotidiens exploseraient, rendant la survie impossible pour nos
+                                ancêtres chasseurs-cueilleurs.</li>
+                        </ol>
+                        </p>
+                        <p>Le grossissement cortical est donc le système de <strong>compression de données</strong> le
+                            plus sophistiqué de la nature. Il permet de maintenir une résolution maximale sur l'objet
+                            d'intérêt immédiat (une proie, un outil, un mot) tout en surveillant le reste du monde à
+                            très bas coût de calcul.</p>
+                        <hr />
+                        <h2 id="le-lien-avec-l-ia-la-limite-des-vision-transformers-vit">🤖 Le lien avec l'IA : La
+                            limite des Vision Transformers (ViT)</h2>
+                        <p>Cette leçon de la biologie est directement applicable aux limites actuelles de l'intelligence
+                            artificielle en vision :</p>
+                        <p>Les modèles de vision classiques, comme le <strong>Vision Transformer (ViT)</strong>
+                            standard, découpent l'image d'entrée en une grille uniforme de patches et appliquent le
+                            mécanisme de Self-Attention (Attention sur soi) à tous les patches avec la même importance.
+                        </p>
+                        <p>Cela pose un problème mathématique majeur :
+                            * La complexité de calcul de l'attention est <strong>quadratique</strong> par rapport au
+                            nombre de patches ($O(N^2)$).
+                            * Si vous passez d'une image CIFAR-10 de $32\times 32$ (64 patches) à une image de
+                            $128\times 128$ (256 patches), le temps de calcul et la mémoire requise ne sont pas
+                            multipliés par 4, mais par <strong>16</strong> !
+                            * À des résolutions industrielles ($1024\times 1024$), les ViT classiques s'effondrent sous
+                            le poids du calcul.</p>
+                        <p>C'est là que le principe du <strong>grossissement cortical</strong> et des saccades prend
+                            tout son sens pour l'IA :</p>
+                        <blockquote>
+                            <p><em>"Plutôt que de faire tourner des opérations d'attention lourdes sur toute l'image en
+                                    haute résolution, pourquoi ne pas limiter le traitement haute résolution à une
+                                    petite zone d'intérêt (la fovéa) et traiter le reste de l'image (le contexte
+                                    périphérique) avec des représentations légères et compressées ?"</em></p>
+                        </blockquote>
+                        <p>C'est précisément la philosophie derrière <strong>Saccadic-JEPA</strong>.</p>
+                        <hr />
+                        <h2 id="conclusion-amp-transition">🧠 Conclusion &amp; Transition</h2>
+                        <p>Le grossissement cortical nous enseigne que pour être efficace, un système visuel doit savoir
+                            trier et compresser l'information de manière spatiale : beaucoup de ressources au centre,
+                            très peu sur les côtés.</p>
+                        <p>Mais comment traduire ce gradient biologique de netteté sous forme de code informatique ?
+                            Comment flouter et dégrader la périphérie d'une image en Python tout en garantissant des
+                            transitions douces et rapides ?</p>
+                        <p>C'est ce que nous allons voir dans la troisième partie en plongeant dans les mathématiques de
+                            notre <strong>simulateur de calques multi-résolutions</strong> !</p>
+                        <hr />
+                        <h3 id="d-fi-curieux-n-2">🛠️ Défi curieux n°2</h3>
+                        <p><em><strong>L'immunité au biais d'arrière-plan :</strong> Imaginez entraîner deux réseaux de
+                                vision : l'un sur des images classiques nettes, l'autre sur des images "fovéées" (le
+                                centre d'intérêt est net, la périphérie et le décor d'arrière-plan sont floutés).
+                                <br>1. D'après vous, lequel de ces deux réseaux sera le moins sensible aux biais de
+                                contexte (comme confondre un avion avec un bateau à cause des nuages) ?
+                                <br>2. Pourquoi le floutage sélectif de la périphérie force-t-il le modèle à s'appuyer
+                                sur des caractéristiques géométriques intrinsèques plutôt que sur les textures globales
+                                du décor ?</em></p>
                     </div>
-                    
+
                     <div class="article-footer-nav">
-  <a href="article_7_partie_1.html" class="footer-nav-link prev">
-    <span class="footer-nav-label">← Précédent</span>
-    <span class="footer-nav-title">Recréer l'Œil Humain en Python - Partie 1</span>
-  </a>
-  <a href="article_7_partie_3.html" class="footer-nav-link next">
-    <span class="footer-nav-label">Suivant →</span>
-    <span class="footer-nav-title">Recréer l'Œil Humain en Python - Partie 3</span>
-  </a>
-</div>
+                        <a href="article_7_partie_1.html" class="footer-nav-link prev">
+                            <span class="footer-nav-label">← Précédent</span>
+                            <span class="footer-nav-title">Recréer l'Œil Humain en Python - Partie 1</span>
+                        </a>
+                        <a href="article_7_partie_3.html" class="footer-nav-link next">
+                            <span class="footer-nav-label">Suivant →</span>
+                            <span class="footer-nav-title">Recréer l'Œil Humain en Python - Partie 3</span>
+                        </a>
+                    </div>
                 </article>
-                
+
                 <div class="toc-sidebar">
-  <div class="toc-title">Sur cette page</div>
-  <ul class="toc-list">
-    <li class=""><a href="#v1-la-carte-d-form-e-de-notre-cerveau">🗺️ V1 : La carte déformée de notre cerveau</a></li>
-    <li class=""><a href="#la-formule-math-matique-du-grossissement">📐 La formule mathématique du grossissement</a></li>
-    <li class=""><a href="#pourquoi-cette-d-formation-la-contrainte-nerg-tique">⚡ Pourquoi cette déformation ? La contrainte énergétique</a></li>
-    <li class=""><a href="#le-lien-avec-l-ia-la-limite-des-vision-transformers-vit">🤖 Le lien avec l'IA : La limite des Vision Transformers (ViT)</a></li>
-    <li class=""><a href="#conclusion-amp-transition">🧠 Conclusion &amp; Transition</a></li>
-    <li class="toc-indent"><a href="#d-fi-de-curiosit-n-2">🛠️ Défi de curiosité n°2</a></li>
-  </ul>
-</div>
+                    <div class="toc-title">Sur cette page</div>
+                    <ul class="toc-list">
+                        <li class=""><a href="#v1-la-carte-d-form-e-de-notre-cerveau">🗺️ V1 : La carte déformée de
+                                notre cerveau</a></li>
+                        <li class=""><a href="#la-formule-math-matique-du-grossissement">📐 La formule mathématique du
+                                grossissement</a></li>
+                        <li class=""><a href="#pourquoi-cette-d-formation-la-contrainte-nerg-tique">⚡ Pourquoi cette
+                                déformation ? La contrainte énergétique</a></li>
+                        <li class=""><a href="#le-lien-avec-l-ia-la-limite-des-vision-transformers-vit">🤖 Le lien avec
+                                l'IA : La limite des Vision Transformers (ViT)</a></li>
+                        <li class=""><a href="#conclusion-amp-transition">🧠 Conclusion &amp; Transition</a></li>
+                        <li class="toc-indent"><a href="#d-fi-curieux-n-2">🛠️ Défi curieux n°2</a></li>
+                    </ul>
+                </div>
             </div>
         </main>
     </div>
@@ -161,11 +235,11 @@
     <!-- Scripts -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.8.0/highlight.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/mermaid/dist/mermaid.min.js"></script>
-    
+
     <script>
         // Initialize Highlight.js
         hljs.highlightAll();
-        
+
         // Initialize Mermaid
         mermaid.initialize({
             theme: 'dark',
@@ -173,21 +247,21 @@
             securityLevel: 'loose'
         });
 
-        document.addEventListener("DOMContentLoaded", function() {
+        document.addEventListener("DOMContentLoaded", function () {
             // 1. Convert Markdown pre-code blocks for Mermaid to actual divs
-            document.querySelectorAll("pre code.language-mermaid").forEach(function(el) {
+            document.querySelectorAll("pre code.language-mermaid").forEach(function (el) {
                 const pre = el.parentElement;
                 const div = document.createElement("div");
                 div.className = "mermaid";
                 div.textContent = el.textContent;
                 pre.parentElement.replaceChild(div, pre);
             });
-            
+
             // Run Mermaid rendering
             mermaid.run();
-            
+
             // 2. Reading Progress Bar Logic
-            window.addEventListener('scroll', function() {
+            window.addEventListener('scroll', function () {
                 const winScroll = document.documentElement.scrollTop || document.body.scrollTop;
                 const height = document.documentElement.scrollHeight - document.documentElement.clientHeight;
                 const scrolled = (winScroll / height) * 100;
@@ -196,4 +270,5 @@
         });
     </script>
 </body>
+
 </html>
