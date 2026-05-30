@@ -67,16 +67,7 @@ const MENU_CONFIG = [
             { text: "🏁 Résumé : Le Grand Match de Benchmarks", link: "articles/article_9.html" }
         ]
     },
-    {
-        title: "Annexes & Notes",
-        items: [
-            { text: "📝 Anatomie de la Vision Humaine", link: "articles/vision_humaine_fovea.html" },
-            { text: "📝 Simulateur de Fovéation", link: "articles/test_vision_humaine_python.html" },
-            { text: "📝 La Stratégie de Masquage", link: "articles/mask.html" },
-            { text: "📝 Analyse Comparative Théorique", link: "articles/finetuning_analysis.html" },
-            { text: "📝 Guide d'Exécution du Lab", link: "articles/articles_steps_demo.html" }
-        ]
-    },
+
     {
         title: "Crédits",
         items: [
