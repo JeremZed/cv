@@ -1,0 +1,273 @@
+<!DOCTYPE html>
+<html lang="fr">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Saccadic-JEPA face aux Baselines — Partie 1 : L'Impact du Patch-Size | JEPA-Lab Explorer</title>
+
+    <!-- Stylesheets -->
+    <link rel="stylesheet" href="../css/style.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.8.0/styles/github-dark.min.css">
+
+    <!-- Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+
+    <!-- MathJax Configuration -->
+    <script>
+        window.MathJax = {
+            tex: {
+                inlineMath: [['$', '$'], ['\\(', '\\)']],
+                displayMath: [['$$', '$$'], ['\\[', '\\]']],
+                processEscapes: true
+            },
+            options: {
+                ignoreHtmlClass: 'tex2jax_ignore',
+                processHtmlClass: 'tex2jax_process'
+            }
+        };
+    </script>
+    <script id="MathJax-script" async src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
+    <script src="../js/sidebar.js" defer></script>
+</head>
+
+<body class="tex2jax_process">
+
+    <!-- Reading Progress Bar -->
+    <div class="progress-bar-container">
+        <div class="progress-bar" id="reading-progress"></div>
+    </div>
+
+    <div class="app-container">
+
+        <!-- Mobile Navigation Header -->
+        <header class="mobile-header">
+            <button class="menu-toggle" id="menu-open-btn">
+                <svg width="24" height="24" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" d="M4 6h16M4 12h16M4 18h16" />
+                </svg>
+            </button>
+            <div class="sidebar-title">JEPA-Lab</div>
+            <div></div> <!-- spacer -->
+        </header>
+
+        <!-- Persistent Sidebar -->
+        <aside class="sidebar" id="app-sidebar"></aside>
+
+        <!-- Main Content -->
+        <main class="main-content">
+            <div class="article-layout">
+                <article class="article-container">
+                    <header class="article-header">
+                        <span class="article-category unsupervised-search-10-12">Série Recherche Visuelle</span>
+                        <h1>Saccadic-JEPA face aux Baselines — Partie 1 : L'Impact du Patch-Size</h1>
+                        <p class="article-subtitle">Résolution, Acuité Visuelle et Pratique</p>
+                    </header>
+
+                    <div class="article-body">
+                        <blockquote>
+                            <p><strong>Série Recherche Visuelle &amp; Localisation d'Objets sans Supervision</strong>
+                                <em>Dans cette première partie de notre douzième article, nous analysons un match
+                                    technique crucial dans notre laboratoire : I-JEPA Standard contre Saccadic-JEPA.
+                                    Nous étudions l'impact de la taille des patches (Patch-Size) et de la résolution
+                                    d'entrée sur la précision spatiale des détections. Pourquoi le modèle standard
+                                    (32x32 avec patches de 4x4) produit-il souvent des boîtes englobantes floues et
+                                    globales, tandis que Saccadic-JEPA (128x128 avec patches de 16x16) parvient à isoler
+                                    finement les détails des objets ?</em>
+                            </p>
+                        </blockquote>
+                        <hr />
+                        <h2 id="deux-configurations-m-me-nombre-de-jetons">⚖️ Deux configurations, même nombre de jetons
+                        </h2>
+                        <p>Pour comprendre la comparaison, posons d'abord les caractéristiques des deux modèles que nous
+                            entraînons sur le dataset CIFAR-10 :</p>
+                        <ul>
+                            <li><strong>I-JEPA Standard (Mono ou Multi-Cibles)</strong> :
+                                <ul>
+                                    <li>Image d'entrée redimensionnée à : $32 \times 32$ pixels.</li>
+                                    <li>Taille d'un patch : $4 \times 4$ pixels.</li>
+                                    <li>Grille résultante : $\frac{32}{4} \times \frac{32}{4} = 8 \times 8 = 64$ patches
+                                        (tokens).</li>
+                                </ul>
+                            <li><strong>Saccadic-JEPA</strong> :
+                                <ul>
+                                    <li>Image d'entrée redimensionnée à : $128 \times 128$ pixels.</li>
+                                    <li>Taille d'un patch : $16 \times 16$ pixels.</li>
+                                    <li>Grille résultante : $\frac{128}{16} \times \frac{128}{16} = 8 \times 8 = 64$
+                                        patches
+                                        (tokens).</li>
+                                </ul>
+
+                        </ul>
+                        <div class="callout callout-note">
+                            <div class="callout-title"><svg width="18" height="18" fill="none" stroke="currentColor"
+                                    stroke-width="2" viewBox="0 0 24 24" style="flex-shrink:0;">
+                                    <path stroke-linecap="round" stroke-linejoin="round"
+                                        d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                                </svg>Note</div>
+                            <p><strong>Une égalité computationnelle surprenante :</strong>
+                                Remarquez que dans les deux cas, le Vision Transformer traite <strong>exactement 64
+                                    tokens</strong>. Le coût de calcul des couches d'attention (qui croît de manière
+                                quadratique avec le nombre de tokens) est donc identique pour les deux modèles.
+                                Pourtant, la qualité géométrique de leur détection finale est radicalement différente.
+                            </p>
+                        </div>
+                        <hr />
+                        <h2 id="le-pi-ge-de-la-basse-r-solution-i-jepa-standard">🌫️ Le piège de la basse résolution :
+                            I-JEPA Standard</h2>
+                        <p>Dans le modèle standard à $32\times32$ pixels, chaque patch mesure $4\times4$ pixels.
+                        <ul>
+                            <li><strong>Perte d'informations géométriques fines</strong> : Compresser une image à
+                                $32\times32$ pixels élimine la quasi-totalité des détails haute fréquence. Une roue de
+                                voiture ou un visage ne sont plus représentés que par un petit groupe de $4\times4$ ou
+                                $6\times6$ pixels flous.</li>
+                            <li><strong>Faible pouvoir discriminant des tokens</strong> : Un patch de $4\times4$ ne
+                                contient que 16 pixels. C'est trop peu pour que l'encodeur puisse construire une
+                                représentation sémantique riche. Le vecteur latent d'un patch contenant "un bord de
+                                roue"
+                                se
+                                retrouve très proche du vecteur d'un patch contenant "une ombre sur la route" ou
+                                "un morceau
+                                de carrosserie".</li>
+                        </ul>
+                        </p>
+                        <p>En conséquence, la carte de similarité locale générée par le modèle standard est extrêmement
+                            "baveuse" (floue). Les scores de similarité oscillent mollement autour du seuil de détection
+                            (par exemple entre $0.30$ et $0.42$) sur de larges portions de l'image. </p>
+                        <pre><code class="language-text">Grille Standard (32x32, patch 4x4) - Floue et peu contrastée
+[ 0.31,  0.33,  0.35,  0.34,  0.32 ]
+[ 0.34,  0.38,  0.40,  0.39,  0.35 ]  &lt;-- Beaucoup de patches
+[ 0.35,  0.41,  0.42,  0.41,  0.36 ]      franchissent le seuil (0.35)
+[ 0.33,  0.37,  0.39,  0.38,  0.34 ]
+</code></pre>
+                        <p>Lorsqu'on applique l'algorithme BFS, ces scores flous fusionnent en une seule composante
+                            connexe géante. La boîte englobante projetée finit par couvrir la quasi-totalité de l'image.
+                        </p>
+                        <hr />
+                        <h2 id="la-pr-cision-de-saccadic-jepa">🎯 La précision de
+                            Saccadic-JEPA</h2>
+                        <p>Saccadic-JEPA fonctionne à une résolution d'entrée de $128\times128$ pixels. Ses patches
+                            mesurent $16\times16$ pixels.
+                        <ul>
+                            <li><strong>Préservation des détails géométriques</strong> : À $128\times128$, la géométrie
+                                de l'objet est préservée. Une roue de voiture est nette et détaillée (les rayons, le
+                                pneu et le moyeu sont distincts).
+                            </li>
+                            <li><strong>Forte densité d'information par token</strong> : Chaque patch de $16\times16$
+                                contient 256 pixels. L'encodeur dispose d'une richesse visuelle immense pour générer un
+                                vecteur latent ultra-spécifique. La différence entre une texture de route et une texture
+                                de roue est encodée de manière très nette dans l'espace latent.</li>
+                        </ul>
+                        <p>Grâce à cette spécificité, la carte de similarité de Saccadic-JEPA est hautement
+                            contrastée. Les patches contenant réellement l'objet affichent des scores très
+                            élevés ($0.75$ à $0.85$), tandis que les patches voisins s'effondrent immédiatement
+                            vers des scores proches de $0.0$.</p>
+                        <pre><code class="language-text">Grille Saccadic-JEPA (128x128, patch 16x16) - Contrastée et précise
+[ 0.05,  0.08,  0.12,  0.09,  0.04 ]
+[ 0.09,  0.78,  0.81,  0.15,  0.06 ]  &lt;-- Contours nets
+[ 0.11,  0.82,  0.85,  0.18,  0.08 ]      Seuls les vrais patches
+[ 0.06,  0.14,  0.16,  0.11,  0.05 ]      sont activés
+</code></pre>
+                        <p>Le BFS ne regroupe ainsi que les patches exacts de l'objet. La boîte englobante
+                            projetée est ajustée de manière serrée et précise autour des détails réels (les
+                            roues individuelles, les visages), sans englober le décor.</p>
+                        <hr />
+                        <h2 id="conclusion-amp-transition">🧠 Conclusion &amp; Transition</h2>
+                        <p>En opposant I-JEPA Standard et Saccadic-JEPA, nous constatons que la résolution
+                            d'entrée à $128\times128$ est la clé de la précision locale : bien que le nombre de
+                            jetons à traiter par le transformer reste identique (64 tokens), la densité de
+                            pixels par token (256 vs 16) confère à Saccadic-JEPA une acuité sémantique largement
+                            supérieure.</p>
+                        <p>Cependant, même avec une telle précision, l'apprentissage non supervisé se heurte à
+                            des limites inhérentes à la nature des images. Que se passe-t-il lorsque
+                            l'arrière-plan de notre crop de requête ressemble à l'arrière-plan de l'image de
+                            test ?</p>
+                        <p>C'est ce que nous allons analyser dans la deuxième partie de cet article :
+                            <strong>L'effet de l'arrière-plan</strong> !
+                        </p>
+                        <hr />
+                        <h3 id="d-fi-de-curiosit-n-8">🛠️ Défi de curiosité n°8</h3>
+                        <p>Si l'on décidait d'augmenter la résolution d'entrée de Saccadic-JEPA à $256 \times
+                            256$ pixels tout en conservant des patches fins de $16 \times 16$ :</p>
+                        <ol>
+                            <li>Combien de tokens le Vision Transformer devrait-il traiter lors du passage dans
+                                l'attention ?</li>
+                            <li>Sachant que le coût de calcul de l'attention est en $O(N^2)$ (où $N$ est le
+                                nombre de tokens), par combien le temps de calcul serait-il multiplié ?</li>
+                            <li>Comment ce calcul justifie-t-il le compromis astucieux de Saccadic-JEPA
+                                d'utiliser des images de $128\times128$ avec des patches de $16\times16$ ?</li>
+                        </ol>
+                    </div>
+
+                    <div class="article-footer-nav">
+                        <a href="article_11_partie_4.html" class="footer-nav-link prev">
+                            <span class="footer-nav-label">← Précédent</span>
+                            <span class="footer-nav-title">Cartographie Locale & Algorithme BFS - Partie 4</span>
+                        </a>
+                        <a href="article_12_partie_2.html" class="footer-nav-link next">
+                            <span class="footer-nav-label">Suivant →</span>
+                            <span class="footer-nav-title">Saccadic-JEPA face aux Baselines - Partie 2</span>
+                        </a>
+                    </div>
+                </article>
+
+                <div class="toc-sidebar">
+                    <div class="toc-title">Sur cette page</div>
+                    <ul class="toc-list">
+                        <li class=""><a href="#deux-configurations-m-me-nombre-de-jetons">⚖️ Deux configurations, même
+                                nombre de jetons</a></li>
+                        <li class=""><a href="#le-pi-ge-de-la-basse-r-solution-i-jepa-standard">🌫️ Le piège de la basse
+                                résolution : I-JEPA Standard</a></li>
+                        <li class=""><a href="#la-pr-cision-de-saccadic-jepa">🎯 La précision de
+                                Saccadic-JEPA</a></li>
+                        <li class=""><a href="#conclusion-amp-transition">🧠 Conclusion &amp; Transition</a></li>
+                        <li class="toc-indent"><a href="#d-fi-de-curiosit-n-8">🛠️ Défi de curiosité n°8</a></li>
+                    </ul>
+                </div>
+            </div>
+        </main>
+    </div>
+
+    <!-- Scripts -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.8.0/highlight.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/mermaid/dist/mermaid.min.js"></script>
+
+    <script>
+        // Initialize Highlight.js
+        hljs.highlightAll();
+
+        // Initialize Mermaid
+        mermaid.initialize({
+            theme: 'dark',
+            startOnLoad: false,
+            securityLevel: 'loose'
+        });
+
+        document.addEventListener("DOMContentLoaded", function () {
+            // 1. Convert Markdown pre-code blocks for Mermaid to actual divs
+            document.querySelectorAll("pre code.language-mermaid").forEach(function (el) {
+                const pre = el.parentElement;
+                const div = document.createElement("div");
+                div.className = "mermaid";
+                div.textContent = el.textContent;
+                pre.parentElement.replaceChild(div, pre);
+            });
+
+            // Run Mermaid rendering
+            mermaid.run();
+
+            // 2. Reading Progress Bar Logic
+            window.addEventListener('scroll', function () {
+                const winScroll = document.documentElement.scrollTop || document.body.scrollTop;
+                const height = document.documentElement.scrollHeight - document.documentElement.clientHeight;
+                const scrolled = (winScroll / height) * 100;
+                document.getElementById("reading-progress").style.width = scrolled + "%";
+            });
+
+
+        });
+    </script>
+</body>
+
+</html>

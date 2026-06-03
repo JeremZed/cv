@@ -1,0 +1,302 @@
+<!DOCTYPE html>
+<html lang="fr">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Cartographie Locale & Algorithme BFS — Partie 3 : L'Algorithme BFS & Connectivité | JEPA-Lab Explorer</title>
+
+    <!-- Stylesheets -->
+    <link rel="stylesheet" href="../css/style.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.8.0/styles/github-dark.min.css">
+
+    <!-- Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+
+    <!-- MathJax Configuration -->
+    <script>
+        window.MathJax = {
+            tex: {
+                inlineMath: [['$', '$'], ['\\(', '\\)']],
+                displayMath: [['$$', '$$'], ['\\[', '\\]']],
+                processEscapes: true
+            },
+            options: {
+                ignoreHtmlClass: 'tex2jax_ignore',
+                processHtmlClass: 'tex2jax_process'
+            }
+        };
+    </script>
+    <script id="MathJax-script" async src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
+    <script src="../js/sidebar.js" defer></script>
+</head>
+
+<body class="tex2jax_process">
+
+    <!-- Reading Progress Bar -->
+    <div class="progress-bar-container">
+        <div class="progress-bar" id="reading-progress"></div>
+    </div>
+
+    <div class="app-container">
+
+        <!-- Mobile Navigation Header -->
+        <header class="mobile-header">
+            <button class="menu-toggle" id="menu-open-btn">
+                <svg width="24" height="24" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" d="M4 6h16M4 12h16M4 18h16" />
+                </svg>
+            </button>
+            <div class="sidebar-title">JEPA-Lab</div>
+            <div></div> <!-- spacer -->
+        </header>
+
+        <!-- Persistent Sidebar -->
+        <aside class="sidebar" id="app-sidebar"></aside>
+
+        <!-- Main Content -->
+        <main class="main-content">
+            <div class="article-layout">
+                <article class="article-container">
+                    <header class="article-header">
+                        <span class="article-category unsupervised-search-10-12">Série Recherche Visuelle</span>
+                        <h1>Cartographie Locale & Algorithme BFS — Partie 3 : L'Algorithme BFS & Connectivité</h1>
+                        <p class="article-subtitle">Localiser plusieurs objets à la fois</p>
+                    </header>
+
+                    <div class="article-body">
+                        <blockquote>
+                            <p><strong>Série Recherche Visuelle &amp; Localisation d'Objets sans Supervision</strong>
+                                <em>Dans cette troisième partie, nous nous attaquons à la détection multi-objets. Une
+                                    fois notre grille binarisée, les patches actifs (égaux à 1) peuvent former plusieurs
+                                    grappes disjointes correspondant à différents objets présents dans l'image. Nous
+                                    allons expliquer comment l'algorithme Breadth-First Search (BFS - Parcours en
+                                    largeur) combiné à une 8-connectivité (voisinage horizontal, vertical et diagonal)
+                                    permet de regrouper ces patches adjacents pour identifier individuellement chaque
+                                    instance d'objet.</em>
+                            </p>
+                        </blockquote>
+                        <hr />
+                        <h2 id="tape-1-le-probl-me-des-les-disjointes-multi-objet">🏝️ Étape 1 : Le problème des îles
+                            disjointes (Multi-Objet)</h2>
+                        <p>Après binarisation de notre carte de similarité avec un seuil $\tau = 0.35$, nous obtenons
+                            une grille d'activation. Si l'image contient plusieurs objets similaires (par exemple, deux
+                            voitures garées dans la rue dont nous cherchons les roues), le masque binaire contiendra
+                            plusieurs "îles" de $1$ séparées par des océans de $0$.</p>
+                        <pre><code class="language-text">Masque Binaire Multi-Objets (ex: Deux roues distinctes)
+[  0,  0,  0,  0,  0,  0,  0,  0 ]
+[  0,  1,  1,  0,  0,  0,  0,  0 ]  &lt;-- Île 1 (Roue gauche)
+[  0,  1,  1,  0,  0,  0,  0,  0 ]
+[  0,  0,  0,  0,  0,  0,  0,  0 ]
+[  0,  0,  0,  0,  0,  1,  1,  0 ]  &lt;-- Île 2 (Roue droite)
+[  0,  0,  0,  0,  0,  1,  1,  0 ]
+[  0,  0,  0,  0,  0,  0,  0,  0 ]
+</code></pre>
+                        <p>Si nous devions tracer une boîte englobante naïve sur l'ensemble des coordonnées actives,
+                            nous obtiendrions une seule boîte immense englobant les deux roues et tout l'espace vide
+                            entre elles. </p>
+                        <p>Pour détecter <strong>individuellement</strong> chaque roue, nous devons regrouper les
+                            patches actifs adjacents. En informatique et traitement d'images, cette opération s'appelle
+                            la <strong>détermination des composantes connexes</strong> (Connected Component Labeling).
+                        </p>
+                        <hr />
+                        <h2 id="tape-2-la-8-connectivit-vs-4-connectivit">📐 Étape 2 : La 8-Connectivité vs
+                            4-Connectivité</h2>
+                        <p>Comment définit-on le fait que deux patches soient "voisins" ? Il existe deux définitions
+                            standards :</p>
+                        <ul>
+                            <li><strong>La 4-Connectivité</strong> : Deux patches sont voisins uniquement s'ils
+                                partagent un côté commun (Nord, Sud, Est, Ouest).</li>
+                            <li><strong>La 8-Connectivité</strong> : Deux patches sont voisins s'ils partagent un côté
+                                <strong>ou un coin</strong> (diagonales incluses).
+                            </li>
+                        </ul>
+                        <pre><code class="language-text">       4-Connectivité (4 voisins)             8-Connectivité (8 voisins)
+             [   ] [ V ] [   ]                      [ V ] [ V ] [ V ]
+             [ V ] [ P ] [ V ]                      [ V ] [ P ] [ V ]
+             [   ] [ V ] [   ]                      [ V ] [ V ] [ V ]
+</code></pre>
+                        <h3 id="pourquoi-la-8-connectivit-est-elle-indispensable-pour-jepa">💡 Pourquoi la
+                            8-connectivité est-elle indispensable pour JEPA ?</h3>
+                        <p>Les grilles de patches extraites de nos réseaux ont une résolution spatiale faible (ex:
+                            $8\times8$). À cette échelle, les détails d'un objet (comme les contours incurvés d'un
+                            visage ou la jante d'une roue inclinée) peuvent se toucher uniquement par le coin de deux
+                            patches.
+                        <ul>
+                            <li>En 4-connectivité, le modèle verrait l'objet comme deux morceaux distincts coupés et
+                                créerait deux boîtes englobantes séparées.</li>
+                            <li>En <strong>8-connectivité</strong>, nous tolérons le contact en diagonale. L'intégrité
+                                de l'objet est préservée dans un seul et même groupe.</li>
+                        </ul>
+                        </p>
+                        <hr />
+                        <h2 id="tape-3-l-algorithme-bfs-breadth-first-search">🌊 Étape 3 : L'algorithme BFS
+                            (Breadth-First Search)</h2>
+                        <p>Pour regrouper ces patches adjacents, notre pipeline utilise un parcours de graphe en largeur
+                            : le <strong>BFS (Breadth-First Search)</strong>.</p>
+                        <h3 id="l-analogie-de-la-tache-d-huile">💡 L'analogie de la Tache d'Huile</h3>
+                        <p>Imaginez que vous versiez de l'huile sur du papier millimétré. L'huile se répand d'une case à
+                            l'autre tant qu'il y a du liquide.
+                        <ul>
+                            <li>L'algorithme parcourt la grille. Lorsqu'il trouve une case active ($1$) non visitée,
+                                il y
+                                dépose une goutte d'huile (le point de départ de l'objet).</li>
+                            <li>L'huile se propage à ses 8 voisins immédiats qui sont également actifs ($1$).</li>
+                            <li>Ces voisins à leur tour propagent l'huile à leurs propres voisins, et ainsi de suite.
+                            </li>
+                            <li>Quand l'huile ne peut plus s'étendre (bloquée par des $0$), toute la zone imprégnée
+                                est
+                                étiquetée comme une seule et unique <strong>composante connexe</strong> (l'Objet
+                                1).</li>
+                            <li>L'algorithme cherche ensuite la prochaine case active sèche ($1$ non visitée) pour
+                                démarrer une nouvelle tache (l'Objet 2).</li>
+                        </ul>
+                        </p>
+                        <hr />
+                        <h2 id="dans-les-entrailles-du-code-l-analyse-de-bfs">🛠️ Dans les entrailles du code :
+                            L'analyse de BFS</h2>
+                        <p>Voici la fonction <code>get_connected_components</code> implémentée dans notre lab
+                            (<code>unsupervised_search.py</code>) :</p>
+                        <pre><code class="language-python">import numpy as np
+
+def get_connected_components(mask):
+    &quot;&quot;&quot;
+    Parcours en largeur (BFS) pour trouver les composantes connexes de patches actifs
+    en utilisant une 8-connectivité (regroupement diagonal).
+    &quot;&quot;&quot;
+    H, W = mask.shape
+    # Grille pour suivre les patches déjà attribués à un objet
+    visited = np.zeros((H, W), dtype=bool)
+    components = []
+
+    # 1. Balayer toute la grille
+    for r in range(H):
+        for c in range(W):
+            # Si on trouve un patch actif (1) non encore visité, c'est un nouvel objet
+            if mask[r, c] and not visited[r, c]:
+                comp = []
+                queue = [(r, c)] # File FIFO pour le BFS
+                visited[r, c] = True
+
+                # 2. Propagation BFS
+                while queue:
+                    curr_r, curr_c = queue.pop(0) # Retirer le premier élément
+                    comp.append((curr_r, curr_c))
+
+                    # Vérifier les 8 voisins (horizontaux, verticaux, diagonaux)
+                    for dr, dc in [(-1,0), (1,0), (0,-1), (0,1), (-1,-1), (-1,1), (1,-1), (1,1)]:
+                        nr, nc = curr_r + dr, curr_c + dc
+
+                        # Vérifier que le voisin est dans les limites de la grille
+                        if 0 &lt;= nr &lt; H and 0 &lt;= nc &lt; W:
+                            # S'il est actif (1) et non visité
+                            if mask[nr, nc] and not visited[nr, nc]:
+                                visited[nr, nc] = True
+                                queue.append((nr, nc)) # Ajouter à la file pour continuer la propagation
+
+                components.append(comp) # Enregistrer l'objet complet
+
+    return components
+</code></pre>
+                        <hr />
+                        <h2 id="conclusion-amp-transition">🧠 Conclusion &amp; Transition</h2>
+                        <p>Grâce à cet algorithme BFS en 8-connectivité, notre masque binaire a été traduit en une liste
+                            d'objets distincts. Chaque objet est défini par la liste des coordonnées de ses patches dans
+                            notre grille d'activation (par exemple : <code>[(1,1), (1,2), (2,1), (2,2)]</code> pour
+                            l'Île 1).</p>
+                        <p>Mais ces coordonnées représentent des coordonnées de grille (par exemple "ligne 2, colonne
+                            5"). Comment convertir ce groupe de patches basse résolution en une boîte englobante en
+                            pixels haute résolution (BBox) sur l'image d'origine ?</p>
+                        <p>C'est ce que nous allons voir dans la dernière partie de cet article : <strong>La Projection
+                                des BBoxes</strong> !</p>
+                        <hr />
+                        <h3 id="d-fi-de-curiosit-n-6">🛠️ Défi de curiosité n°6</h3>
+                        <p>Imaginez que deux objets différents (par exemple, deux roues de voitures différentes) soient
+                            séparés par un espace vide de route, mais qu'un seul patch de route situé exactement au
+                            milieu ait été binarisé à 1 par erreur (faux positif).</p>
+                        <p><em>1. Quel sera l'impact de ce faux positif unique sur le fonctionnement du BFS en
+                                8-connectivité ?</em>
+                            <em>2. Quel problème cela posera-t-il sur les boîtes englobantes finales ?</em>
+                            <em>3. Quelle opération morphologique classique sur les images binaires (ou quelle
+                                modification du seuil) permettrait de résoudre ce problème de "pont" indésirable ?</em>
+                        </p>
+                    </div>
+
+                    <div class="article-footer-nav">
+                        <a href="article_11_partie_2.html" class="footer-nav-link prev">
+                            <span class="footer-nav-label">← Précédent</span>
+                            <span class="footer-nav-title">Cartographie Locale & Algorithme BFS - Partie 2</span>
+                        </a>
+                        <a href="article_11_partie_4.html" class="footer-nav-link next">
+                            <span class="footer-nav-label">Suivant →</span>
+                            <span class="footer-nav-title">Cartographie Locale & Algorithme BFS - Partie 4</span>
+                        </a>
+                    </div>
+                </article>
+
+                <div class="toc-sidebar">
+                    <div class="toc-title">Sur cette page</div>
+                    <ul class="toc-list">
+                        <li class=""><a href="#tape-1-le-probl-me-des-les-disjointes-multi-objet">🏝️ Étape 1 : Le
+                                problème des îles disjointes (Multi-Objet)</a></li>
+                        <li class=""><a href="#tape-2-la-8-connectivit-vs-4-connectivit">📐 Étape 2 : La 8-Connectivité
+                                vs 4-Connectivité</a></li>
+                        <li class="toc-indent"><a href="#pourquoi-la-8-connectivit-est-elle-indispensable-pour-jepa">💡
+                                Pourquoi la 8-connectivité est-elle indispensable pour JEPA ?</a></li>
+                        <li class=""><a href="#tape-3-l-algorithme-bfs-breadth-first-search">🌊 Étape 3 : L'algorithme
+                                BFS (Breadth-First Search)</a></li>
+                        <li class="toc-indent"><a href="#l-analogie-de-la-tache-d-huile">💡 L'analogie de la Tache
+                                d'Huile</a></li>
+                        <li class=""><a href="#dans-les-entrailles-du-code-l-analyse-de-bfs">🛠️ Dans les entrailles du
+                                code : L'analyse de BFS</a></li>
+                        <li class=""><a href="#conclusion-amp-transition">🧠 Conclusion &amp; Transition</a></li>
+                        <li class="toc-indent"><a href="#d-fi-de-curiosit-n-6">🛠️ Défi de curiosité n°6</a></li>
+                    </ul>
+                </div>
+            </div>
+        </main>
+    </div>
+
+    <!-- Scripts -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.8.0/highlight.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/mermaid/dist/mermaid.min.js"></script>
+
+    <script>
+        // Initialize Highlight.js
+        hljs.highlightAll();
+
+        // Initialize Mermaid
+        mermaid.initialize({
+            theme: 'dark',
+            startOnLoad: false,
+            securityLevel: 'loose'
+        });
+
+        document.addEventListener("DOMContentLoaded", function () {
+            // 1. Convert Markdown pre-code blocks for Mermaid to actual divs
+            document.querySelectorAll("pre code.language-mermaid").forEach(function (el) {
+                const pre = el.parentElement;
+                const div = document.createElement("div");
+                div.className = "mermaid";
+                div.textContent = el.textContent;
+                pre.parentElement.replaceChild(div, pre);
+            });
+
+            // Run Mermaid rendering
+            mermaid.run();
+
+            // 2. Reading Progress Bar Logic
+            window.addEventListener('scroll', function () {
+                const winScroll = document.documentElement.scrollTop || document.body.scrollTop;
+                const height = document.documentElement.scrollHeight - document.documentElement.clientHeight;
+                const scrolled = (winScroll / height) * 100;
+                document.getElementById("reading-progress").style.width = scrolled + "%";
+            });
+
+
+        });
+    </script>
+</body>
+
+</html>

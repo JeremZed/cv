@@ -1,0 +1,375 @@
+<!DOCTYPE html>
+<html lang="fr">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Saccadic-JEPA face aux Baselines — Partie 3 : Tuning & Calibration | JEPA-Lab Explorer</title>
+
+    <!-- Stylesheets -->
+    <link rel="stylesheet" href="../css/style.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.8.0/styles/github-dark.min.css">
+
+    <!-- Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+
+    <!-- MathJax Configuration -->
+    <script>
+        window.MathJax = {
+            tex: {
+                inlineMath: [['$', '$'], ['\\(', '\\)']],
+                displayMath: [['$$', '$$'], ['\\[', '\\]']],
+                processEscapes: true
+            },
+            options: {
+                ignoreHtmlClass: 'tex2jax_ignore',
+                processHtmlClass: 'tex2jax_process'
+            }
+        };
+    </script>
+    <script id="MathJax-script" async src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
+    <script src="../js/sidebar.js" defer></script>
+</head>
+
+<body class="tex2jax_process">
+
+    <!-- Reading Progress Bar -->
+    <div class="progress-bar-container">
+        <div class="progress-bar" id="reading-progress"></div>
+    </div>
+
+    <div class="app-container">
+
+        <!-- Mobile Navigation Header -->
+        <header class="mobile-header">
+            <button class="menu-toggle" id="menu-open-btn">
+                <svg width="24" height="24" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" d="M4 6h16M4 12h16M4 18h16" />
+                </svg>
+            </button>
+            <div class="sidebar-title">JEPA-Lab</div>
+            <div></div> <!-- spacer -->
+        </header>
+
+        <!-- Persistent Sidebar -->
+        <aside class="sidebar" id="app-sidebar"></aside>
+
+        <!-- Main Content -->
+        <main class="main-content">
+            <div class="article-layout">
+                <article class="article-container">
+                    <header class="article-header">
+                        <span class="article-category unsupervised-search-10-12">Série Recherche Visuelle</span>
+                        <h1>Saccadic-JEPA face aux Baselines — Partie 3 : Tuning & Calibration</h1>
+                        <p class="article-subtitle">Résolution, Acuité Visuelle et Pratique</p>
+                    </header>
+
+                    <div class="article-body">
+                        <blockquote>
+                            <p><strong>Série Recherche Visuelle &amp; Localisation d'Objets sans Supervision</strong>
+                                <em>Dans cette troisième partie de notre douzième article, nous mettons en pratique
+                                    notre pipeline de recherche visuelle. Nous verrons comment calibrer les deux
+                                    hyperparamètres fondamentaux de notre système de détection sans supervision : le
+                                    Seuil de Similarité Cosinus ($\tau$) et la taille minimale des composantes connexes
+                                    (<code>--min-patches</code>). Nous expliquerons comment leur réglage permet de
+                                    trouver le point d'équilibre optimal entre Précision (éviter les faux positifs) et
+                                    Rappel (éviter les faux négatifs).</em>
+                            </p>
+                        </blockquote>
+                        <hr />
+                        <h2 id="les-deux-boutons-de-contr-le-de-notre-pipeline">🎛️ Les deux boutons de contrôle de
+                            notre pipeline</h2>
+                        <p>Notre moteur de recherche d'objets sans supervision s'appuie sur deux hyperparamètres
+                            complémentaires pour extraire et valider les boîtes englobantes :</p>
+                        <ol>
+                            <li><strong>Le Seuil de Similarité Cosinus ($\tau$)</strong> : Il s'applique à chaque patch
+                                individuellement. Il décide si le contenu d'un patch est sémantiquement assez proche de
+                                la requête pour être activé ($1$).</li>
+                            <li><strong>Le Nombre Minimal de Patches (<code>--min-patches</code>)</strong> : Il
+                                s'applique aux groupes de patches (les composantes connexes trouvées par le BFS). Il
+                                décide si une "île" de patches actifs est assez grande pour former un objet valide, ou
+                                s'il s'agit d'un bruit de fond à ignorer.</li>
+                        </ol>
+                        <p>Ces deux paramètres agissent comme un <strong>filtre à deux étages</strong> : le premier
+                            filtre au niveau des pixels/concepts locaux, le second filtre au niveau de la cohérence
+                            spatiale.</p>
+                        <hr />
+                        <h2 id="calibrer-le-seuil-de-similarit-tau">🔬 Calibrer le Seuil de Similarité ($\tau$)</h2>
+                        <p>Comme nous l'avons étudié à l'Article 11, le choix du seuil s'accompagne d'un compromis
+                            classique de Machine Learning :</p>
+                        <ul>
+                            <li><strong>Un seuil élevé ($\tau \ge 0.45$)</strong> :</li>
+                            <li><strong>Avantage (Haute Précision)</strong> : Seuls les patches extrêmement similaires
+                                au concept de requête sont retenus. Le bruit d'arrière-plan et le ciel sont totalement
+                                éliminés.</li>
+                            <li><strong>Inconvénient (Faible Rappel)</strong> : Si l'objet dans l'image de test présente
+                                une légère variation de forme ou d'orientation par rapport au crop d'origine, certains
+                                de ses patches descendront sous le seuil et l'objet sera manqué (faux négatif) ou sa
+                                boîte englobante sera trop petite.</li>
+                            <li><strong>Un seuil bas ($\tau \le 0.28$)</strong> :</li>
+                            <li><strong>Avantage (Haut Rappel)</strong> : Le modèle est très tolérant et détectera
+                                l'objet même s'il est partiellement caché ou déformé.</li>
+                            <li><strong>Inconvénient (Faible Précision)</strong> : Beaucoup de patches d'arrière-plan
+                                neutres s'activeront, créant des faux positifs ou fusionnant plusieurs objets distincts
+                                en une seule boîte englobante géante.</li>
+                        </ul>
+                        <hr />
+                        <h2 id="filtrer-le-bruit-spatial-avec-min-patches">🧼 Filtrer le bruit spatial avec
+                            <code>--min-patches</code>
+                        </h2>
+                        <p>Même avec un bon seuil $\tau$, il arrive souvent que 1 ou 2 patches isolés d'arrière-plan
+                            franchissent le seuil par pure coïncidence géométrique. Sans filtre de taille, le modèle
+                            dessinerait de toutes petites boîtes englobantes parasites partout sur l'image.</p>
+                        <p>C'est là qu'intervient l'argument <code>--min-patches</code> ($P_{min}$) :</p>
+                        <pre><code class="language-text">         Grille binarisée (τ = 0.35)             Detections avec P_min = 3
+         ┌───┬───┬───┬───┬───┐                     ┌───┬───┬───┬───┬───┐
+         │ 0 │ 0 │ 0 │ 1 │ 0 │ &lt;-- Bruit (1 patch) │ 0 │ 0 │ 0 │ 0 │ 0 │ &lt;-- Ignoré !
+         ├───┼───┼───┼───┼───┤                     ├───┼───┼───┼───┼───┤
+         │ 0 │ 1 │ 1 │ 0 │ 0 │                     │ 0 │ 1 │ 1 │ 0 │ 0 │
+         ├───┼───┼───┼───┼───┤                     ├───┼───┼───┼───┼───┤
+         │ 0 │ 1 │ 1 │ 0 │ 0 │                     │ 0 │ 1 │ 1 │ 0 │ 0 │ &lt;-- Gardé (4 patches)
+         ├───┼───┼───┼───┼───┤                     ├───┼───┼───┼───┼───┤
+         │ 0 │ 0 │ 0 │ 0 │ 0 │                     │ 0 │ 0 │ 0 │ 0 │ 0 │
+         └───┴───┴───┴───┴───┘                     └───┴───┴───┴───┴───┘
+</code></pre>
+                        <ul>
+                            <li><strong>Si <code>--min-patches</code> = 1</strong> : Le modèle dessine une BBox pour
+                                chaque patch isolé actif. Très sensible, mais extrêmement bruyant.</li>
+                            <li><strong>Si <code>--min-patches</code> = 3 (Recommandé pour Saccadic-JEPA)</strong> : Le
+                                modèle ignore toutes les composantes connexes contenant moins de 3 patches. Le petit
+                                bruit isolé est balayé, seules les zones cohérentes et consolidées de l'image (les vrais
+                                objets) sont retenues.</li>
+                            <li><strong>Si <code>--min-patches</code> = 6</strong> : Le modèle n'accepte que les très
+                                grands objets. Excellent pour isoler un véhicule entier au premier plan, mais inadapté
+                                pour localiser des détails ou des objets éloignés.</li>
+                        </ul>
+                        <hr />
+                        <h2 id="guide-pratique-de-calibration-sc-narios-d-usage">🛠️ Guide pratique de calibration
+                            (Scénarios d'usage)</h2>
+                        <p>Voici comment ajuster vos paramètres dans la ligne de commande de notre script
+                            <code>unsupervised_search.py</code> :
+                        </p>
+                        <h3 id="sc-nario-a-vous-cherchez-un-grand-objet-net-ex-une-voiture-enti-re">🚗 Scénario A : Vous
+                            cherchez un grand objet net (ex: une voiture entière)</h3>
+                        <p>L'objet occupe une surface importante dans l'image.
+                        <ul>
+                            <li><strong>Réglage</strong> : <code>--threshold 0.35 --min-patches 4</code></li>
+                            <li><strong>Pourquoi</strong> : Avec 4 patches minimum, vous filtrez tous les faux positifs
+                                de route ou de ciel. La voiture, étant grande, activera facilement 4 patches connexes.
+                            </li>
+                        </ul>
+                        </p>
+                        <h3 id="sc-nario-b-vous-cherchez-un-d-tail-pr-cis-ou-un-petit-objet-ex-une-roue">🎡 Scénario B :
+                            Vous cherchez un détail précis ou un petit objet (ex: une roue)</h3>
+                        <p>Le détail recherché est petit et localisé.
+                        <ul>
+                            <li><strong>Réglage</strong> : <code>--threshold 0.35 --min-patches 1</code> ou
+                                <code>2</code>
+                            </li>
+                            <li><strong>Pourquoi</strong> : Une roue dans une petite image peut ne couvrir qu'un seul ou
+                                deux patches. Mettre <code>--min-patches 3</code> ferait disparaître la détection. On
+                                accepte un peu plus de bruit au profit d'un meilleur rappel.</li>
+                        </ul>
+                        </p>
+                        <h3 id="sc-nario-c-l-image-de-test-a-un-arri-re-plan-tr-s-encombr-ex-for-t">🌳 Scénario C :
+                            L'image de test a un arrière-plan très encombré (ex: forêt)</h3>
+                        <p>L'arrière-plan complexe génère de nombreux faux positifs de textures.
+                        <ul>
+                            <li><strong>Réglage</strong> : <code>--threshold 0.45 --min-patches 2</code></li>
+                            <li><strong>Pourquoi</strong> : On augmente le seuil sémantique à $0.45$ pour rendre le
+                                premier niveau de filtrage beaucoup plus sélectif et bloquer les fausses détections de
+                                texture, tout en maintenant le nombre de patches à 2 pour ne pas rater l'objet s'il est
+                                partiellement masqué.</li>
+                        </ul>
+                        </p>
+                        <hr />
+                        <h2 id="lancez-la-d-mo-pratique-sur-votre-machine">🚀 La démo pratique !</h2>
+                        <p>Nous avons écrit un script de démonstration complet <code>demo_unsupervised_search.py</code>
+                            qui
+                            télécharge CIFAR-10, extrait une requête de voiture et scanne les images cibles.</p>
+
+                        <pre><code class="language-bash">python jepa_lab/demo_unsupervised_search.py --model-type saccadic --threshold 0.35 --min-patches 2
+</code></pre>
+                        <p>Ce script va générer des figures comparatives dans
+                            <code>jepa_lab/runs/demo_search_result_*.png</code>.
+                        </p>
+                        <h3 id="analyse-d-une-d-tection-concr-te-le-cas-de-la-voiture-image-9">📊 Analyse d'une
+                            détection concrète : Le cas de la Voiture (Image 9)</h3>
+                        <p>Voici l'un des résultats obtenus lors du scan d'une image cible de voiture pour laquelle nous
+                            avons sélectionné une requête sous forme de crop représentant une roue (je sais il y a plus
+                            esthétique comme crop 😅 mais on joue qu'avec des images CIFAR-10):</p>
+                        <div class="image-container"><img alt="Analyse de recherche d'une roue sur la voiture 9"
+                                src="../images/demo_search_result_img_9_car_target_car.png.png" />
+                            <div class="image-caption">Analyse de recherche d'une roue sur la voiture 9</div>
+                        </div>
+                        <h4>🔍 Pourquoi le pare-brise a-t-il été pris pour une roue ?</h4>
+                        <p>Si vous regardez attentivement l'image ci-dessus, le modèle trace une boîte rouge autour des
+                            roues réelles, mais également une boîte englobante parasite autour de la <strong>jonction du
+                                pare-brise et du capot/montant de toit</strong>. </p>
+                        <p>Ce phénomène s'explique par plusieurs facteurs géométriques, latents et techniques :
+                        <ol>
+                            <li><strong>La signature des contours (Gradients locaux)</strong> : À l'échelle d'un
+                                patch ($16 \times 16$), le montant avant du pare-brise présente une transition abrupte
+                                à fort contraste entre une zone sombre (le verre/l'habitacle) et une zone claire et
+                                colorée (la carrosserie), formant une structure courbe ou en diagonale. Pour l'encodeur
+                                de contexte ViT, cette combinaison de gradients est très similaire aux bords d'une
+                                roue (qui alternent aussi entre obscurité du pneu et luminosité du pneu/sol).</li>
+                            <li><strong>Le biais d'auto-supervision</strong> : N'ayant jamais reçu de labels
+                                humains (qui
+                                lui diraient "<em>ceci est une vitre, pas une roue</em>"), le modèle JEPA regroupe
+                                les
+                                concepts uniquement par leur structure visuelle et leur contexte statistique. Les
+                                roues et
+                                le pare-brise partagent des propriétés géométriques dans le domaine latent des formes
+                                de
+                                carrosserie.</li>
+                            <li><strong>Le regroupement BFS</strong> : Comme le seuil $\tau$ était réglé à $0.35$,
+                                les
+                                patches du pare-brise ont été activés. Étant adjacents, ils ont formé un groupe de
+                                taille
+                                $\ge 2$, validant ainsi la création d'une boîte englobante.</li>
+                            <li><strong>Le flou d'upscaling ($32\times32 \to 128\times128$) et le sous-entraînement
+                                    (120
+                                    époques)</strong> :
+                                <strong>L'interpolation de résolution</strong> : Les images d'origine de CIFAR-10
+                                ne font
+                                que $32\times32$ pixels. Pour notre modèle Saccadic, nous les agrandissons
+                                artificiellement
+                                par interpolation à $128\times128$. Cela crée un <strong>flou
+                                    d'interpolation</strong>
+                                qui
+                                lisse les arrêtes. Au niveau d'un patch, les contours nets d'une roue et ceux du
+                                pare-brise
+                                se retrouvent tous deux lissés. Ce manque de hautes fréquences visuelles rend leurs
+                                signatures sémantiques très similaires dans l'espace latent.
+                            </li>
+                            <li><strong>Sous-apprentissage relatif</strong> : Un entraînement de 120 époques est
+                                relativement court pour de l'auto-supervisé (les papiers officiels s'étendent de
+                                300 à 800
+                                époques). À ce stade, le réseau a appris à regrouper les formes géométriques
+                                primaires et
+                                les co-occurrences, mais n'a pas encore une finesse de discrimination suffisante
+                                pour
+                                séparer proprement des sous-composants locaux aussi proches. </li>
+                        </ol>
+                        </p>
+
+                        <div class="callout callout-tip">
+                            <div class="callout-title"><svg width="18" height="18" fill="none" stroke="currentColor"
+                                    stroke-width="2" viewBox="0 0 24 24" style="flex-shrink:0;">
+                                    <path stroke-linecap="round" stroke-linejoin="round"
+                                        d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z" />
+                                </svg>Astuce</div>
+                            <p><strong>Comment connaître le nombre de patches de chaque boîte ?</strong>
+                                Lors de l'exécution de <code>unsupervised_search.py</code> (ou de la démo), les détails
+                                de chaque boîte de détection sont affichés directement dans votre console. Le script
+                                affiche une ligne de log détaillée contenant le paramètre <code>Size</code> :
+                                <code>text
+BBox 1: [84, 96, 120, 128] | Confidence (Mean Sim): 0.4124 | Max Sim: 0.4456 | Size: 3 patches</code>
+                                La valeur <code>Size: X patches</code> vous indique précisément le nombre de patches
+                                connexes activés pour cette boîte englobante. C'est l'indicateur parfait pour calibrer
+                                votre argument <code>--min-patches</code> !
+                            </p>
+                        </div>
+                        <hr />
+                        <h3 id="d-fi-de-curiosit-n-10">🛠️ Défi de curiosité n°10</h3>
+                        <p>Dans notre grille Saccadic-JEPA de $8\times8$ patches (soit 64 patches au total pour une
+                            image de $128\times128$ pixels) :</p>
+                        <ol>
+                            <li>Quelle proportion en pourcentage de la surface totale de l'image représente un seuil
+                                <code>--min-patches 4</code> ?
+                            </li>
+                            <li>Si vous passiez à une grille plus fine de $16\times16$ patches (soit 256 patches pour
+                                une même image), quelle proportion représenterait ce même réglage de 4 patches ?</li>
+                            <li>Pourquoi est-il indispensable d'augmenter la valeur de <code>--min-patches</code>
+                                lorsque la résolution de la grille de patches augmente ?</li>
+                        </ol>
+                    </div>
+
+                    <div class="article-footer-nav">
+                        <a href="article_12_partie_2.html" class="footer-nav-link prev">
+                            <span class="footer-nav-label">← Précédent</span>
+                            <span class="footer-nav-title">Saccadic-JEPA face aux Baselines - Partie 2</span>
+                        </a>
+                        <a href="article_12_partie_4.html" class="footer-nav-link next">
+                            <span class="footer-nav-label">Suivant →</span>
+                            <span class="footer-nav-title">Saccadic-JEPA face aux Baselines - Partie 4</span>
+                        </a>
+                    </div>
+                </article>
+
+                <div class="toc-sidebar">
+                    <div class="toc-title">Sur cette page</div>
+                    <ul class="toc-list">
+                        <li class=""><a href="#les-deux-boutons-de-contr-le-de-notre-pipeline">🎛️ Les deux boutons de
+                                contrôle de notre pipeline</a></li>
+                        <li class=""><a href="#calibrer-le-seuil-de-similarit-tau">🔬 Calibrer le Seuil de Similarité
+                                ($\tau$)</a></li>
+                        <li class=""><a href="#filtrer-le-bruit-spatial-avec-min-patches">🧼 Filtrer le bruit spatial
+                                avec --min-patches</a></li>
+                        <li class=""><a href="#guide-pratique-de-calibration-sc-narios-d-usage">🛠️ Guide pratique de
+                                calibration (Scénarios d'usage)</a></li>
+                        <li class="toc-indent"><a
+                                href="#sc-nario-a-vous-cherchez-un-grand-objet-net-ex-une-voiture-enti-re">🚗 Scénario A
+                                : Vous cherchez un grand objet net (ex: une voiture entière)</a></li>
+                        <li class="toc-indent"><a
+                                href="#sc-nario-b-vous-cherchez-un-d-tail-pr-cis-ou-un-petit-objet-ex-une-roue">🎡
+                                Scénario B : Vous cherchez un détail précis ou un petit objet (ex: une roue)</a></li>
+                        <li class="toc-indent"><a
+                                href="#sc-nario-c-l-image-de-test-a-un-arri-re-plan-tr-s-encombr-ex-for-t">🌳 Scénario C
+                                : L'image de test a un arrière-plan très encombré (ex: forêt)</a></li>
+                        <li class=""><a href="#lancez-la-d-mo-pratique-sur-votre-machine">🚀 Lancez la Démo Pratique sur
+                                votre Machine !</a></li>
+                        <li class="toc-indent"><a
+                                href="#analyse-d-une-d-tection-concr-te-le-cas-de-la-voiture-image-9">📊 Analyse d'une
+                                détection concrète : Le cas de la Voiture (Image 9)</a></li>
+                        <li class="toc-indent"><a href="#d-fi-de-curiosit-n-10">🛠️ Défi de curiosité n°10</a></li>
+                    </ul>
+                </div>
+            </div>
+        </main>
+    </div>
+
+    <!-- Scripts -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.8.0/highlight.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/mermaid/dist/mermaid.min.js"></script>
+
+    <script>
+        // Initialize Highlight.js
+        hljs.highlightAll();
+
+        // Initialize Mermaid
+        mermaid.initialize({
+            theme: 'dark',
+            startOnLoad: false,
+            securityLevel: 'loose'
+        });
+
+        document.addEventListener("DOMContentLoaded", function () {
+            // 1. Convert Markdown pre-code blocks for Mermaid to actual divs
+            document.querySelectorAll("pre code.language-mermaid").forEach(function (el) {
+                const pre = el.parentElement;
+                const div = document.createElement("div");
+                div.className = "mermaid";
+                div.textContent = el.textContent;
+                pre.parentElement.replaceChild(div, pre);
+            });
+
+            // Run Mermaid rendering
+            mermaid.run();
+
+            // 2. Reading Progress Bar Logic
+            window.addEventListener('scroll', function () {
+                const winScroll = document.documentElement.scrollTop || document.body.scrollTop;
+                const height = document.documentElement.scrollHeight - document.documentElement.clientHeight;
+                const scrolled = (winScroll / height) * 100;
+                document.getElementById("reading-progress").style.width = scrolled + "%";
+            });
+
+
+        });
+    </script>
+</body>
+
+</html>

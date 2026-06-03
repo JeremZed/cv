@@ -1,0 +1,308 @@
+<!DOCTYPE html>
+<html lang="fr">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>De la Similarité Pixel à la Sémantique Latente — Partie 3 : L'Espace Latent & Alignement | JEPA-Lab Explorer
+    </title>
+
+    <!-- Stylesheets -->
+    <link rel="stylesheet" href="../css/style.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.8.0/styles/github-dark.min.css">
+
+    <!-- Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+
+    <!-- MathJax Configuration -->
+    <script>
+        window.MathJax = {
+            tex: {
+                inlineMath: [['$', '$'], ['\\(', '\\)']],
+                displayMath: [['$$', '$$'], ['\\[', '\\]']],
+                processEscapes: true
+            },
+            options: {
+                ignoreHtmlClass: 'tex2jax_ignore',
+                processHtmlClass: 'tex2jax_process'
+            }
+        };
+    </script>
+    <script id="MathJax-script" async src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
+    <script src="../js/sidebar.js" defer></script>
+</head>
+
+<body class="tex2jax_process">
+
+    <!-- Reading Progress Bar -->
+    <div class="progress-bar-container">
+        <div class="progress-bar" id="reading-progress"></div>
+    </div>
+
+    <div class="app-container">
+
+        <!-- Mobile Navigation Header -->
+        <header class="mobile-header">
+            <button class="menu-toggle" id="menu-open-btn">
+                <svg width="24" height="24" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" d="M4 6h16M4 12h16M4 18h16" />
+                </svg>
+            </button>
+            <div class="sidebar-title">JEPA-Lab</div>
+            <div></div> <!-- spacer -->
+        </header>
+
+        <!-- Persistent Sidebar -->
+        <aside class="sidebar" id="app-sidebar"></aside>
+
+        <!-- Main Content -->
+        <main class="main-content">
+            <div class="article-layout">
+                <article class="article-container">
+                    <header class="article-header">
+                        <span class="article-category unsupervised-search-10-12">Série Recherche Visuelle</span>
+                        <h1>De la Similarité Pixel à la Sémantique Latente — Partie 3 : L'Espace Latent & Alignement
+                        </h1>
+                        <p class="article-subtitle">Comment l'IA comprend les objets sans labels</p>
+                    </header>
+
+                    <div class="article-body">
+                        <blockquote>
+                            <p><strong>Série Recherche Visuelle &amp; Localisation d'Objets sans Supervision</strong>
+                                <em>Dans cette troisième partie, nous explorons les propriétés géométrique de l'Espace
+                                    Latent. Nous verrons comment la similarité cosinus sert d'outil de mesure pour
+                                    évaluer le degré de parenté conceptuelle entre deux vecteurs, et pourquoi des objets
+                                    de couleurs ou de textures différentes (comme une voiture rouge et une voiture
+                                    bleue) finissent par s'aligner et se regrouper géométriquement dans cet espace
+                                    sémantique.</em>
+                            </p>
+                        </blockquote>
+                        <hr />
+                        <h2 id="tape-1-qu-est-ce-que-l-espace-latent">🗺️ Étape 1 : Qu'est-ce que l'Espace Latent ?</h2>
+                        <p>L'<strong>Espace Latent</strong> est un espace mathématique abstrait à haute dimension (par
+                            exemple, 192 dimensions pour un modèle ViT-Tiny) dans lequel le réseau de neurones projette
+                            les données d'entrée. </p>
+                        <h3 id="l-analogie-de-la-carte-th-matique">🗺️ L'analogie de la Carte Thématique</h3>
+                        <p>Imaginez une carte géographique classique : elle possède deux dimensions (longitude et
+                            latitude). Si vous placez des villes sur cette carte, la proximité physique indique une
+                            proximité géographique.
+                        <ul>
+                            <li>Dans un espace latent sémantique, les axes (les dimensions) ne représentent pas le nord
+                                ou l'est, mais des <strong>concepts abstraits</strong>.</li>
+                            <li>Par exemple, une dimension pourrait mesurer le degré de "circularité", une autre le
+                                degré de "structure métallique", une troisième la présence de "matière organique".</li>
+                            <li>Dans cet espace, deux objets qui partagent les mêmes caractéristiques conceptuelles se
+                                retrouvent placés <strong>au même endroit</strong>, c'est-à-dire que leurs coordonnées
+                                (leurs vecteurs) sont très proches.</li>
+                        </ul>
+
+                        <hr />
+                        <h2 id="tape-2-la-similarit-cosinus-comme-boussole-s-mantique">📐 Étape 2 : La Similarité
+                            Cosinus comme Boussole Sémantique</h2>
+                        <p>Pour mesurer la proximité entre notre vecteur de concept de requête $q$ et les
+                            représentations des patches d'une image de test $v$, nous n'utilisons pas la distance
+                            euclidienne directe. Nous mesurons l'<strong>angle</strong> formé par ces deux vecteurs dans
+                            l'espace latent à l'aide de la <strong>similarité cosinus</strong> :</p>
+                        <p>$$\text{Similarité}(q, v) = \cos(\theta) = \frac{q \cdot v}{\|q\| \|v\|}$$</p>
+                        <pre><code class="language-text">               Espace Latent (Conceptuel)
+
+                    ^  Dimension 2 (Structure métallique)
+                    │         
+                    │        q (Roue de vélo)
+                    │       / 
+                    │      / θ  &lt;-- Angle très fermé (cos(θ) proche de 1)
+                    │     /___ v (Roue de voiture)
+                    │    /
+                    │   /
+                    │  /
+                    │ /
+                    └─────────────────────────────&gt; Dimension 1 (Forme Circulaire)
+</code></pre>
+                        <h3 id="pourquoi-mesurer-l-angle-plut-t-que-la-distance">🎯 Pourquoi mesurer l'angle plutôt que
+                            la distance ?</h3>
+                        <p>La longueur d'un vecteur latent (sa norme $\|q\|$) dépend souvent de facteurs non sémantiques
+                            comme le niveau de contraste de l'image ou la luminosité globale du patch.
+                        <ul>
+                            <li>En calculant la similarité cosinus, on <strong>neutralise la longueur</strong> des
+                                vecteurs pour ne regarder que leur <strong>direction</strong>.</li>
+                            <li>La direction dans l'espace latent représente le <strong>concept sémantique
+                                    pur</strong>.</li>
+                            <li>Si le vecteur $q$ (la requête "roue") et le vecteur $v$ (le patch test) pointent
+                                dans la
+                                même direction, l'angle $\theta$ est proche de 0°, donc $\cos(\theta)$ est proche de
+                                $1$ :
+                                la machine conclut que le patch contient l'objet recherché.</li>
+                        </ul>
+                        </p>
+                        <p>Si nous prenons le soin de normaliser nos vecteurs à une longueur de 1 (normalisation L2 :
+                            $\tilde{q} = \frac{q}{\|q\|}$), la formule de la similarité cosinus se simplifie en un
+                            simple produit scalaire :</p>
+                        <p>$$\text{Similarité}(q, v) = \tilde{q} \cdot \tilde{v}$$</p>
+                        <p>Sur un GPU, cela permet de comparer notre requête à des milliers de patches en une seule
+                            fraction de seconde via un produit matriciel.</p>
+                        <hr />
+                        <h2 id="tape-3-l-invariance-de-couleur-et-d-aspect">🚗 Étape 3 : L'Invariance de Couleur et
+                            d'Aspect</h2>
+                        <p>L'un des comportements les plus spectaculaires des modèles JEPA est leur capacité à faire
+                            abstraction de la couleur. Si vous lui donnez comme requête le crop d'une <strong>voiture
+                                rouge</strong>, il parviendra à localiser une <strong>voiture bleue</strong> dans
+                            l'image de test, avec un excellent score de similarité.</p>
+                        <h3 id="comment-jepa-apprend-il-ignorer-la-couleur">🛡️ Comment JEPA apprend-il à ignorer la
+                            couleur ?</h3>
+                        <p>C'est une conséquence directe de la tâche de pré-entraînement de I-JEPA/Saccadic-JEPA :</p>
+                        <ol>
+                            <li>Le modèle doit prédire la représentation de zones masquées de l'image (le Professeur) à
+                                partir d'autres zones visibles (l'Élève).</li>
+                            <li>Pour réussir à prédire le haut d'une portière à partir du bas d'une roue, le réseau ne
+                                peut pas se contenter de retenir la couleur exacte des pixels (qui varie selon les
+                                reflets, l'ombre ou la carrosserie).</li>
+                            <li>Il est obligé d'apprendre des <strong>invariants structurels</strong> : la relation
+                                spatiale entre une roue et un châssis, la forme d'un pneu, le profil d'une aile.</li>
+                            <li>Ainsi, lors du pré-entraînement, le réseau compresse l'image en éliminant les variations
+                                superficielles (couleur, texture haute fréquence) pour ne projeter dans l'espace latent
+                                que la <strong>géométrie sémantique</strong>.</li>
+                        </ol>
+                        <p>Puisque la voiture rouge et la voiture bleue partagent la même géométrie (châssis horizontal,
+                            roues circulaires, pare-brise incliné), leurs vecteurs latents s'alignent dans la même
+                            direction.</p>
+                        <hr />
+                        <h2 id="dans-les-entrailles-du-code-calcul-de-la-similarit-cosinus">🛠️ Dans les entrailles du
+                            code : Calcul de la similarité cosinus</h2>
+                        <p>Voici comment nous calculons cette similarité en PyTorch sur une grille de patches de test
+                            entière :</p>
+                        <pre><code class="language-python">import torch
+import torch.nn.functional as F
+
+def compute_similarity_map(q, target_embeddings):
+    &quot;&quot;&quot;
+    Calcule la carte de similarité cosinus locale entre la requête q et tous les patches.
+
+    Arguments:
+        q: Vecteur de concept normalisé de forme (1, D)
+        target_embeddings: Embeddings des patches de l'image de test de forme (1, N_patches, D)
+    &quot;&quot;&quot;
+    # 1. S'assurer que les embeddings cibles sont normalisés L2
+    # target_embeddings_norm : (1, N_patches, D)
+    target_embeddings_norm = F.normalize(target_embeddings, p=2, dim=-1)
+
+    # 2. Produit matriciel pour calculer le produit scalaire (similarité cosinus)
+    # (1, N_patches, D) x (D, 1) -&gt; (1, N_patches, 1)
+    similarity_grid = torch.matmul(target_embeddings_norm, q.transpose(-1, -2))
+
+    # 3. Supprimer la dernière dimension pour obtenir un score par patch : (N_patches,)
+    similarity_grid = similarity_grid.squeeze()
+
+    return similarity_grid
+</code></pre>
+                        <hr />
+                        <h2 id="conclusion-amp-transition">🧠 Conclusion &amp; Transition</h2>
+                        <p>Nous avons maintenant terminé notre exploration de la <strong>Partie 1</strong> de notre
+                            étude ! Nous savons :
+                        <ol>
+                            <li>Pourquoi comparer les pixels bruts est un piège.</li>
+                            <li>Comment l'attention regroupe le contexte dans un <strong>Vecteur de Concept $q$
+                                </strong>.</li>
+                            <li>Comment la <strong>similarité cosinus</strong> aligne sémantiquement les objets
+                                dans
+                                l'<strong>Espace Latent</strong> en ignorant la couleur.</li>
+                        </ol>
+                        </p>
+                        <p>Nous disposons maintenant d'une grille de scores de similarité pour chaque patch de notre
+                            image de test. Mais comment passer de cette grille de scores brute à la localisation précise
+                            et isolée de plusieurs objets (dessiner des BBoxes nettes) ?</p>
+                        <p>C'est le défi de la <strong>Partie 2 : Cartographie locale &amp; Algorithme BFS</strong>, où
+                            nous apprendrons à regrouper les patches similaires voisins !</p>
+                        <hr />
+                        <h3 id="d-fi-de-curiosit-n-3">🛠️ Défi de curiosité n°3</h3>
+                        <p>Imaginons que la similarité cosinus entre un patch contenant un "arbre" et notre concept
+                            "roue de voiture" soit de $0.12$, tandis qu'elle est de $0.48$ pour un patch contenant une
+                            "roue de vélo".</p>
+                        <ol>
+                            <li>Que pouvez-vous dire de l'angle formé par les vecteurs dans ces deux situations ?</li>
+                            <li>Quelle est la valeur minimale et maximale que peut prendre la similarité cosinus ? </li>
+                            <li>La normalisation L2 projette tous les vecteurs latents sur une structure géométrique
+                                bien connue à haute dimension. De quelle forme géométrique s'agit-il ?</li>
+                        </ol>
+                    </div>
+
+                    <div class="article-footer-nav">
+                        <a href="article_10_partie_2.html" class="footer-nav-link prev">
+                            <span class="footer-nav-label">← Précédent</span>
+                            <span class="footer-nav-title">De la Similarité Pixel à la Sémantique Latente - Partie
+                                2</span>
+                        </a>
+                        <a href="article_11_partie_1.html" class="footer-nav-link next">
+                            <span class="footer-nav-label">Suivant →</span>
+                            <span class="footer-nav-title">Cartographie Locale & Algorithme BFS - Partie 1</span>
+                        </a>
+                    </div>
+                </article>
+
+                <div class="toc-sidebar">
+                    <div class="toc-title">Sur cette page</div>
+                    <ul class="toc-list">
+                        <li class=""><a href="#tape-1-qu-est-ce-que-l-espace-latent">🗺️ Étape 1 : Qu'est-ce que
+                                l'Espace Latent ?</a></li>
+                        <li class="toc-indent"><a href="#l-analogie-de-la-carte-th-matique">🗺️ L'analogie de la Carte
+                                Thématique</a></li>
+                        <li class=""><a href="#tape-2-la-similarit-cosinus-comme-boussole-s-mantique">📐 Étape 2 : La
+                                Similarité Cosinus comme Boussole Sémantique</a></li>
+                        <li class="toc-indent"><a href="#pourquoi-mesurer-l-angle-plut-t-que-la-distance">🎯 Pourquoi
+                                mesurer l'angle plutôt que la distance ?</a></li>
+                        <li class=""><a href="#tape-3-l-invariance-de-couleur-et-d-aspect">🚗 Étape 3 : L'Invariance de
+                                Couleur et d'Aspect</a></li>
+                        <li class="toc-indent"><a href="#comment-jepa-apprend-il-ignorer-la-couleur">🛡️ Comment JEPA
+                                apprend-il à ignorer la couleur ?</a></li>
+                        <li class=""><a href="#dans-les-entrailles-du-code-calcul-de-la-similarit-cosinus">🛠️ Dans les
+                                entrailles du code : Calcul de la similarité cosinus</a></li>
+                        <li class=""><a href="#conclusion-amp-transition">🧠 Conclusion &amp; Transition</a></li>
+                        <li class="toc-indent"><a href="#d-fi-de-curiosit-n-3">🛠️ Défi de curiosité n°3</a></li>
+                    </ul>
+                </div>
+            </div>
+        </main>
+    </div>
+
+    <!-- Scripts -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.8.0/highlight.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/mermaid/dist/mermaid.min.js"></script>
+
+    <script>
+        // Initialize Highlight.js
+        hljs.highlightAll();
+
+        // Initialize Mermaid
+        mermaid.initialize({
+            theme: 'dark',
+            startOnLoad: false,
+            securityLevel: 'loose'
+        });
+
+        document.addEventListener("DOMContentLoaded", function () {
+            // 1. Convert Markdown pre-code blocks for Mermaid to actual divs
+            document.querySelectorAll("pre code.language-mermaid").forEach(function (el) {
+                const pre = el.parentElement;
+                const div = document.createElement("div");
+                div.className = "mermaid";
+                div.textContent = el.textContent;
+                pre.parentElement.replaceChild(div, pre);
+            });
+
+            // Run Mermaid rendering
+            mermaid.run();
+
+            // 2. Reading Progress Bar Logic
+            window.addEventListener('scroll', function () {
+                const winScroll = document.documentElement.scrollTop || document.body.scrollTop;
+                const height = document.documentElement.scrollHeight - document.documentElement.clientHeight;
+                const scrolled = (winScroll / height) * 100;
+                document.getElementById("reading-progress").style.width = scrolled + "%";
+            });
+
+
+        });
+    </script>
+</body>
+
+</html>

@@ -67,6 +67,24 @@ const MENU_CONFIG = [
             { text: "🏁 Résumé : Le Grand Match de Benchmarks", link: "articles/article_9.html" }
         ]
     },
+    {
+        title: "Série Recherche Visuelle",
+        items: [
+            { text: "10.1 Le piège du pixel-à-pixel", link: "articles/article_10_partie_1.html" },
+            { text: "10.2 Le Vecteur de Concept (q)", link: "articles/article_10_partie_2.html" },
+            { text: "10.3 L'Espace Latent & Alignement", link: "articles/article_10_partie_3.html" },
+            { text: "11.1 La Carte de Similarité Locale", link: "articles/article_11_partie_1.html" },
+            { text: "11.2 Le Seuil Sémantique", link: "articles/article_11_partie_2.html" },
+            { text: "11.3 L'Algorithme BFS & Connectivité", link: "articles/article_11_partie_3.html" },
+            { text: "11.4 La Projection des BBoxes", link: "articles/article_11_partie_4.html" },
+            { text: "12.1 L'Impact du Patch-Size", link: "articles/article_12_partie_1.html" },
+            { text: "12.2 L'Effet de l'Arrière-Plan", link: "articles/article_12_partie_2.html" },
+            { text: "12.3 Tuning & Calibration", link: "articles/article_12_partie_3.html" },
+            { text: "12.4 Saccadic-JEPA vs Meta I-JEPA", link: "articles/article_12_partie_4.html" },
+            { text: "12.5 L'Automatisation du Ciblage", link: "articles/article_12_partie_5.html" },
+            { text: "12.6 L'Auto-Calibration Dimensionnelle", link: "articles/article_12_partie_6.html" }
+        ]
+    },
 
     {
         title: "Crédits",

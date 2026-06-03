@@ -167,23 +167,43 @@
                         <p><img alt="Courbes d'apprentissage" src="../images/learning_curves_saccadic.png" />
                             <em>Figure 9.2 : Courbes d'apprentissage sur les ensembles d'entraînement (pointillés) et de
                                 test (lignes pleines) pour 1%, 10% et 100% de données.</em>
-                               <ol>
+                        <ol>
                             <li><strong>Le comportement du modèle Scratch supervisé (courbes rouges) :</strong>
                                 <ul>
-                                    <li>À <strong>1%</strong> de labels, en raison de l'extrême pénurie de données, le Scratch ne parvient pas à généraliser : sa perte de test plafonne à **~2.03** dès l'époque 6 (tandis que sa perte d'entraînement descend à ~1.88) et sa précision de test stagne à seulement **~24%** (entraînement à ~32%).</li>
-                                    <li>À <strong>10%</strong> de labels, le Scratch montre une instabilité d'optimisation avec de fortes oscillations de la perte de test (pics à 1.74 et 1.71) avant de finir à ~1.64. Sa précision de test atteint **~40%**.</li>
-                                    <li>À <strong>100%</strong> de labels, bénéficiant des 50 000 images, le Scratch se stabilise et surclasse les modèles à encodeur gelé : sa perte de test descend régulièrement jusqu'à **~1.19** (la plus basse du graphique) pour une précision de test finale de **59.98%** (entraînement à ~62%).</li>
+                                    <li>À <strong>1%</strong> de labels, en raison de l'extrême pénurie de données, le
+                                        Scratch ne parvient pas à généraliser : sa perte de test plafonne à **~2.03**
+                                        dès l'époque 6 (tandis que sa perte d'entraînement descend à ~1.88) et sa
+                                        précision de test stagne à seulement **~24%** (entraînement à ~32%).</li>
+                                    <li>À <strong>10%</strong> de labels, le Scratch montre une instabilité
+                                        d'optimisation avec de fortes oscillations de la perte de test (pics à 1.74 et
+                                        1.71) avant de finir à ~1.64. Sa précision de test atteint **~40%**.</li>
+                                    <li>À <strong>100%</strong> de labels, bénéficiant des 50 000 images, le Scratch se
+                                        stabilise et surclasse les modèles à encodeur gelé : sa perte de test descend
+                                        régulièrement jusqu'à **~1.19** (la plus basse du graphique) pour une précision
+                                        de test finale de **59.98%** (entraînement à ~62%).</li>
                                 </ul>
                             </li>
                             <li><strong>La dynamique des modèles JEPA (courbes violette et bleue) :</strong>
                                 <ul>
-                                    <li>Sur tous les régimes (1%, 10% et 100%), on observe que **la perte d'entraînement (pointillés) est systématiquement supérieure à la perte de test (lignes continues)**. Par exemple, à 100% pour Saccadic-JEPA, la perte d'entraînement finit à ~1.38 alors que la perte de test descend à ~1.29 (soit un écart de ~0.09).</li>
-                                    <li><strong>Pourquoi ce comportement ?</strong> C'est un phénomène classique de régularisation : les caractéristiques apprises sous fortes contraintes de masquage/fovéation en auto-supervisé empêchent le modèle de surapprendre sur le train set. Le test set, exempt de ces perturbations, s'avère plus simple à classifier linéairement, garantissant une généralisation saine.</li>
+                                    <li>Sur tous les régimes (1%, 10% et 100%), on observe que **la perte d'entraînement
+                                        (pointillés) est systématiquement supérieure à la perte de test (lignes
+                                        continues)**. Par exemple, à 100% pour Saccadic-JEPA, la perte d'entraînement
+                                        finit à ~1.38 alors que la perte de test descend à ~1.29 (soit un écart de
+                                        ~0.09).</li>
+                                    <li><strong>Pourquoi ce comportement ?</strong> C'est un phénomène classique de
+                                        régularisation : les caractéristiques apprises sous fortes contraintes de
+                                        masquage/fovéation en auto-supervisé empêchent le modèle de surapprendre sur le
+                                        train set. Le test set, exempt de ces perturbations, s'avère plus simple à
+                                        classifier linéairement, garantissant une généralisation saine.</li>
                                 </ul>
                             </li>
                             <li><strong>La vitesse de convergence fulgurante :</strong>
                                 <ul>
-                                    <li>Contrairement au Scratch qui progresse lentement, les sondes linéaires (Linear Probes) de Saccadic-JEPA et Mono-JEPA convergent en seulement 3 à 5 époques vers leur plateau de performance finale (~54% et ~55% à 100%). Cela prouve la séparabilité linéaire quasi immédiate des représentations latentes apprises.</li>
+                                    <li>Contrairement au Scratch qui progresse lentement, les sondes linéaires (Linear
+                                        Probes) de Saccadic-JEPA et Mono-JEPA convergent en seulement 3 à 5 époques vers
+                                        leur plateau de performance finale (~54% et ~55% à 100%). Cela prouve la
+                                        séparabilité linéaire quasi immédiate des représentations latentes apprises.
+                                    </li>
                                 </ul>
                             </li>
                         </ol>
@@ -229,9 +249,9 @@
                             <span class="footer-nav-label">← Précédent</span>
                             <span class="footer-nav-title">Validation & Benchmarks - Partie 3</span>
                         </a>
-                        <a href="../credits.html" class="footer-nav-link next">
+                        <a href="article_10_partie_1.html" class="footer-nav-link next">
                             <span class="footer-nav-label">Suivant →</span>
-                            <span class="footer-nav-title">Crédits & Partenaires</span>
+                            <span class="footer-nav-title">Le piège du pixel-à-pixel - Partie 1</span>
                         </a>
                     </div>
                 </article>

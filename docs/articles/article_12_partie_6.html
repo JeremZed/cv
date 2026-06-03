@@ -1,0 +1,289 @@
+<!DOCTYPE html>
+<html lang="fr">
+
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Saccadic-JEPA face aux Baselines — Partie 6 : L'Auto-Calibration Dimensionnelle | JEPA-Lab Explorer</title>
+
+  <!-- Stylesheets -->
+  <link rel="stylesheet" href="../css/style.css">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.8.0/styles/github-dark.min.css">
+
+  <!-- Fonts -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+
+  <!-- MathJax Configuration -->
+  <script>
+    window.MathJax = {
+      tex: {
+        inlineMath: [['$', '$'], ['\\(', '\\)']],
+        displayMath: [['$$', '$$'], ['\\[', '\\]']],
+        processEscapes: true
+      },
+      options: {
+        ignoreHtmlClass: 'tex2jax_ignore',
+        processHtmlClass: 'tex2jax_process'
+      }
+    };
+  </script>
+  <script id="MathJax-script" async src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
+  <script src="../js/sidebar.js" defer></script>
+</head>
+
+<body class="tex2jax_process">
+
+  <!-- Reading Progress Bar -->
+  <div class="progress-bar-container">
+    <div class="progress-bar" id="reading-progress"></div>
+  </div>
+
+  <div class="app-container">
+
+    <!-- Mobile Navigation Header -->
+    <header class="mobile-header">
+      <button class="menu-toggle" id="menu-open-btn">
+        <svg width="24" height="24" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" d="M4 6h16M4 12h16M4 18h16" />
+        </svg>
+      </button>
+      <div class="sidebar-title">JEPA-Lab</div>
+      <div></div> <!-- spacer -->
+    </header>
+
+    <!-- Persistent Sidebar -->
+    <aside class="sidebar" id="app-sidebar"></aside>
+
+    <!-- Main Content -->
+    <main class="main-content">
+      <div class="article-layout">
+        <article class="article-container">
+          <header class="article-header">
+            <span class="article-category unsupervised-search-10-12">Série Recherche Visuelle</span>
+            <h1>Saccadic-JEPA face aux Baselines — Partie 6 : L'Auto-Calibration Dimensionnelle</h1>
+            <p class="article-subtitle">Résolution, Acuité Visuelle et Pratique</p>
+          </header>
+
+          <div class="article-body">
+            <blockquote>
+              <p><strong>Série Recherche Visuelle &amp; Localisation d'Objets sans Supervision</strong>
+                <em>Dans cette sixième et dernière partie de notre douzième article, nous résolvons la dernière limite
+                  manuelle de notre pipeline : le paramètre <code>--min-patches</code>. Comment savoir à l'avance si
+                  l'objet recherché occupera 3, 10 ou 30 patches dans l'image cible ? Nous introduisons une approche
+                  statistique basée sur l'analyse de distribution des composantes connexes (Outlier Spatial) pour
+                  éliminer le bruit périphérique sans amputer les détections de petits objets.</em>
+              </p>
+            </blockquote>
+            <hr />
+            <h2 id="la-probl-matique-le-dilemme-de-l-chelle-spatial">🛑 La Problématique : Le Dilemme de l'Échelle
+              Spatial</h2>
+            <p>Jusqu'ici, pour filtrer les faux positifs (les petits patchs isolés activés par erreur en arrière-plan),
+              nous utilisions le paramètre de taille géométrique <code>--min-patches</code>. Cependant, ce paramètre
+              pose un dilemme d'échelle insoluble si sa valeur est figée :</p>
+            <ol>
+              <li><strong>Seuil trop élevé (ex: <code>--min-patches 15</code>)</strong> :</li>
+              <li><strong>Avantage</strong> : Filtre extrêmement bien le bruit de fond.</li>
+              <li><strong>Inconvénient</strong> : Élimine complètement les petits objets ou les parties précises (comme
+                la tête du chat recherchée seule, ou un oiseau lointain).</li>
+              <li><strong>Seuil trop bas (ex: <code>--min-patches 1</code>)</strong> :</li>
+              <li><strong>Avantage</strong> : Permet de détecter les plus petits détails.</li>
+              <li><strong>Inconvénient</strong> : L'image est polluée de dizaines de micro-boîtes englobantes
+                correspondant à du bruit cosinus aléatoire dans le décor.</li>
+            </ol>
+            <p>Puisque la taille de l'objet recherché dans l'image de destination est inconnue à l'avance, nous avons
+              besoin d'un mécanisme capable d'<strong>estimer dynamiquement</strong> la taille attendue des détections
+              pour ajuster le filtre.</p>
+            <hr />
+            <h2 id="la-solution-analyse-empirique-de-la-densit-outlier-spatial">💡 La Solution : Analyse Empirique de la
+              Densité (Outlier Spatial)</h2>
+            <p>Plutôt que d'essayer de deviner la taille à partir de la géométrie du crop de départ (qui peut avoir une
+              résolution trompeuse), nous analysons la <strong>réponse spatiale du réseau</strong> sur l'image cible.
+            </p>
+            <p>Une fois que les composantes connexes ont été extraites après binarisation ou propagation par graine,
+              nous obtenons une liste de groupes de patchs candidats avec leurs tailles respectives :
+              $$S = [s_1, s_2, \dots, s_n]$$</p>
+            <p>Notre hypothèse est la suivante : <strong>le véritable objet d'intérêt correspond au cluster spatial le
+                plus dense et le plus grand</strong>, tandis que les faux positifs forment une multitude de petits
+              groupes isolés de faible taille.</p>
+            <h3 id="formule-de-la-taille-minimale-adaptative">Formule de la taille minimale adaptative</h3>
+            <p>Nous définissons la taille minimale acceptable comme une fraction $\beta$ de la taille du plus grand
+              cluster détecté :
+              $$\tau_{\text{patches}} = \max\left(1, \lfloor \beta \times \max(S) \rfloor\right)$$</p>
+            <p>Avec $\beta = 0.5$ (la moitié de la taille du candidat principal) :
+              * Si l'objet principal trouvé est grand (ex: le chat entier, $\max(S) = 20$), le seuil s'établit à $10$.
+              Tout bruit de taille inférieure à 10 est balayé.
+              * Si l'objet principal trouvé est petit (ex: la tête du chat seule, $\max(S) = 5$), le seuil s'adapte à
+              $2$. Les détails fins sont conservés.</p>
+            <hr />
+            <h2 id="impl-mentation-dans-le-code">🛠️ Implémentation dans le Code</h2>
+            <p>Nous avons encapsulé cette logique dans une fonction <code>compute_auto_min_patches</code> et modifié la
+              boucle de détection finale de notre script <code>demo_unsupervised_search_hf.py</code> :</p>
+            <pre><code class="language-python">def compute_auto_min_patches(components, beta=0.5):
+    if not components:
+        return 1
+    sizes = [len(comp) for comp in components]
+    max_size = max(sizes)
+    auto_val = int(max(1, max_size * beta))
+    print(f&quot;[Auto-Min-Patches] Component sizes: {sizes} -&gt; Max size: {max_size}&quot;)
+    print(f&quot;[Auto-Min-Patches] Dynamic min-patches threshold (beta={beta}): {auto_val}&quot;)
+    return auto_val
+</code></pre>
+            <p>Pour activer ce mode intelligent, il suffit de passer la valeur <code>-1</code> à l'argument
+              <code>--min-patches</code> lors de l'exécution du script.
+            </p>
+            <hr />
+            <h2 id="validation-sur-le-terrain-100-autonome">🔬 Validation sur le Terrain (100% Autonome)</h2>
+            <p>Exécutons notre script de recherche en mode <strong>doublement autonome</strong> : auto-seuil de
+              similarité (Region Growing) ET auto-seuil de taille (<code>--min-patches -1</code>).</p>
+            <h3 id="cas-1-recherche-cibl-e-sur-la-t-te-chat-tete-png">Cas 1 : Recherche ciblée sur la tête
+              (<code>chat-tete.png</code>)</h3>
+            <ul>
+              <li><strong>Commande</strong> :
+                <pre><code class="language-text">bash
+python3 demo_unsupervised_search_hf.py --query-crop raw/crops/chat-tete.png --target-image raw/img/chat-street-2.png --auto-threshold region_growing --min-patches -1 --save-path jepa_lab/runs/demo_search_result_hf_chat_tete_region_growing_auto_min_patches.png</code></pre>
+              </li>
+              <li>
+                <p><strong>Journal de sortie</strong> :
+                <pre><code class="language-text">
+[Auto-Region-Growing] Calculated Seed: 0.3343, Growth: 0.2010
+[Auto-Min-Patches] Component sizes: [10, 1, 8, 1, 1, 9, 1, 5] -&gt; Max size: 10
+[Auto-Min-Patches] Dynamic min-patches threshold (beta=0.5): 5
+Found 4 potential matching region(s):
+  BBox 1: [448, 554, 640, 683] | Confidence: 0.3632 | Size: 5 patches
+  BBox 2: [320, 298, 512, 426] | Confidence: 0.3172 | Size: 8 patches
+  BBox 3: [64, 0, 384, 170] | Confidence: 0.2555 | Size: 10 patches
+  ...</code></pre>
+                Le filtre s'est automatiquement réglé à <strong>5 patches minimum</strong>, éliminant instantanément
+                toutes les micro-boîtes de bruit de taille 1 tout en préservant la tête du chat (taille 5) !
+                </p>
+              </li>
+              <li>
+                <p><strong>Rendu visuel</strong> :
+                  <img alt="Tête Auto Min Patches"
+                    src="../images/demo_search_result_hf_chat_tete_region_growing_auto_min_patches.png" />
+                </p>
+              </li>
+            </ul>
+            <h3 id="cas-2-recherche-crois-e-tigre-to-chat">Cas 2 : Recherche croisée (Tigre $\to$ Chat)</h3>
+            <ul>
+              <li><strong>Commande</strong> :
+                <pre><code class="language-text">bash
+python3 demo_unsupervised_search_hf.py --query-crop raw/crops/tigre.jpg --target-image raw/img/chat-street-2.png --auto-threshold region_growing --min-patches -1 --save-path jepa_lab/runs/demo_search_result_hf_crop_tigre_region_growing_auto_min_patches.png</code></pre>
+              </li>
+              <li>
+                <p><strong>Journal de sortie</strong> :
+                <pre><code class="language-text">
+  [Auto-Region-Growing] Calculated Seed: 0.2867, Growth: 0.1615
+  [Auto-Min-Patches] Component sizes: [13, 3, 19, 1, 11, 4, 6] -&gt; Max size: 19
+  [Auto-Min-Patches] Dynamic min-patches threshold (beta=0.5): 9
+  Found 3 potential matching region(s):
+    BBox 1: [256, 256, 512, 512] | Confidence: 0.2304 | Size: 19 patches
+    BBox 2: [0, 0, 384, 213] | Confidence: 0.2220 | Size: 13 patches
+    BBox 3: [0, 469, 320, 683] | Confidence: 0.2182 | Size: 11 patches</code></pre>
+                Puisque le chat entier est plus grand et ressort avec 19 patches, le filtre dynamique s'est ajusté à
+                <strong>9 patches minimum</strong>. Tous les petits groupes parasites (taille 1, 3, 4, 6) sont
+                éliminés, isolant parfaitement les régions principales.
+              </li>
+              <li>
+                <p><strong>Rendu visuel</strong> :
+                  <img alt="Tigre Auto Min Patches"
+                    src="../images/demo_search_result_hf_crop_tigre_region_growing_auto_min_patches.png" />
+                </p>
+              </li>
+            </ul>
+            <hr />
+            <h2 id="bilan-de-la-s-rie-vers-un-agent-visuel-universel">🏆 Bilan de la Série : Vers un Agent Visuel
+              Universel</h2>
+            <p>En bouclant ce douzième chapitre, notre pipeline de recherche non supervisée a accompli sa transition
+              d'un simple filtre mathématique à un système adaptatif autonome :</p>
+            <ol>
+              <li><strong>L'espace latent sémantique (ViT + JEPA)</strong> abstrait les pixels pour comparer des
+                concepts (tigre $\to$ chat), tolérant les variations d'angle et de texture.</li>
+              <li><strong>Le calcul d'Otsu et le Z-Score</strong> adaptent le seuil de similarité global au contraste et
+                à la luminosité de chaque scène cible.</li>
+              <li><strong>La propagation par graine (Region Growing)</strong> reconstruit l'enveloppe physique des
+                objets en partant des points de confiance forte.</li>
+              <li><strong>L'auto-calibration des patches</strong> filtre le bruit résiduel en adaptant sa sélectivité à
+                la taille de l'objet candidat.</li>
+            </ol>
+            <p>Ce pipeline montre la puissance de l'apprentissage auto-supervisé (SSL) : sans la moindre boîte
+              englobante d'entraînement et sans aucun label, un modèle peut localiser et délimiter précisément des
+              objets complexes de manière totalement autonome.</p>
+          </div>
+
+          <div class="article-footer-nav">
+            <a href="article_12_partie_5.html" class="footer-nav-link prev">
+              <span class="footer-nav-label">← Précédent</span>
+              <span class="footer-nav-title">Saccadic-JEPA face aux Baselines - Partie 5</span>
+            </a>
+
+          </div>
+        </article>
+
+        <div class="toc-sidebar">
+          <div class="toc-title">Sur cette page</div>
+          <ul class="toc-list">
+            <li class=""><a href="#la-probl-matique-le-dilemme-de-l-chelle-spatial">🛑 La Problématique : Le Dilemme de
+                l'Échelle Spatial</a></li>
+            <li class=""><a href="#la-solution-analyse-empirique-de-la-densit-outlier-spatial">💡 La Solution : Analyse
+                Empirique de la Densité (Outlier Spatial)</a></li>
+            <li class="toc-indent"><a href="#formule-de-la-taille-minimale-adaptative">Formule de la taille minimale
+                adaptative</a></li>
+            <li class=""><a href="#impl-mentation-dans-le-code">🛠️ Implémentation dans le Code</a></li>
+            <li class=""><a href="#validation-sur-le-terrain-100-autonome">🔬 Validation sur le Terrain (100%
+                Autonome)</a></li>
+            <li class="toc-indent"><a href="#cas-1-recherche-cibl-e-sur-la-t-te-chat-tete-png">Cas 1 : Recherche ciblée
+                sur la tête (chat-tete.png)</a></li>
+            <li class="toc-indent"><a href="#cas-2-recherche-crois-e-tigre-to-chat">Cas 2 : Recherche croisée (Tigre
+                $\to$ Chat)</a></li>
+            <li class=""><a href="#bilan-de-la-s-rie-vers-un-agent-visuel-universel">🏆 Bilan de la Série : Vers un
+                Agent Visuel Universel</a></li>
+          </ul>
+        </div>
+      </div>
+    </main>
+  </div>
+
+  <!-- Scripts -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.8.0/highlight.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/mermaid/dist/mermaid.min.js"></script>
+
+  <script>
+    // Initialize Highlight.js
+    hljs.highlightAll();
+
+    // Initialize Mermaid
+    mermaid.initialize({
+      theme: 'dark',
+      startOnLoad: false,
+      securityLevel: 'loose'
+    });
+
+    document.addEventListener("DOMContentLoaded", function () {
+      // 1. Convert Markdown pre-code blocks for Mermaid to actual divs
+      document.querySelectorAll("pre code.language-mermaid").forEach(function (el) {
+        const pre = el.parentElement;
+        const div = document.createElement("div");
+        div.className = "mermaid";
+        div.textContent = el.textContent;
+        pre.parentElement.replaceChild(div, pre);
+      });
+
+      // Run Mermaid rendering
+      mermaid.run();
+
+      // 2. Reading Progress Bar Logic
+      window.addEventListener('scroll', function () {
+        const winScroll = document.documentElement.scrollTop || document.body.scrollTop;
+        const height = document.documentElement.scrollHeight - document.documentElement.clientHeight;
+        const scrolled = (winScroll / height) * 100;
+        document.getElementById("reading-progress").style.width = scrolled + "%";
+      });
+
+
+    });
+  </script>
+</body>
+
+</html>

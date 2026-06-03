@@ -1,0 +1,280 @@
+<!DOCTYPE html>
+<html lang="fr">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Saccadic-JEPA face aux Baselines — Partie 2 : L'Effet de l'Arrière-Plan | JEPA-Lab Explorer</title>
+
+    <!-- Stylesheets -->
+    <link rel="stylesheet" href="../css/style.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.8.0/styles/github-dark.min.css">
+
+    <!-- Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+
+    <!-- MathJax Configuration -->
+    <script>
+        window.MathJax = {
+            tex: {
+                inlineMath: [['$', '$'], ['\\(', '\\)']],
+                displayMath: [['$$', '$$'], ['\\[', '\\]']],
+                processEscapes: true
+            },
+            options: {
+                ignoreHtmlClass: 'tex2jax_ignore',
+                processHtmlClass: 'tex2jax_process'
+            }
+        };
+    </script>
+    <script id="MathJax-script" async src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
+    <script src="../js/sidebar.js" defer></script>
+</head>
+
+<body class="tex2jax_process">
+
+    <!-- Reading Progress Bar -->
+    <div class="progress-bar-container">
+        <div class="progress-bar" id="reading-progress"></div>
+    </div>
+
+    <div class="app-container">
+
+        <!-- Mobile Navigation Header -->
+        <header class="mobile-header">
+            <button class="menu-toggle" id="menu-open-btn">
+                <svg width="24" height="24" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" d="M4 6h16M4 12h16M4 18h16" />
+                </svg>
+            </button>
+            <div class="sidebar-title">JEPA-Lab</div>
+            <div></div> <!-- spacer -->
+        </header>
+
+        <!-- Persistent Sidebar -->
+        <aside class="sidebar" id="app-sidebar"></aside>
+
+        <!-- Main Content -->
+        <main class="main-content">
+            <div class="article-layout">
+                <article class="article-container">
+                    <header class="article-header">
+                        <span class="article-category unsupervised-search-10-12">Série Recherche Visuelle</span>
+                        <h1>Saccadic-JEPA face aux Baselines — Partie 2 : L'Effet de l'Arrière-Plan</h1>
+                        <p class="article-subtitle">Résolution, Acuité Visuelle et Pratique</p>
+                    </header>
+
+                    <div class="article-body">
+                        <blockquote>
+                            <p><strong>Série Recherche Visuelle &amp; Localisation d'Objets sans Supervision</strong>
+                                <em>Dans cette deuxième partie de notre douzième article, nous analysons une faille
+                                    classique de la vision par ordinateur sans supervision : l'effet de l'arrière-plan
+                                    (Background Bias). Nous verrons comment et pourquoi un arrière-plan commun et
+                                    uniforme (comme le ciel bleu pour un avion) peut induire notre modèle en erreur en
+                                    créant des faux positifs, révélant les limites intrinsèques des représentations
+                                    apprises sans annotations manuelles.</em>
+                            </p>
+                        </blockquote>
+                        <hr />
+                        <h2 id="tape-1-la-fuite-s-mantique-du-crop-leakage">💧 Étape 1 : La fuite sémantique du "Crop"
+                            (Leakage)</h2>
+                        <p>Lorsque nous découpons un objet dans une image pour former notre requête (notre crop de
+                            recherche), nous découpons presque toujours un <strong>cadre carré ou
+                                rectangulaire</strong>. </p>
+                        <p>Ce cadre contient deux éléments :
+                        <ol>
+                            <li><strong>L'objet d'intérêt</strong> (le cœur de la requête, par exemple un oiseau ou un
+                                avion).
+                            </li>
+                            <li><strong>L'arrière-plan local</strong> (le ciel, des feuilles d'arbres, de l'herbe).
+                            </li>
+                        </ol>
+                        </p>
+                        <pre><code class="language-text">            Crop de Requête                     Patches du Crop
+       ┌─────────────────────┐               ┌─────┬─────┬─────┬─────┐
+       │   ciel   /\   ciel  │               │ ciel│ ciel│ ciel│ ciel│  -&gt; Patches de fond
+       │         /  \        │               ├─────┼─────┼─────┼─────┤
+       │   ciel /____\ ciel  │     ───&gt;      │ ciel│ Ois.│ Ois.│ ciel│  -&gt; Mélange
+       │        [oiseau]     │               ├─────┼─────┼─────┼─────┤
+       │         ||          │               │ ciel│ Ois.│ Ois.│ ciel│
+       └─────────────────────┘               └─────┴─────┴─────┴─────┘
+</code></pre>
+                        <p>Comme nous l'avons vu à l'Article 10, le vecteur de concept $q$ est obtenu en faisant la
+                            moyenne des embeddings de tous les patches du crop. Par conséquent, si 50% des patches du
+                            crop contiennent du ciel bleu, le vecteur $q$ contiendra inévitablement des caractéristiques
+                            du ciel bleu. </p>
+                        <p>C'est la <strong>fuite sémantique (Semantic Leakage)</strong> : le vecteur de concept n'est
+                            pas pur, il est "contaminé" par le contexte de l'image d'origine.</p>
+                        <hr />
+                        <h2 id="tape-2-le-cas-classique-du-ciel-bleu-faux-positif">✈️ Étape 2 : Le cas classique du Ciel
+                            Bleu (Faux Positif)</h2>
+                        <p>Imaginons que nous cherchions un avion de ligne à l'aide d'un crop d'avion blanc volant dans
+                            un ciel bleu azur. Le vecteur $q$ de cet avion contient une signature sémantique forte pour
+                            le concept de "ciel bleu".</p>
+                        <p>Si nous scannons une image de test représentant un paysage d'été avec un grand ciel bleu
+                            dégagé et une petite maison de campagne :
+                        <ol>
+                            <li>Les patches de ciel bleu de l'image de test ont des vecteurs latents $v_{ciel}$ très
+                                typiques (couleur uniforme, gradients légers).</li>
+                            <li>En calculant le produit scalaire $q \cdot v_{ciel}$, le score de similarité cosinus
+                                grimpe à $0.40$ ou $0.45$.</li>
+                            <li>Comme ce score dépasse notre seuil de $0.35$, le modèle considère le ciel bleu comme un
+                                match valide.</li>
+                            <li>L'algorithme BFS regroupe tous ces patches et trace une immense boîte englobante
+                                autour... du ciel vide.</li>
+                        </ol>
+                        </p>
+                        <div class="callout callout-warning">
+                            <div class="callout-title"><svg width="18" height="18" fill="none" stroke="currentColor"
+                                    stroke-width="2" viewBox="0 0 24 24" style="flex-shrink:0;">
+                                    <path stroke-linecap="round" stroke-linejoin="round"
+                                        d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+                                </svg>Attention</div>
+                            <p><strong>Le faux positif de contexte :</strong>
+                                Le système a trouvé l'avion là où il n'y a que du ciel. Mathématiquement, pour le
+                                modèle, le ciel bleu est un indicateur de présence de l'avion tellement corrélé qu'il
+                                confond le contenant (le ciel) et le contenu (l'avion).</p>
+                        </div>
+                        <hr />
+                        <h2 id="pourquoi-ce-biais-est-il-in-vitable-en-non-supervis">🚫 Pourquoi ce biais est-il
+                            inévitable en non supervisé ?</h2>
+                        <p>Dans la détection d'objets classique (supervisée) comme YOLO, le réseau est entraîné avec des
+                            millions de boîtes de délimitation étiquetées à la main. Il est explicitement pénalisé s'il
+                            détecte du ciel vide. Il apprend donc la frontière exacte entre l'objet et le fond.</p>
+                        <p>En <strong>non supervisé (SSL)</strong>, le modèle JEPA n'a jamais vu de label de sa vie.
+                            Durant son pré-entraînement, il a simplement appris à prédire des parties d'images masquées.
+                        <ul>
+                            <li>Il a observé que les avions apparaissent presque toujours entourés de ciel bleu.</li>
+                            <li>Dans ses représentations latentes, les concepts d'avion et de ciel sont <strong>corrélés
+                                    de manière statistique</strong>.</li>
+                            <li>Le modèle ne possède pas de notion innée de ce qui est "important" (l'avion) et de ce
+                                qui
+                                est "secondaire" (l'arrière-plan). Sans étiquettes humaines, toutes les régularités
+                                statistiques de l'image sont apprises sur un pied d'égalité.</li>
+                        </ul>
+                        </p>
+                        <hr />
+                        <h2 id="comment-lutter-contre-le-biais-d-arri-re-plan">🛠️ Comment lutter contre le biais
+                            d'arrière-plan ?</h2>
+                        <p>Il existe trois techniques principales pour limiter cette fuite de contexte :</p>
+                        <h3 id="1-le-recadrage-ultra-serr">1. Le recadrage ultra-serré</h3>
+                        <p>La solution la plus simple consiste à recadrer le crop de requête au plus près des bords de
+                            l'objet pour réduire le nombre de patches d'arrière-plan inclus dans la moyenne globale.</p>
+                        <h3 id="2-le-rehaussement-du-seuil">2. Le rehaussement du seuil</h3>
+                        <p>En augmentant le seuil sémantique (par exemple à $\tau = 0.50$), on élimine les faux positifs
+                            d'arrière-plan car la similarité entre le ciel pur et le vecteur contaminé $q$ (souvent
+                            autour de $0.40$) n'est plus suffisante pour activer les patches.</p>
+                        <h3 id="3-la-soustraction-s-mantique-alg-bre-latente">3. La soustraction sémantique (Algèbre
+                            Latente)</h3>
+                        <p>Une astuce mathématique élégante consiste à fournir un deuxième crop contenant
+                            <strong>uniquement l'arrière-plan</strong> (par exemple, un carré de ciel bleu vide) pour en
+                            extraire un vecteur $q_{fond}$.
+                        </p>
+                        <p>On soustrait ensuite la projection du fond de notre vecteur de concept $q$ afin de le
+                            purifier :</p>
+                        <p>$$q_{propre} = q - (q \cdot q_{fond}) q_{fond}$$</p>
+                        <p>Après normalisation de $q_{propre}$, le vecteur de concept est géométriquement rendu
+                            <strong>orthogonal</strong> au concept de ciel bleu. Le modèle devient ainsi totalement
+                            aveugle au ciel et ne réagit plus qu'aux structures de l'avion.
+                        </p>
+                        <hr />
+                        <h2 id="conclusion-amp-transition">🧠 Conclusion &amp; Transition</h2>
+                        <p>L'effet d'arrière-plan met en lumière la nature profonde des modèles auto-supervisés : ce
+                            sont des champions de la corrélation statistique, pas de la logique humaine. </p>
+                        <p>Pour obtenir des détections parfaites sans labels, il faut donc apprendre à calibrer finement
+                            nos hyperparamètres. Comment ajuster le seuil sémantique et la taille minimale des
+                            composantes connexes pour obtenir le meilleur compromis de détection ?</p>
+                        <p>C'est ce que nous allons voir dans la troisième partie de cet article : <strong>Tuning et
+                                calibration</strong> !</p>
+                        <hr />
+                        <h3 id="d-fi-de-curiosit-n-9">🛠️ Défi de curiosité n°9</h3>
+                        <p>Imaginons que nous cherchions à détecter des poissons sous l'eau à l'aide d'un crop de
+                            poisson sur fond d'eau bleue/verte.</p>
+                        <p><em>Si nous appliquons la méthode algébrique de soustraction sémantique en soustrayant le
+                                vecteur de l'eau vide du vecteur du poisson :</em>
+                            1. <em>Pourquoi cela évite-t-il que le modèle dessine des boîtes englobantes sur l'eau vide
+                                de notre image de test ?</em>
+                            2. <em>Qu'arriverait-il si le poisson lui-même avait exactement la même texture et la même
+                                couleur que l'eau (cas d'un poisson camouflé) ? La soustraction sémantique
+                                fonctionnerait-elle toujours ?</em></p>
+                    </div>
+
+                    <div class="article-footer-nav">
+                        <a href="article_12_partie_1.html" class="footer-nav-link prev">
+                            <span class="footer-nav-label">← Précédent</span>
+                            <span class="footer-nav-title">Saccadic-JEPA face aux Baselines - Partie 1</span>
+                        </a>
+                        <a href="article_12_partie_3.html" class="footer-nav-link next">
+                            <span class="footer-nav-label">Suivant →</span>
+                            <span class="footer-nav-title">Saccadic-JEPA face aux Baselines - Partie 3</span>
+                        </a>
+                    </div>
+                </article>
+
+                <div class="toc-sidebar">
+                    <div class="toc-title">Sur cette page</div>
+                    <ul class="toc-list">
+                        <li class=""><a href="#tape-1-la-fuite-s-mantique-du-crop-leakage">💧 Étape 1 : La fuite
+                                sémantique du "Crop" (Leakage)</a></li>
+                        <li class=""><a href="#tape-2-le-cas-classique-du-ciel-bleu-faux-positif">✈️ Étape 2 : Le cas
+                                classique du Ciel Bleu (Faux Positif)</a></li>
+                        <li class=""><a href="#pourquoi-ce-biais-est-il-in-vitable-en-non-supervis">🚫 Pourquoi ce biais
+                                est-il inévitable en non supervisé ?</a></li>
+                        <li class=""><a href="#comment-lutter-contre-le-biais-d-arri-re-plan">🛠️ Comment lutter contre
+                                le biais d'arrière-plan ?</a></li>
+                        <li class="toc-indent"><a href="#1-le-recadrage-ultra-serr">1. Le recadrage ultra-serré</a></li>
+                        <li class="toc-indent"><a href="#2-le-rehaussement-du-seuil">2. Le rehaussement du seuil</a>
+                        </li>
+                        <li class="toc-indent"><a href="#3-la-soustraction-s-mantique-alg-bre-latente">3. La
+                                soustraction sémantique (Algèbre Latente)</a></li>
+                        <li class=""><a href="#conclusion-amp-transition">🧠 Conclusion &amp; Transition</a></li>
+                        <li class="toc-indent"><a href="#d-fi-de-curiosit-n-9">🛠️ Défi de curiosité n°9</a></li>
+                    </ul>
+                </div>
+            </div>
+        </main>
+    </div>
+
+    <!-- Scripts -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.8.0/highlight.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/mermaid/dist/mermaid.min.js"></script>
+
+    <script>
+        // Initialize Highlight.js
+        hljs.highlightAll();
+
+        // Initialize Mermaid
+        mermaid.initialize({
+            theme: 'dark',
+            startOnLoad: false,
+            securityLevel: 'loose'
+        });
+
+        document.addEventListener("DOMContentLoaded", function () {
+            // 1. Convert Markdown pre-code blocks for Mermaid to actual divs
+            document.querySelectorAll("pre code.language-mermaid").forEach(function (el) {
+                const pre = el.parentElement;
+                const div = document.createElement("div");
+                div.className = "mermaid";
+                div.textContent = el.textContent;
+                pre.parentElement.replaceChild(div, pre);
+            });
+
+            // Run Mermaid rendering
+            mermaid.run();
+
+            // 2. Reading Progress Bar Logic
+            window.addEventListener('scroll', function () {
+                const winScroll = document.documentElement.scrollTop || document.body.scrollTop;
+                const height = document.documentElement.scrollHeight - document.documentElement.clientHeight;
+                const scrolled = (winScroll / height) * 100;
+                document.getElementById("reading-progress").style.width = scrolled + "%";
+            });
+
+
+        });
+    </script>
+</body>
+
+</html>

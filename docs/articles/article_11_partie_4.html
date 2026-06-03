@@ -1,0 +1,311 @@
+<!DOCTYPE html>
+<html lang="fr">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Cartographie Locale & Algorithme BFS — Partie 4 : La Projection des BBoxes | JEPA-Lab Explorer</title>
+
+    <!-- Stylesheets -->
+    <link rel="stylesheet" href="../css/style.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.8.0/styles/github-dark.min.css">
+
+    <!-- Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+
+    <!-- MathJax Configuration -->
+    <script>
+        window.MathJax = {
+            tex: {
+                inlineMath: [['$', '$'], ['\\(', '\\)']],
+                displayMath: [['$$', '$$'], ['\\[', '\\]']],
+                processEscapes: true
+            },
+            options: {
+                ignoreHtmlClass: 'tex2jax_ignore',
+                processHtmlClass: 'tex2jax_process'
+            }
+        };
+    </script>
+    <script id="MathJax-script" async src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
+    <script src="../js/sidebar.js" defer></script>
+</head>
+
+<body class="tex2jax_process">
+
+    <!-- Reading Progress Bar -->
+    <div class="progress-bar-container">
+        <div class="progress-bar" id="reading-progress"></div>
+    </div>
+
+    <div class="app-container">
+
+        <!-- Mobile Navigation Header -->
+        <header class="mobile-header">
+            <button class="menu-toggle" id="menu-open-btn">
+                <svg width="24" height="24" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" d="M4 6h16M4 12h16M4 18h16" />
+                </svg>
+            </button>
+            <div class="sidebar-title">JEPA-Lab</div>
+            <div></div> <!-- spacer -->
+        </header>
+
+        <!-- Persistent Sidebar -->
+        <aside class="sidebar" id="app-sidebar"></aside>
+
+        <!-- Main Content -->
+        <main class="main-content">
+            <div class="article-layout">
+                <article class="article-container">
+                    <header class="article-header">
+                        <span class="article-category unsupervised-search-10-12">Série Recherche Visuelle</span>
+                        <h1>Cartographie Locale & Algorithme BFS — Partie 4 : La Projection des BBoxes</h1>
+                        <p class="article-subtitle">Localiser plusieurs objets à la fois</p>
+                    </header>
+
+                    <div class="article-body">
+                        <blockquote>
+                            <p><strong>Série Recherche Visuelle &amp; Localisation d'Objets sans Supervision</strong>
+                                <em>Dans cette quatrième partie de notre onzième article, nous découvrons la dernière
+                                    étape clé de notre pipeline de recherche : la projection géométrique. Les objets
+                                    détectés par notre algorithme BFS sont représentés par des listes de patches à basse
+                                    résolution (dans une grille d'activation). Comment transposer ces coordonnées
+                                    discrètes de patches pour tracer des boîtes englobantes (BBoxes) extrêmement
+                                    précises sur l'image d'origine haute résolution ? Nous présentons les calculs
+                                    mathématiques et la logique de code sous-jacente.</em>
+                            </p>
+                        </blockquote>
+                        <hr />
+                        <h2 id="tape-1-le-pont-entre-deux-r-solutions">🌉 Étape 1 : Le pont entre deux résolutions</h2>
+                        <p>Pour comprendre le besoin de projection, récapitulons la chaîne de traitement d'une image de
+                            test :
+                            1. <strong>L'image d'origine</strong> a des dimensions arbitraires, par exemple
+                            $1920\times1080$ pixels ($W_{orig} \times H_{orig}$).
+                            2. <strong>L'image d'entrée du ViT</strong> est redimensionnée à une taille fixe requise par
+                            le modèle (par exemple, $128\times128$ pixels pour Saccadic-JEPA). C'est la taille
+                            <code>img_size</code>.
+                            3. <strong>La grille de similarité</strong> est quantifiée par la taille des patches (par
+                            exemple, des patches de $16\times16$ pixels, soit une grille $8\times8$).
+                        </p>
+                        <p>L'algorithme BFS de la partie précédente nous renvoie une composante connexe, c'est-à-dire
+                            une liste de coordonnées sur la grille $8\times8$, par exemple :
+                            <code>comp = [(3, 2), (3, 3)]</code>.
+                        </p>
+                        <p>Nous devons convertir ces coordonnées de grille en coordonnées de pixels réels sur l'image
+                            $1920\times1080$ afin de pouvoir y dessiner notre cadre de détection.</p>
+                        <hr />
+                        <h2 id="tape-2-les-formules-de-changement-de-rep-re">🧮 Étape 2 : Les formules de changement de
+                            repère</h2>
+                        <p>Le passage des indices de la grille aux pixels de l'image finale s'effectue en deux étapes de
+                            mise à l'échelle.</p>
+                        <h3 id="1-passage-de-la-grille-l-image-redimensionn-e-resized">1. Passage de la grille à l'image
+                            redimensionnée (resized)</h3>
+                        <p>On commence par trouver les limites de notre composante connexe dans la grille (les lignes
+                            minimale $r_{min}$ et maximale $r_{max}$, et les colonnes minimale $c_{min}$ et maximale
+                            $c_{max}$) :</p>
+                        <p>$$r_{min} = \min(\{r\}), \quad r_{max} = \max(\{r\})$$
+                            $$c_{min} = \min(\{c\}), \quad c_{max} = \max(\{c\})$$</p>
+                        <p>Chaque patch mesurant <code>patch_size</code> pixels dans l'image redimensionnée de
+                            $128\times128$, nous convertissons les indices en coordonnées de pixels :</p>
+                        <p>$$y_{min\_resized} = r_{min} \times \text{patch\_size}$$
+                            $$x_{min\_resized} = c_{min} \times \text{patch\_size}$$
+                            $$y_{max\_resized} = (r_{max} + 1) \times \text{patch\_size}$$
+                            $$x_{max\_resized} = (c_{max} + 1) \times \text{patch\_size}$$</p>
+                        <div class="callout callout-important">
+                            <div class="callout-title"><svg width="18" height="18" fill="none" stroke="currentColor"
+                                    stroke-width="2" viewBox="0 0 24 24" style="flex-shrink:0;">
+                                    <path stroke-linecap="round" stroke-linejoin="round"
+                                        d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+                                </svg>Important</div>
+                            <p><strong>Pourquoi le $+1$ ?</strong>
+                                Le patch d'indice maximum $r_{max}$ s'étend de la coordonnée $r_{max} \times
+                                \text{patch\_size}$ jusqu'au bord opposé du patch. Si on omettait le $+1$, la boîte
+                                englobante oublierait d'inclure la largeur et la hauteur du dernier patch, amputant
+                                notre détection d'une partie de l'objet.</p>
+                        </div>
+                        <h3 id="2-passage-de-l-image-redimensionn-e-l-image-d-origine">2. Passage de l'image
+                            redimensionnée à l'image d'origine</h3>
+                        <p>On applique ensuite un ratio linéaire simple pour projeter ces coordonnées sur l'image
+                            d'origine ($W_{orig} \times H_{orig}$), tout en veillant à ne pas dépasser les limites
+                            physiques de l'image (écrêtage entre 0 et la dimension maximale) :</p>
+                        <p>$$x_{min} = \text{int}\left( \max\left(0, \frac{x_{min\_resized}}{\text{img\_size}} \times
+                            W_{orig}\right) \right)$$
+                            $$x_{max} = \text{int}\left( \min\left(W_{orig}, \frac{x_{max\_resized}}{\text{img\_size}}
+                            \times W_{orig}\right) \right)$$
+                            $$y_{min} = \text{int}\left( \max\left(0, \frac{y_{min\_resized}}{\text{img\_size}} \times
+                            H_{orig}\right) \right)$$
+                            $$y_{max} = \text{int}\left( \min\left(H_{orig}, \frac{y_{max\_resized}}{\text{img\_size}}
+                            \times H_{orig}\right) \right)$$</p>
+                        <hr />
+                        <h2 id="dans-les-entrailles-du-code-la-fonction-de-traitement">🛠️ Dans les entrailles du code :
+                            La fonction de traitement</h2>
+                        <p>Voici comment cette logique de projection géométrique est programmée dans notre fonction
+                            <code>process_target_image</code> du fichier <code>unsupervised_search.py</code> :
+                        </p>
+                        <pre><code class="language-python"># ... Extrait du traitement des composantes connexes ...
+detections = []
+for comp in components:
+    # Ignorer les grappes trop petites pour filtrer le bruit résiduel
+    if len(comp) &lt; min_patches:
+        continue
+
+    # 1. Bornes de la composante dans l'espace grille (8x8)
+    r_coords = [r for r, c in comp]
+    c_coords = [c for r, c in comp]
+
+    r_min, r_max = min(r_coords), max(r_coords)
+    c_min, c_max = min(c_coords), max(c_coords)
+
+    # 2. Conversion vers l'espace de l'image redimensionnée (128x128)
+    y_min_resized = r_min * patch_size
+    y_max_resized = (r_max + 1) * patch_size
+    x_min_resized = c_min * patch_size
+    x_max_resized = (c_max + 1) * patch_size
+
+    # 3. Projection homothétique vers l'image d'origine (ex: 1920x1080)
+    y_min = int(max(0, (y_min_resized / img_size) * H_orig))
+    y_max = int(min(H_orig, (y_max_resized / img_size) * H_orig))
+    x_min = int(max(0, (x_min_resized / img_size) * W_orig))
+    x_max = int(min(W_orig, (x_max_resized / img_size) * W_orig))
+
+    # 4. Calcul de l'indice de confiance (similarité moyenne des patches)
+    comp_scores = [sim_grid[r, c] for r, c in comp]
+    mean_score = np.mean(comp_scores)
+    max_score = np.max(comp_scores)
+
+    detections.append({
+        'bbox': [x_min, y_min, x_max, y_max],
+        'mean_score': float(mean_score),
+        'max_score': float(max_score),
+        'patch_count': len(comp)
+    })
+</code></pre>
+                        <hr />
+                        <h2 id="tape-3-confiance-et-tri-des-d-tections">📈 Étape 3 : Confiance et tri des détections
+                        </h2>
+                        <p>En plus de projeter la boîte englobante, le script calcule un <strong>score de
+                                confiance</strong> pour chaque objet détecté :
+                        <ul>
+                            <li><strong>Score moyen (<code>mean_score</code>)</strong> : C'est la moyenne arithmétique
+                                des similarités cosinus de tous les patches formant l'objet. Ce score indique la
+                                fidélité globale de la région détectée vis-à-vis du concept recherché.</li>
+                            <li><strong>Score maximal (<code>max_score</code>)</strong> : Le score individuel le plus
+                                élevé au sein de la grappe, signalant le cœur le plus proche du concept.</li>
+                        </ul>
+                        </p>
+                        <p>Toutes les détections sont ensuite triées par score moyen décroissant. Cela permet à
+                            l'utilisateur de n'afficher ou de ne conserver que les occurrences les plus fiables dans
+                            l'image.</p>
+                        <hr />
+                        <h2 id="conclusion-de-la-partie-2">🧠 Conclusion de la Partie 2</h2>
+                        <p>Nous avons à présent complété toute l'ingénierie algorithmique de notre système de recherche
+                            visuelle sans supervision !
+                        <ol>
+                            <li>Nous avons compris comment une image est découpée, et comment la similarité cosinus de
+                                l'espace latent remplace la comparaison naïve de pixels (Article 10).</li>
+                            <li>Nous savons générer une carte de similarité locale, la binariser par un seuil sémantique
+                                ($\ge 0.35$), regrouper les régions à l'aide d'un BFS en 8-connectivité, et projeter ces
+                                coordonnées en pixels réels (Article 11).</li>
+                        </ol>
+                        </p>
+                        <p>Le moment est venu de tester ce pipeline sur de vrais modèles pré-entraînés ! Dans l'article
+                            suivant, nous allons confronter <strong>I-JEPA classique</strong> à
+                            <strong>Saccadic-JEPA</strong> : comment la taille des patches et la fovéation
+                            modifient-elles la précision de nos boîtes englobantes ?
+                        </p>
+                        <p>C'est ce que nous verrons dans l'<strong>Article 12 (Partie 3) : Le Match Saccadic vs
+                                Standard</strong> !</p>
+                        <hr />
+                        <h3 id="d-fi-de-curiosit-n-7">🛠️ Défi de curiosité n°7</h3>
+                        <p>Considérons une image haute résolution d'origine de taille $1920\times1080$ pixels.
+                            Le modèle que l'on utilise est I-JEPA standard (redimensionnement à $\text{img\_size} = 32$
+                            et $\text{patch\_size} = 4$).</p>
+                        <p><em>1. Quelle est la taille minimale théorique en pixels de la boîte englobante projetée sur
+                                notre image d'origine ? (Indice : calculez la largeur projetée d'un unique patch
+                                actif).</em>
+                            <em>2. Quel problème cette discrétisation pose-t-elle si nous cherchons un tout petit objet
+                                dans une très grande image ?</em>
+                            <em>3. Pourquoi passer à un modèle haute résolution comme Saccadic-JEPA ($\text{img\_size} =
+                                128$ et $\text{patch\_size} = 16$) permet-il d'atténuer ce problème ?</em>
+                        </p>
+                    </div>
+
+                    <div class="article-footer-nav">
+                        <a href="article_11_partie_3.html" class="footer-nav-link prev">
+                            <span class="footer-nav-label">← Précédent</span>
+                            <span class="footer-nav-title">Cartographie Locale & Algorithme BFS - Partie 3</span>
+                        </a>
+                        <a href="article_12_partie_1.html" class="footer-nav-link next">
+                            <span class="footer-nav-label">Suivant →</span>
+                            <span class="footer-nav-title">Saccadic-JEPA face aux Baselines - Partie 1</span>
+                        </a>
+                    </div>
+                </article>
+
+                <div class="toc-sidebar">
+                    <div class="toc-title">Sur cette page</div>
+                    <ul class="toc-list">
+                        <li class=""><a href="#tape-1-le-pont-entre-deux-r-solutions">🌉 Étape 1 : Le pont entre deux
+                                résolutions</a></li>
+                        <li class=""><a href="#tape-2-les-formules-de-changement-de-rep-re">🧮 Étape 2 : Les formules de
+                                changement de repère</a></li>
+                        <li class="toc-indent"><a href="#1-passage-de-la-grille-l-image-redimensionn-e-resized">1.
+                                Passage de la grille à l'image redimensionnée (resized)</a></li>
+                        <li class="toc-indent"><a href="#2-passage-de-l-image-redimensionn-e-l-image-d-origine">2.
+                                Passage de l'image redimensionnée à l'image d'origine</a></li>
+                        <li class=""><a href="#dans-les-entrailles-du-code-la-fonction-de-traitement">🛠️ Dans les
+                                entrailles du code : La fonction de traitement</a></li>
+                        <li class=""><a href="#tape-3-confiance-et-tri-des-d-tections">📈 Étape 3 : Confiance et tri des
+                                détections</a></li>
+                        <li class=""><a href="#conclusion-de-la-partie-2">🧠 Conclusion de la Partie 2</a></li>
+                        <li class="toc-indent"><a href="#d-fi-de-curiosit-n-7">🛠️ Défi de curiosité n°7</a></li>
+                    </ul>
+                </div>
+            </div>
+        </main>
+    </div>
+
+    <!-- Scripts -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.8.0/highlight.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/mermaid/dist/mermaid.min.js"></script>
+
+    <script>
+        // Initialize Highlight.js
+        hljs.highlightAll();
+
+        // Initialize Mermaid
+        mermaid.initialize({
+            theme: 'dark',
+            startOnLoad: false,
+            securityLevel: 'loose'
+        });
+
+        document.addEventListener("DOMContentLoaded", function () {
+            // 1. Convert Markdown pre-code blocks for Mermaid to actual divs
+            document.querySelectorAll("pre code.language-mermaid").forEach(function (el) {
+                const pre = el.parentElement;
+                const div = document.createElement("div");
+                div.className = "mermaid";
+                div.textContent = el.textContent;
+                pre.parentElement.replaceChild(div, pre);
+            });
+
+            // Run Mermaid rendering
+            mermaid.run();
+
+            // 2. Reading Progress Bar Logic
+            window.addEventListener('scroll', function () {
+                const winScroll = document.documentElement.scrollTop || document.body.scrollTop;
+                const height = document.documentElement.scrollHeight - document.documentElement.clientHeight;
+                const scrolled = (winScroll / height) * 100;
+                document.getElementById("reading-progress").style.width = scrolled + "%";
+            });
+
+
+        });
+    </script>
+</body>
+
+</html>

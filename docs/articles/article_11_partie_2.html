@@ -1,0 +1,286 @@
+<!DOCTYPE html>
+<html lang="fr">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Cartographie Locale & Algorithme BFS — Partie 2 : Le Seuil Sémantique | JEPA-Lab Explorer</title>
+
+    <!-- Stylesheets -->
+    <link rel="stylesheet" href="../css/style.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.8.0/styles/github-dark.min.css">
+
+    <!-- Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+
+    <!-- MathJax Configuration -->
+    <script>
+        window.MathJax = {
+            tex: {
+                inlineMath: [['$', '$'], ['\\(', '\\)']],
+                displayMath: [['$$', '$$'], ['\\[', '\\]']],
+                processEscapes: true
+            },
+            options: {
+                ignoreHtmlClass: 'tex2jax_ignore',
+                processHtmlClass: 'tex2jax_process'
+            }
+        };
+    </script>
+    <script id="MathJax-script" async src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
+    <script src="../js/sidebar.js" defer></script>
+</head>
+
+<body class="tex2jax_process">
+
+    <!-- Reading Progress Bar -->
+    <div class="progress-bar-container">
+        <div class="progress-bar" id="reading-progress"></div>
+    </div>
+
+    <div class="app-container">
+
+        <!-- Mobile Navigation Header -->
+        <header class="mobile-header">
+            <button class="menu-toggle" id="menu-open-btn">
+                <svg width="24" height="24" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" d="M4 6h16M4 12h16M4 18h16" />
+                </svg>
+            </button>
+            <div class="sidebar-title">JEPA-Lab</div>
+            <div></div> <!-- spacer -->
+        </header>
+
+        <!-- Persistent Sidebar -->
+        <aside class="sidebar" id="app-sidebar"></aside>
+
+        <!-- Main Content -->
+        <main class="main-content">
+            <div class="article-layout">
+                <article class="article-container">
+                    <header class="article-header">
+                        <span class="article-category unsupervised-search-10-12">Série Recherche Visuelle</span>
+                        <h1>Cartographie Locale & Algorithme BFS — Partie 2 : Le Seuil Sémantique</h1>
+                        <p class="article-subtitle">Localiser plusieurs objets à la fois</p>
+                    </header>
+
+                    <div class="article-body">
+                        <blockquote>
+                            <p><strong>Série Recherche Visuelle &amp; Localisation d'Objets sans Supervision</strong>
+                                <em>Dans cette deuxième partie, nous abordons la binarisation de notre carte de
+                                    similarité locale. Une fois la grille de scores de similarité obtenue, comment
+                                    décider de manière fiable quels patches font partie de l'objet recherché et lesquels
+                                    appartiennent à l'arrière-plan ? Nous verrons comment le choix d'un seuil sémantique
+                                    empirique permet de masquer le bruit et de mettre en évidence la silhouette
+                                    sémantique des objets.</em>
+                            </p>
+                        </blockquote>
+                        <hr />
+                        <h2 id="tape-1-du-continu-au-discret-la-binarisation">🌓 Étape 1 : Du Continu au Discret (La
+                            Binarisation)</h2>
+                        <p>La carte de similarité locale obtenue à l'étape précédente nous donne un champ continu de
+                            scores compris entre $-1$ et $1$. Par exemple, pour une grille de $4\times4$ patches, nous
+                            pourrions obtenir :</p>
+                        <pre><code class="language-text">Grille de Similarité Locale (Scores continus)
+[  0.12,  0.22,  0.05,  0.10 ]
+[  0.15,  0.58,  0.62,  0.08 ]
+[  0.08,  0.42,  0.38,  0.12 ]
+[  0.02,  0.18,  0.11,  0.05 ]
+</code></pre>
+                        <p>Bien que l'on distingue clairement une zone de forte corrélation au centre, un algorithme de
+                            détection a besoin d'une décision nette et discrète (binaire) pour isoler l'objet. Nous
+                            devons appliquer une fonction de binarisation qui associe chaque coordonnée $(i, j)$ de la
+                            grille à un état :
+                        <ul>
+                            <li><strong>$1$ (Actif)</strong> : Le patch appartient à l'objet.</li>
+                            <li><strong>$0$ (Inactif)</strong> : Le patch fait partie du décor.</li>
+                        </ul>
+                        </p>
+                        <p>Cette binarisation s'effectue en comparant chaque score à une valeur limite appelée
+                            <strong>Seuil Sémantique ($\tau$)</strong> :
+                        </p>
+                        <p>$$M_{i,j} = \begin{cases} 1 & \text{si } S_{i,j} \ge \tau \\ 0 & \text{sinon} \end{cases}$$
+                        </p>
+                        <hr />
+                        <h2 id="tape-2-pourquoi-choisir-un-seuil-empirique-de-0-35">🎛️ Étape 2 : Pourquoi choisir un
+                            seuil empirique de 0.35 ?</h2>
+                        <p>Dans la pratique de notre laboratoire, nous choisissons souvent un seuil empirique situé
+                            autour de <strong>$\tau = 0.35$</strong>. D'où vient ce chiffre ?</p>
+                        <p>Dans un espace latent de haute dimension (comme les 192 dimensions de notre ViT-Tiny), la
+                            géométrie a une propriété intéressante : deux vecteurs pris totalement au hasard ont une
+                            probabilité immense d'être presque orthogonaux (c'est-à-dire d'avoir un produit scalaire
+                            proche de 0). </p>
+                        <ul>
+                            <li>Un score compris entre <strong>$0.0$ et $0.25$</strong> représente du <strong>bruit de
+                                    fond</strong> : des textures ou des couleurs qui partagent de très vagues
+                                similitudes de bas niveau, sans aucun lien sémantique.</li>
+                            <li>À partir de <strong>$0.30$ - $0.35$</strong>, nous franchissons une barrière
+                                géométrique. Le vecteur de patch a subi une rotation significative dans l'espace latent
+                                pour s'aligner avec la direction du concept de requête. C'est le signal que la structure
+                                recherchée commence à être reconnue.</li>
+                        </ul>
+                        <h3 id="l-analogie-du-squelch">📻 L'analogie du Squelch</h3>
+                        <p>Pensez au bouton de réglage du <em>squelch</em> (le silencieux) sur un talkie-walkie :
+                        <ul>
+                            <li>Si le seuil est trop bas, vous entendez constamment un souffle de grésillement
+                                désagréable (le bruit de fond de l'arrière-plan).</li>
+                            <li>Si vous réglez le seuil juste au-dessus du niveau de ce souffle (le seuil de 0.35), le
+                                talkie-walkie reste silencieux, et ne s'active que lorsqu'un signal fort (la voix d'un
+                                utilisateur, ou ici la présence de notre objet) est capté.</li>
+                        </ul>
+                        </p>
+                        <hr />
+                        <h2 id="tape-3-le-compromis-pr-cision-vs-rappel">⚖️ Étape 3 : Le compromis Précision vs Rappel
+                        </h2>
+                        <p>Ajuster ce seuil sémantique modifie directement la sensibilité de notre détecteur sans
+                            supervision :</p>
+                        <pre><code class="language-text">       Seuil trop Bas (τ = 0.20)              Seuil Optimal (τ = 0.35)              Seuil trop Haut (τ = 0.60)
+         (Rappel Max, Bruit)                    (Équilibre parfait)                  (Précision Max, Trous)
+         ┌───┬───┬───┬───┐                      ┌───┬───┬───┬───┐                      ┌───┬───┬───┬───┐
+         │ 0 │ 1 │ 0 │ 0 │                      │ 0 │ 0 │ 0 │ 0 │                      │ 0 │ 0 │ 0 │ 0 │
+         ├───┼───┼───┼───┤                      ├───┼───┼───┼───┤                      ├───┼───┼───┼───┤
+         │ 0 │ 1 │ 1 │ 0 │                      │ 0 │ 1 │ 1 │ 0 │                      │ 0 │ 0 │ 1 │ 0 │
+         ├───┼───┼───┼───┤                      ├───┼───┼───┼───┤                      ├───┼───┼───┼───┤
+         │ 0 │ 1 │ 1 │ 0 │                      │ 0 │ 1 │ 1 │ 0 │                      │ 0 │ 0 │ 0 │ 0 │
+         ├───┼───┼───┼───┤                      ├───┼───┼───┼───┤                      ├───┼───┼───┼───┤
+         │ 0 │ 0 │ 0 │ 0 │                      │ 0 │ 0 │ 0 │ 0 │                      │ 0 │ 0 │ 0 │ 0 │
+         └───┴───┴───┴───┘                      └───┴───┴───┴───┘                      └───┴───┴───┴───┘
+</code></pre>
+                        <ul>
+                            <li><strong>Si $\tau$ est trop bas (ex: $0.20$)</strong> : Le modèle détectera l'objet en
+                                entier, mais englobera aussi du ciel ou de la route (Rappel élevé, mais faible
+                                Précision).</li>
+                            <li><strong>Si $\tau$ est trop élevé (ex: $0.60$)</strong> : Le modèle ne gardera que le
+                                cœur ultra-caractéristique de l'objet (Précision maximale), mais manquera ses contours,
+                                ce qui donnera une boîte englobante trop petite (faible Rappel).</li>
+                            <li><strong>À $\tau = 0.35$</strong> : Nous obtenons le meilleur compromis, isolant
+                                proprement la silhouette structurelle de notre objet.</li>
+                        </ul>
+                        <hr />
+                        <h2 id="dans-les-entrailles-du-code-binarisation-en-pytorch">🛠️ Dans les entrailles du code :
+                            Binarisation en PyTorch</h2>
+                        <p>En appliquant notre seuil $\tau = 0.35$ à notre matrice de scores de l'Étape 1, nous
+                            binarisons très simplement notre tenseur :</p>
+                        <pre><code class="language-python">import torch
+
+def binarize_similarity_map(similarity_map, threshold=0.35):
+    &quot;&quot;&quot;
+    Applique un seuil sémantique à la carte de similarité pour obtenir un masque binaire.
+
+    Arguments:
+        similarity_map: Tenseur 2D de scores de similarité (grid_size, grid_size)
+        threshold: Seuil sémantique (float)
+    &quot;&quot;&quot;
+    # 1. Comparaison élément par élément (renvoie un tenseur de booléens)
+    binary_mask_bool = (similarity_map &gt;= threshold)
+
+    # 2. Conversion en entiers (True -&gt; 1, False -&gt; 0)
+    binary_mask = binary_mask_bool.to(torch.int)
+
+    return binary_mask
+</code></pre>
+                        <p>Dans notre exemple initial, la grille binarisée avec $\tau = 0.35$ donne ce résultat propre :
+                        </p>
+                        <pre><code class="language-text">Masque Binaire Résultant
+[  0,  0,  0,  0 ]
+[  0,  1,  1,  0 ]
+[  0,  1,  1,  0 ]
+[  0,  0,  0,  0 ]
+</code></pre>
+                        <hr />
+                        <h2 id="conclusion-amp-transition">🧠 Conclusion &amp; Transition</h2>
+                        <p>Grâce au seuil sémantique, nous avons éliminé le bruit de l'arrière-plan et obtenu un masque
+                            binaire net délimitant les patches actifs. </p>
+                        <p>Toutefois, une question demeure : si l'image de test contient <strong>plusieurs
+                                voitures</strong> (et donc plusieurs roues disjointes à différents endroits de l'image),
+                            notre masque binaire affichera plusieurs groupes de $1$ séparés par des zones de $0$.</p>
+                        <p>Comment faire comprendre à l'ordinateur qu'il doit regrouper les patches adjacents pour
+                            former des objets distincts, plutôt que de tout mélanger dans une seule grande boîte ?</p>
+                        <p>C'est ce que nous allons voir dans la troisième partie de cet article : <strong>Le
+                                Regroupement par Composantes Connexes (Algorithme BFS)</strong> !</p>
+                        <hr />
+                        <h3 id="d-fi-de-curiosit-n-5">🛠️ Défi de curiosité n°5</h3>
+                        <p>Si vous calculez la similarité cosinus entre un patch représentant du "ciel bleu" et un patch
+                            de requête représentant un "pneu de vélo noir", le score obtenu est rarement de $0.0$ pile.
+                        </p>
+                        <p><em>Quelles caractéristiques globales très simples (luminance moyenne, régularité des
+                                gradients, absence de textures complexes) pourraient expliquer le fait que deux images
+                                sémantiquement déconnectées partagent tout de même une infime corrélation résiduelle
+                                dans l'espace latent ?</em></p>
+                    </div>
+
+                    <div class="article-footer-nav">
+                        <a href="article_11_partie_1.html" class="footer-nav-link prev">
+                            <span class="footer-nav-label">← Précédent</span>
+                            <span class="footer-nav-title">Cartographie Locale & Algorithme BFS - Partie 1</span>
+                        </a>
+                        <a href="article_11_partie_3.html" class="footer-nav-link next">
+                            <span class="footer-nav-label">Suivant →</span>
+                            <span class="footer-nav-title">Cartographie Locale & Algorithme BFS - Partie 3</span>
+                        </a>
+                    </div>
+                </article>
+
+                <div class="toc-sidebar">
+                    <div class="toc-title">Sur cette page</div>
+                    <ul class="toc-list">
+                        <li class=""><a href="#tape-1-du-continu-au-discret-la-binarisation">🌓 Étape 1 : Du Continu au
+                                Discret (La Binarisation)</a></li>
+                        <li class=""><a href="#tape-2-pourquoi-choisir-un-seuil-empirique-de-0-35">🎛️ Étape 2 :
+                                Pourquoi choisir un seuil empirique de 0.35 ?</a></li>
+                        <li class="toc-indent"><a href="#l-analogie-du-squelch">📻 L'analogie du Squelch</a></li>
+                        <li class=""><a href="#tape-3-le-compromis-pr-cision-vs-rappel">⚖️ Étape 3 : Le compromis
+                                Précision vs Rappel</a></li>
+                        <li class=""><a href="#dans-les-entrailles-du-code-binarisation-en-pytorch">🛠️ Dans les
+                                entrailles du code : Binarisation en PyTorch</a></li>
+                        <li class=""><a href="#conclusion-amp-transition">🧠 Conclusion &amp; Transition</a></li>
+                        <li class="toc-indent"><a href="#d-fi-de-curiosit-n-5">🛠️ Défi de curiosité n°5</a></li>
+                    </ul>
+                </div>
+            </div>
+        </main>
+    </div>
+
+    <!-- Scripts -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.8.0/highlight.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/mermaid/dist/mermaid.min.js"></script>
+
+    <script>
+        // Initialize Highlight.js
+        hljs.highlightAll();
+
+        // Initialize Mermaid
+        mermaid.initialize({
+            theme: 'dark',
+            startOnLoad: false,
+            securityLevel: 'loose'
+        });
+
+        document.addEventListener("DOMContentLoaded", function () {
+            // 1. Convert Markdown pre-code blocks for Mermaid to actual divs
+            document.querySelectorAll("pre code.language-mermaid").forEach(function (el) {
+                const pre = el.parentElement;
+                const div = document.createElement("div");
+                div.className = "mermaid";
+                div.textContent = el.textContent;
+                pre.parentElement.replaceChild(div, pre);
+            });
+
+            // Run Mermaid rendering
+            mermaid.run();
+
+            // 2. Reading Progress Bar Logic
+            window.addEventListener('scroll', function () {
+                const winScroll = document.documentElement.scrollTop || document.body.scrollTop;
+                const height = document.documentElement.scrollHeight - document.documentElement.clientHeight;
+                const scrolled = (winScroll / height) * 100;
+                document.getElementById("reading-progress").style.width = scrolled + "%";
+            });
+
+
+        });
+    </script>
+</body>
+
+</html>

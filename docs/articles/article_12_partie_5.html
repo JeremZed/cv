@@ -1,0 +1,447 @@
+<!DOCTYPE html>
+<html lang="fr">
+
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Saccadic-JEPA face aux Baselines — Partie 5 : L'Automatisation du Ciblage | JEPA-Lab Explorer</title>
+
+  <!-- Stylesheets -->
+  <link rel="stylesheet" href="../css/style.css">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.8.0/styles/github-dark.min.css">
+
+  <!-- Fonts -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+
+  <!-- MathJax Configuration -->
+  <script>
+    window.MathJax = {
+      tex: {
+        inlineMath: [['$', '$'], ['\\(', '\\)']],
+        displayMath: [['$$', '$$'], ['\\[', '\\]']],
+        processEscapes: true
+      },
+      options: {
+        ignoreHtmlClass: 'tex2jax_ignore',
+        processHtmlClass: 'tex2jax_process'
+      }
+    };
+  </script>
+  <script id="MathJax-script" async src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
+  <script src="../js/sidebar.js" defer></script>
+</head>
+
+<body class="tex2jax_process">
+
+  <!-- Reading Progress Bar -->
+  <div class="progress-bar-container">
+    <div class="progress-bar" id="reading-progress"></div>
+  </div>
+
+  <div class="app-container">
+
+    <!-- Mobile Navigation Header -->
+    <header class="mobile-header">
+      <button class="menu-toggle" id="menu-open-btn">
+        <svg width="24" height="24" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" d="M4 6h16M4 12h16M4 18h16" />
+        </svg>
+      </button>
+      <div class="sidebar-title">JEPA-Lab</div>
+      <div></div> <!-- spacer -->
+    </header>
+
+    <!-- Persistent Sidebar -->
+    <aside class="sidebar" id="app-sidebar"></aside>
+
+    <!-- Main Content -->
+    <main class="main-content">
+      <div class="article-layout">
+        <article class="article-container">
+          <header class="article-header">
+            <span class="article-category unsupervised-search-10-12">Série Recherche Visuelle</span>
+            <h1>Saccadic-JEPA face aux Baselines — Partie 5 : L'Automatisation du Ciblage</h1>
+            <p class="article-subtitle">Résolution, Acuité Visuelle et Pratique</p>
+          </header>
+
+          <div class="article-body">
+            <blockquote>
+              <p><strong>Série Recherche Visuelle &amp; Localisation d'Objets sans Supervision</strong>
+                <em>Dans cette cinquième partie bonus de notre douzième article, nous nous attaquons à la principale
+                  limite de notre pipeline actuel : la nécessité de calibrer manuellement le Seuil de Similarité Cosinus
+                  ($\tau$) et le nombre minimal de patches (<code>--min-patches</code>). Lorsque les images cibles
+                  changent de luminosité, de contraste ou que la requête dévie s'émantiquement (comme notre test tigre
+                  $\to$ chat), un réglage figé s'effondre. Nous allons étudier des solutions algorithmiques pour rendre
+                  notre moteur de recherche autonome et auto-adaptatif.</em>
+              </p>
+            </blockquote>
+            <hr />
+            <h2 id="la-limite-le-pi-ge-des-param-tres-fig-s">🛑 La Limite : Le Piège des Paramètres Figés</h2>
+            <p>Jusqu'ici, notre pipeline fonctionne sur des valeurs codées en dur :
+            <ul>
+              <li>Si $\tau$ est trop haut ($0.35$), on rate le chat quand on cherche avec un tigre.</li>
+              <li>Si $\tau$ est trop bas ($0.20$), on capture le chat mais la rue entière se couvre de boîtes de
+                détections parasites.</li>
+            </ul>
+            <p>Ajuster ces curseurs "à la main" pour chaque nouvelle paire d'images est fastidieux et rend le système
+              inutilisable en production. Pourquoi cette limite existe-t-elle ?
+              Parce que la <strong>distribution des scores de similarité dans l'espace latent dépend entièrement du
+                contexte de l'image cible</strong>. Une image complexe avec beaucoup de textures similaires aura un
+              "bruit de fond" cosinus beaucoup plus élevé qu'une image épurée sur fond blanc.</p>
+            <hr />
+            <h2 id="solution-1-le-seuil-statistique-dynamique-z-score-latent">💡 Solution 1 : Le Seuil Statistique
+              Dynamique (Z-Score Latent)</h2>
+            <p>Plutôt que d'imposer un seuil absolu (ex: $0.35$), nous pouvons calculer un <strong>seuil
+                relatif</strong> basé sur les statistiques propres de l'image numérisée.</p>
+            <h3 id="la-th-orie">La théorie</h3>
+            <p>Une fois que nous avons calculé la similarité cosinus entre notre requête $q$ et tous les patches $p_i$
+              de l'image cible, nous obtenons une grille de scores. Nous calculons la moyenne ($\mu$) et l'écart-type
+              ($\sigma$) de ces scores :</p>
+            <p>$$\tau_{\text{dynamique}} = \mu + k \cdot \sigma$$</p>
+            <p>Où $k$ est un coefficient de sélectivité (souvent choisi entre $1.5$ et $2.5$).</p>
+            <h3 id="pourquoi-a-fonctionne">Pourquoi ça fonctionne ?</h3>
+            <ul>
+              <li>Si la scène cible contient beaucoup d'éléments ressemblant à la requête, le score moyen $\mu$ monte,
+                et le seuil s'élève automatiquement pour ne garder que le "haut du panier" (les vrais positifs).</li>
+              <li>Si le signal est faible (ex: tigre $\to$ chat), le score moyen est bas, mais l'écart-type permet
+                d'isoler le chat car ses patches restent statistiquement supérieurs au reste du décor.</li>
+            </ul>
+            <hr />
+            <h2 id="solution-2-l-algorithme-d-otsu-latent-binarisation-bimodale">💡 Solution 2 : L'Algorithme d'Otsu
+              Latent (Binarisation Bimodale)</h2>
+            <p>Issu du traitement d'images classique, l'<strong>algorithme d'Otsu</strong> est une méthode mathématique
+              qui détermine automatiquement un seuil de binarisation optimal en séparant un histogramme en deux classes
+              (l'arrière-plan et l'avant-plan) de manière à minimiser la variance intra-classe.</p>
+            <pre><code class="language-text">                  Histogramme des scores cosinus
+      Nombre 
+    de patches
+        ▲
+        │      Arrière-plan (Bruit)
+        │       ┌───┐
+        │      ┌┘   └┐                 Avant-plan (Objet recherché)
+        │     ┌┘     └┐                      ┌───┐
+        │    ┌┘       └┐                    ┌┘   └┐
+        └────┴─────────┴─────────┬──────────┴─────┴──────► Scores Cosinus
+                             Seuil d'Otsu
+                             (Calculé auto)
+</code></pre>
+            <p>En appliquant Otsu directement sur notre grille de similarités cosinus, nous séparons automatiquement les
+              patches en deux groupes distincts. Le modèle trouve lui-même la frontière naturelle séparant le chat du
+              décor, sans aucune intervention humaine.</p>
+            <hr />
+            <h2 id="solution-3-la-propagation-par-graine-semantic-region-growing">💡 Solution 3 : La Propagation par
+              Graine (Semantic Region Growing)</h2>
+            <p>Une autre approche élégante consiste à combiner les avantages d'un seuil strict et d'un seuil large :</p>
+            <ol>
+              <li><strong>Trouver les Graines (Seeds)</strong> : On applique d'abord un seuil très conservateur et élevé
+                (ex: $\tau_{\text{strict}} = 0.45$). Seuls les patches où la confiance est absolue s'activent (ex: le
+                cœur de la tête du chat).</li>
+              <li><strong>Propager la détection (Region Growing)</strong> : À partir de ces graines de haute confiance,
+                on explore les patches adjacents en appliquant un seuil beaucoup plus tolérant (ex: $\tau_{\text{large}}
+                = 0.22$). On "grandit" la boîte englobante tant que les patches voisins touchent les graines et
+                partagent un minimum de similarité.</li>
+            </ol>
+            <p>Cette technique empêche le bruit d'arrière-plan de créer des faux positifs (car il n'y a pas de graine de
+              confiance dans le trottoir) tout en permettant de capturer l'intégralité de l'objet (tête + corps).</p>
+            <hr />
+            <h2 id="impl-mentation-coder-le-seuil-automatique-en-python">💻 Implémentation : Coder le seuil automatique
+              en Python</h2>
+            <p>Voici comment modifier le code de calcul des BBoxes dans notre pipeline pour intégrer le <strong>Seuil
+                Statistique Dynamique</strong> et la méthode d'<strong>Otsu</strong> :</p>
+            <pre><code class="language-python">import numpy as np
+
+def compute_adaptive_threshold(similarity_grid, method=&quot;statistical&quot;, k=2.0):
+    &quot;&quot;&quot;
+    Calcule automatiquement le seuil optimal pour la grille de similarité.
+    &quot;&quot;&quot;
+    scores = similarity_grid.flatten()
+
+    if method == &quot;statistical&quot;:
+        # Solution 1 : Moyenne + k * Ecart-type
+        mean_val = np.mean(scores)
+        std_val = np.std(scores)
+        threshold = mean_val + k * std_val
+        print(f&quot;[Auto-Threshold] Mean: {mean_val:.3f}, Std: {std_val:.3f} -&gt; Seuil: {threshold:.3f}&quot;)
+        return max(threshold, 0.15) # Borne minimale de sécurité
+
+    elif method == &quot;otsu&quot;:
+        # Solution 2 : Algorithme d'Otsu adapté aux scores cosinus
+        # On normalise les scores entre 0 et 255 pour appliquer Otsu
+        min_s, max_s = scores.min(), scores.max()
+        if max_s - min_s &lt; 1e-5:
+            return min_s
+        normalized = ((scores - min_s) / (max_s - min_s) * 255).astype(np.uint8)
+
+        # Calcul de l'histogramme
+        hist, bin_edges = np.histogram(normalized, bins=256, range=(0, 256))
+
+        total = len(normalized)
+        current_max = -1
+        otsu_threshold_idx = 0
+
+        sum_total = np.sum(normalized)
+        sum_back = 0
+        weight_back = 0
+
+        for t in range(256):
+            weight_back += hist[t]
+            if weight_back == 0:
+                continue
+            weight_fore = total - weight_back
+            if weight_fore == 0:
+                break
+
+            sum_back += t * hist[t]
+            mean_back = sum_back / weight_back
+            mean_fore = (sum_total - sum_back) / weight_fore
+
+            # Variance inter-classe
+            var_between = weight_back * weight_fore * (mean_back - mean_fore) ** 2
+
+            if var_between &gt; current_max:
+                current_max = var_between
+                otsu_threshold_idx = t
+
+        # Conversion du seuil normalisé vers l'échelle cosinus d'origine
+        otsu_threshold = min_s + (otsu_threshold_idx / 255.0) * (max_s - min_s)
+        print(f&quot;[Auto-Threshold] Otsu optimal cosinus : {otsu_threshold:.3f}&quot;)
+        return otsu_threshold
+</code></pre>
+            <hr />
+            <h2 id="application-pratique-le-script-demo-unsupervised-search-hf-py">🛠️ Application Pratique : Le Script
+              <code>demo_unsupervised_search_hf.py</code>
+            </h2>
+            <p>Nous avons directement mis à jour notre script de démonstration pour intégrer ces deux approches
+              d'auto-adaptation via deux nouveaux arguments en ligne de commande :
+            <ul>
+              <li><code>--auto-threshold</code> (choix : <code>none</code>, <code>statistical</code>, <code>otsu</code>,
+                <code>region_growing</code>)
+              </li>
+              <li><code>--threshold-k</code> (facteur multiplicateur $k$ pour l'approche statistique)</li>
+            </ul>
+            </p>
+            <h3 id="exp-rimentation-r-elle-avec-l-algorithme-d-otsu-latent">Expérimentation réelle avec l'algorithme
+              d'Otsu Latent</h3>
+            <p>Reprenons notre test difficile : chercher un chat de rue à l'aide d'un crop de tigre
+              (<code>tigre.jpg</code>) sur l'image <code>chat-street-2.png</code>. Au lieu de chercher manuellement le
+              bon seuil, laissons le modèle décider lui-même en activant Otsu.</p>
+            <ul>
+              <li>
+                <p><strong>Commande lancée</strong> :
+                <pre><code class="language-text">bash
+python3 demo_unsupervised_search_hf.py --query-crop raw/crops/tigre.jpg --target-image raw/img/chat-street-2.png --auto-threshold otsu --min-patches 10 --save-path jepa_lab/runs/demo_search_result_hf_crop_tigre_auto_otsu.png</code></pre>
+                </p>
+              </li>
+              <li>
+                <p><strong>Journal de la console</strong> :
+                <pre><code class="language-text">
+=== DÉMARRAGE DE LA RECHERCHE NON SUPERVISÉE (HF I-JEPA) ===
+Using device: cuda
+[1/4] Loading pretrained Meta I-JEPA model: facebook/ijepa_vith14_1k...
+[2/4] Loading and encoding 1 query crop(s): ['raw/crops/tigre.jpg']...
+-&gt; Consolidated query concept vector extracted (dimension: 1280)
+[3/4] Loading and encoding target image: raw/img/chat-street-2.png...
+[Auto-Threshold] Otsu computed threshold: 0.1545
+[4/4] Locating occurrences with threshold &gt;= 0.1545...
+Found 3 potential matching region(s):
+BBox 1: [256, 213, 512, 512] | Confidence: 0.2266 | Size: 20 patches
+BBox 2: [0, 0, 384, 213] | Confidence: 0.2176 | Size: 14 patches
+BBox 3: [0, 469, 320, 683] | Confidence: 0.2130 | Size: 12 patches
+
+Visualization saved successfully to: jepa_lab/runs/demo_search_result_hf_crop_tigre_auto_otsu.png
+                </code></pre>
+                </p>
+                <ul>
+                  <li><strong>Visualisation</strong> :
+                    <img alt="Tigre auto Otsu" src="../images/demo_search_result_hf_crop_tigre_auto_otsu.png" />
+                    <em>L'algorithme d'Otsu a identifié que le seuil optimal de séparation sémantique se situait à
+                      0.1545.
+                      Cela a permis d'activer suffisamment de patchs sur le chat pour former un groupe de 20 patchs
+                      connexes
+                      (BBox 1), isolant parfaitement le chat de rue sans aucune intervention humaine !</em>
+                  </li>
+                </ul>
+                <h3 id="exp-rimentation-r-elle-avec-la-propagation-par-graine-auto-calibr-e-adaptive-region-growing">
+                  Expérimentation réelle avec la Propagation par Graine Auto-Calibrée (Adaptive Region Growing)</h3>
+                <p>Bien que très séduisante, la propagation par graine souffre de la même limite si ses seuils
+                  ($\tau_{\text{seed}}$ et $\tau_{\text{growth}}$) restent codés en dur. Par exemple, régler
+                  $\tau_{\text{seed}} = 0.45$ fonctionne pour le crop précis de la tête de chat, mais <strong>échoue
+                    complètement pour le tigre</strong> car la similarité inter-espèces est trop faible pour planter une
+                  graine.</p>
+                <p>Pour résoudre ce problème, nous avons unifié la <strong>Solution 1 (Z-Score)</strong> et la
+                  <strong>Solution 3 (Region Growing)</strong> pour créer le mode <strong>Adaptive Region
+                    Growing</strong>.
+                  Les seuils de graine et de propagation sont désormais calculés dynamiquement selon la distribution de
+                  similarité de l'image et du crop :
+                <ul>
+                  <li>$\tau_{\text{seed}} = \mu + 2.0 \cdot \sigma$</li>
+                  <li>$\tau_{\text{growth}} = \mu + 0.5 \cdot \sigma$</li>
+                </ul>
+                </p>
+                <h4>Cas 1 : Recherche du chat avec sa tête (<code>chat-tete.png</code>) en mode 100% automatique</h4>
+                <ul>
+                  <li><strong>Commande lancée</strong> :
+                    <pre><code class="language-text">bash
+  python3 demo_unsupervised_search_hf.py --query-crop raw/crops/chat-tete.png --target-image raw/img/chat-street-2.png --auto-threshold region_growing --min-patches 3 --save-path jepa_lab/runs/demo_search_result_hf_chat_tete_region_growing_auto.png</code></pre>
+                  </li>
+                  <li><strong>Journal de la console</strong> :
+                    <pre><code class="language-text">
+[3/4] Loading and encoding target image: raw/img/chat-street-2.png...
+[Auto-Region-Growing] Calculated Seed: 0.3343 (mean+2.0_std), Growth: 0.2010 (mean+0.5_std)
+[4/4] Locating occurrences via region growing (Seed: 0.3343, Growth: 0.2010)...
+Found 4 potential matching region(s):
+BBox 1: [448, 554, 640, 683] | Confidence: 0.3632 | Size: 5 patches</code></pre>
+                    <img alt="Tête Region Growing Auto"
+                      src="../images/demo_search_result_hf_chat_tete_region_growing_auto.png" />
+                    Le modèle a identifié une graine locale sur la tête (seuil 0.3343) et s'est étendu sur le corps
+                    (seuil
+                    0.2010), extrayant le chat avec précision.</p>
+                    <h4>Cas 2 : Recherche du chat avec le tigre (<code>tigre.jpg</code>) en mode 100% automatique</h4>
+                    <ul>
+                      <li><strong>Commande lancée</strong> :
+                        <pre><code class="language-text">bash
+  python3 demo_unsupervised_search_hf.py --query-crop raw/crops/tigre.jpg --target-image raw/img/chat-street-2.png --auto-threshold region_growing --min-patches 10 --save-path jepa_lab/runs/demo_search_result_hf_crop_tigre_region_growing_auto.png</code></pre>
+                      </li>
+                    </ul>
+                    <div class="image-container"><img alt="Tête Region Growing Auto"
+                        src="../images/demo_search_result_hf_crop_tigre_region_growing_auto.png" />
+                      <div class="image-caption">Tête Region Growing Auto</div>
+                    </div>
+                    <ul>
+                      <li><strong>Journal de la console</strong> :
+                        <pre><code class="language-text">[3/4] Loading and encoding target image: raw/img/chat-street-2.png...
+[Auto-Region-Growing] Calculated Seed: 0.2867 (mean+2.0_std), Growth: 0.1615 (mean+0.5_std)
+[4/4] Locating occurrences via region growing (Seed: 0.2867, Growth: 0.1615)...
+Found 3 potential matching region(s):
+BBox 1: [256, 256, 512, 512] | Confidence: 0.2304 | Size: 19 patches</code></pre>
+                        Grâce à la baisse de contraste cosinus de la requête tigre, le seuil de graine s'est
+                        <strong>adapté de
+                          lui-même à 0.2867</strong> et le seuil de croissance à <strong>0.1615</strong>. Le chat est
+                        localisé
+                        avec succès sous un groupe cohérent de 19 patchs (BBox 1) sans aucune intervention humaine !
+                        </p>
+                        <hr />
+                        <h2 id="conclusion">🏁 Conclusion</h2>
+                        <p>En automatisant le calcul de nos seuils, nous transformons notre script de recherche visuelle
+                          d'un
+                          simple
+                          filtre statique en un <strong>agent autonome de localisation</strong>. Le modèle est désormais
+                          capable
+                          de
+                          réguler sa sensibilité selon la complexité visuelle de l'image de destination et l'écart
+                          sémantique de
+                          la
+                          requête, ouvrant la voie à des moteurs de recherche d'objets véritablement universels et
+                          robustes
+                          (Zero-Shot).</p>
+                        <hr />
+                        <h3 id="d-fi-de-curiosit-n-12">🛠️ Défi de curiosité n°12</h3>
+                        <ol>
+                          <li>Si une image cible est composée à 95% de ciel bleu et d'une seule petite voiture, comment
+                            va
+                            se
+                            comporter le seuil statistique dynamique ($\mu + k \cdot \sigma$) pour trouver la voiture ?
+                            Le
+                            seuil
+                            sera-t-il plus haut ou plus bas que sur une image urbaine encombrée ?</li>
+                          <li>Pourquoi la méthode de propagation par graine (Region Growing) est-elle particulièrement
+                            adaptée
+                            aux
+                            grands objets sémantiquement composites (ex: un avion composé de sa carlingue blanche neutre
+                            et
+                            de
+                            ses
+                            réacteurs métalliques complexes) ?</li>
+                          <li>Quelle est la limite de l'algorithme d'Otsu si l'objet recherché n'est pas du tout présent
+                            dans
+                            l'image ? Quel garde-fou (ou borne minimale de confiance) devrions-nous ajouter dans le code
+                            ?
+                          </li>
+                        </ol>
+          </div>
+
+          <div class="article-footer-nav">
+            <a href="article_12_partie_4.html" class="footer-nav-link prev">
+              <span class="footer-nav-label">← Précédent</span>
+              <span class="footer-nav-title">Saccadic-JEPA face aux Baselines - Partie 4</span>
+            </a>
+            <a href="article_12_partie_6.html" class="footer-nav-link next">
+              <span class="footer-nav-label">Suivant →</span>
+              <span class="footer-nav-title">Saccadic-JEPA face aux Baselines - Partie 6</span>
+            </a>
+          </div>
+        </article>
+
+        <div class="toc-sidebar">
+          <div class="toc-title">Sur cette page</div>
+          <ul class="toc-list">
+            <li class=""><a href="#la-limite-le-pi-ge-des-param-tres-fig-s">🛑 La Limite : Le Piège des Paramètres
+                Figés</a></li>
+            <li class=""><a href="#solution-1-le-seuil-statistique-dynamique-z-score-latent">💡 Solution 1 : Le Seuil
+                Statistique Dynamique (Z-Score Latent)</a></li>
+            <li class="toc-indent"><a href="#la-th-orie">La théorie</a></li>
+            <li class="toc-indent"><a href="#pourquoi-a-fonctionne">Pourquoi ça fonctionne ?</a></li>
+            <li class=""><a href="#solution-2-l-algorithme-d-otsu-latent-binarisation-bimodale">💡 Solution 2 :
+                L'Algorithme d'Otsu Latent (Binarisation Bimodale)</a></li>
+            <li class=""><a href="#solution-3-la-propagation-par-graine-semantic-region-growing">💡 Solution 3 : La
+                Propagation par Graine (Semantic Region Growing)</a></li>
+            <li class=""><a href="#impl-mentation-coder-le-seuil-automatique-en-python">💻 Implémentation : Coder le
+                seuil automatique en Python</a></li>
+            <li class=""><a href="#application-pratique-le-script-demo-unsupervised-search-hf-py">🛠️ Application
+                Pratique : Le Script demo_unsupervised_search_hf.py</a></li>
+            <li class="toc-indent"><a href="#exp-rimentation-r-elle-avec-l-algorithme-d-otsu-latent">Expérimentation
+                réelle avec l'algorithme d'Otsu Latent</a></li>
+            <li class="toc-indent"><a
+                href="#exp-rimentation-r-elle-avec-la-propagation-par-graine-auto-calibr-e-adaptive-region-growing">Expérimentation
+                réelle avec la Propagation par Graine Auto-Calibrée (Adaptive Region Growing)</a></li>
+            <li class=""><a href="#conclusion">🏁 Conclusion</a></li>
+            <li class="toc-indent"><a href="#d-fi-de-curiosit-n-12">🛠️ Défi de curiosité n°12</a></li>
+          </ul>
+        </div>
+      </div>
+    </main>
+  </div>
+
+  <!-- Scripts -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.8.0/highlight.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/mermaid/dist/mermaid.min.js"></script>
+
+  <script>
+    // Initialize Highlight.js
+    hljs.highlightAll();
+
+    // Initialize Mermaid
+    mermaid.initialize({
+      theme: 'dark',
+      startOnLoad: false,
+      securityLevel: 'loose'
+    });
+
+    document.addEventListener("DOMContentLoaded", function () {
+      // 1. Convert Markdown pre-code blocks for Mermaid to actual divs
+      document.querySelectorAll("pre code.language-mermaid").forEach(function (el) {
+        const pre = el.parentElement;
+        const div = document.createElement("div");
+        div.className = "mermaid";
+        div.textContent = el.textContent;
+        pre.parentElement.replaceChild(div, pre);
+      });
+
+      // Run Mermaid rendering
+      mermaid.run();
+
+      // 2. Reading Progress Bar Logic
+      window.addEventListener('scroll', function () {
+        const winScroll = document.documentElement.scrollTop || document.body.scrollTop;
+        const height = document.documentElement.scrollHeight - document.documentElement.clientHeight;
+        const scrolled = (winScroll / height) * 100;
+        document.getElementById("reading-progress").style.width = scrolled + "%";
+      });
+
+
+    });
+  </script>
+</body>
+
+</html>

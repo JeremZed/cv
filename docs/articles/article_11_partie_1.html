@@ -1,0 +1,269 @@
+<!DOCTYPE html>
+<html lang="fr">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Cartographie Locale & Algorithme BFS — Partie 1 : La Carte de Similarité Locale | JEPA-Lab Explorer</title>
+
+    <!-- Stylesheets -->
+    <link rel="stylesheet" href="../css/style.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.8.0/styles/github-dark.min.css">
+
+    <!-- Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+
+    <!-- MathJax Configuration -->
+    <script>
+        window.MathJax = {
+            tex: {
+                inlineMath: [['$', '$'], ['\\(', '\\)']],
+                displayMath: [['$$', '$$'], ['\\[', '\\]']],
+                processEscapes: true
+            },
+            options: {
+                ignoreHtmlClass: 'tex2jax_ignore',
+                processHtmlClass: 'tex2jax_process'
+            }
+        };
+    </script>
+    <script id="MathJax-script" async src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
+    <script src="../js/sidebar.js" defer></script>
+</head>
+
+<body class="tex2jax_process">
+
+    <!-- Reading Progress Bar -->
+    <div class="progress-bar-container">
+        <div class="progress-bar" id="reading-progress"></div>
+    </div>
+
+    <div class="app-container">
+
+        <!-- Mobile Navigation Header -->
+        <header class="mobile-header">
+            <button class="menu-toggle" id="menu-open-btn">
+                <svg width="24" height="24" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" d="M4 6h16M4 12h16M4 18h16" />
+                </svg>
+            </button>
+            <div class="sidebar-title">JEPA-Lab</div>
+            <div></div> <!-- spacer -->
+        </header>
+
+        <!-- Persistent Sidebar -->
+        <aside class="sidebar" id="app-sidebar"></aside>
+
+        <!-- Main Content -->
+        <main class="main-content">
+            <div class="article-layout">
+                <article class="article-container">
+                    <header class="article-header">
+                        <span class="article-category unsupervised-search-10-12">Série Recherche Visuelle</span>
+                        <h1>Cartographie Locale & Algorithme BFS — Partie 1 : La Carte de Similarité Locale</h1>
+                        <p class="article-subtitle">Localiser plusieurs objets à la fois</p>
+                    </header>
+
+                    <div class="article-body">
+                        <blockquote>
+                            <p><strong>Série Recherche Visuelle &amp; Localisation d'Objets sans Supervision</strong>
+                                <em>Dans cette première partie de notre onzième article, nous passons de la théorie du
+                                    vecteur de concept à sa mise en œuvre pratique sur le terrain. Nous verrons comment
+                                    comparer notre vecteur de requête $q$ (qui représente l'objet recherché) à chaque
+                                    patch d'une image de test afin d'obtenir une grille bidimensionnelle de scores de
+                                    similarité. Cette carte locale révèle où se cachent les structures sémantiques
+                                    ciblées.</em>
+                            </p>
+                        </blockquote>
+                        <hr />
+                        <h2 id="tape-1-diviser-pour-analyser">🔍 Étape 1 : Diviser pour analyser</h2>
+                        <p>Lorsque nous présentons une image de test dans laquelle nous voulons localiser un objet (par
+                            exemple, une photo de rue de $128\times128$ pixels contenant une voiture), l'encodeur de
+                            contexte du modèle (le Vision Transformer) commence par la découper en patches.</p>
+                        <p>Si notre modèle utilise des patches de taille $16\times16$ pixels, l'image de test est
+                            divisée en une grille de :</p>
+                        <p>$$\frac{128}{16} \times \frac{128}{16} = 8 \times 8 = 64 \text{ patches}$$</p>
+                        <p>Chaque patch $i$ est traité par les couches d'attention du ViT pour générer un embedding
+                            local contextualisé $v_i \in \mathbb{R}^D$. Nous obtenons ainsi une grille spatiale de 64
+                            vecteurs représentant les caractéristiques locales de notre image de test.</p>
+                        <hr />
+                        <h2 id="tape-2-le-scan-conceptuel-produit-matriciel">⚡ Étape 2 : Le Scan Conceptuel (Produit
+                            Matriciel)</h2>
+                        <p>Nous disposons à présent :
+                        <ol>
+                            <li>D'un unique vecteur de concept normalisé de requête $q \in \mathbb{R}^D$ (le "concept"
+                                de roue que nous avons extrait à l'Article 10).</li>
+                            <li>D'une liste de 64 vecteurs de patches de test $\{v_1, v_2, \dots, v_{64}\}$, eux aussi
+                                normalisés.</li>
+                        </ol>
+                        <p>Pour localiser notre objet dans l'image de test, nous devons effectuer une comparaison
+                            un-à-tous. Nous calculons la similarité cosinus (qui se résume à un produit scalaire puisque
+                            nos vecteurs sont déjà de norme 1) entre $q$ et chaque patch de test $v_i$ :</p>
+                        <p>$$S_i = q \cdot v_i \quad \text{pour } i \in \{1, \dots, 64\}$$</p>
+                        <p>Chaque score $S_i$ est un nombre réel compris entre $-1$ (concepts opposés) et $1$ (concepts
+                            identiques). </p>
+                        <pre><code class="language-text">  Image de test (128x128 pixels)               Grille de Similarité (8x8 scores)
+  ┌───────────────────────────────┐            ┌───────────────────────────────────┐
+  │                               │            │ -0.1  -0.2   0.1   0.0  -0.1  -0.2│
+  │                               │            │ -0.2   0.0   0.1  -0.1   0.0  -0.1│
+  │   ┌──────┐                    │            │ -0.1   0.2   0.0   0.1   0.1  -0.2│
+  │   │      │ &lt;-- Roue           │    ───&gt;    │  0.0   0.8   0.8   0.1  -0.1   0.0│  &lt;-- Scores élevés (Roue)
+  │   └──────┘                    │            │  0.1   0.7   0.9   0.2   0.0   0.1│
+  │                               │            │ -0.1   0.1   0.1   0.0  -0.2  -0.1│
+  └───────────────────────────────┘            └───────────────────────────────────┘
+</code></pre>
+                        <p>Les zones de l'image de test qui contiennent une structure géométrique similaire à notre
+                            requête (comme la roue de la voiture) renverront des scores élevés (proches de $0.7$ ou
+                            $0.9$). Les zones d'arrière-plan (comme le ciel ou la route) renverront des scores proches
+                            de $0$ ou négatifs.</p>
+                        <hr />
+                        <h2 id="tape-3-du-vecteur-lin-aire-la-grille-2d">📈 Étape 3 : Du vecteur linéaire à la grille 2D
+                        </h2>
+                        <p>Les calculs réseaux s'effectuent sur des tenseurs "aplatis" (linéaires) de forme
+                            <code>(B, P, D)</code> où $P$ est le nombre de patches et $D$ la dimension latente.
+                        </p>
+                        <p>Pour redonner un sens spatial à nos scores de similarité, nous devons réorganiser notre liste
+                            de 64 scores en une <strong>grille bidimensionnelle</strong> de dimensions $H_{grid} \times
+                            W_{grid}$ (ici, $8 \times 8$).</p>
+                        <p>Cette grille 2D est la <strong>Carte de Similarité Locale</strong>. Elle agit comme une carte
+                            de chaleur (heatmap) sémantique : elle nous dit précisément quelles coordonnées spatiales de
+                            l'image partagent des concepts avec notre requête.</p>
+                        <hr />
+                        <h2 id="dans-les-entrailles-du-code-g-n-rer-la-carte-locale">🛠️ Dans les entrailles du code :
+                            Générer la carte locale</h2>
+                        <p>Voici la logique implémentée dans notre fichier de recherche
+                            (<code>unsupervised_search.py</code>) pour extraire et reconstruire cette carte de
+                            similarité :</p>
+                        <pre><code class="language-python">import torch
+import torch.nn.functional as F
+
+def generate_similarity_map(model, test_image, q):
+    &quot;&quot;&quot;
+    Calcule la carte de similarité 2D entre la requête q et l'image de test.
+
+    Arguments:
+        model: Le modèle JEPA pré-entraîné
+        test_image: Tenseur de l'image de recherche de forme (1, 3, H, W)
+        q: Vecteur de concept normalisé de forme (1, D)
+    &quot;&quot;&quot;
+    model.eval()
+    with torch.no_grad():
+        # 1. Encoder l'image de test pour obtenir les embeddings locaux
+        # De forme (1, N_patches, D)
+        test_embeddings = model.context_encoder(test_image)
+
+        # 2. Normaliser les embeddings des patches de test sur la dimension D
+        test_embeddings_norm = F.normalize(test_embeddings, p=2, dim=-1)
+
+        # 3. Calculer la similarité cosinus par produit matriciel
+        # (1, N_patches, D) x (D, 1) -&gt; (1, N_patches, 1)
+        similarity = torch.matmul(test_embeddings_norm, q.transpose(-1, -2))
+        similarity = similarity.squeeze(-1) # De forme (1, N_patches)
+
+        # 4. Calculer la taille de la grille (ex: sqrt(64) = 8)
+        num_patches = similarity.shape[1]
+        grid_size = int(num_patches ** 0.5)
+
+        # 5. Redimensionner en grille 2D spatiale (grid_size, grid_size)
+        similarity_map = similarity.view(grid_size, grid_size)
+
+    return similarity_map
+</code></pre>
+                        <hr />
+                        <h2 id="conclusion-amp-transition">🧠 Conclusion &amp; Transition</h2>
+                        <p>La carte de similarité locale nous donne une grille continue de scores décrivant le degré de
+                            parenté de chaque zone avec notre requête.</p>
+                        <p>Cependant, beaucoup de patches d'arrière-plan ont des scores faiblement positifs (par
+                            exemple, $0.12$ ou $0.18$) simplement en raison de corrélations géométriques aléatoires ou
+                            de textures communes. Si nous gardons tout, notre détection sera parasitée.</p>
+                        <p>Comment séparer le bon grain de l'ivraie ? Comment décider si un patch fait ou non partie de
+                            notre objet ?</p>
+                        <p>C'est ce que nous allons découvrir dans la deuxième partie de cet article : <strong>Le Seuil
+                                Sémantique</strong> !</p>
+                        <hr />
+                        <h3 id="d-fi-de-curiosit-n-4">🛠️ Défi de curiosité n°4</h3>
+                        <p>Imaginons que nous utilisions une image de test de taille $128\times128$ pixels.</p>
+                        <ol>
+                            <li>Si notre modèle a un <code>patch_size</code> de $16\times16$, quelle est la dimension de
+                                notre grille de similarité ?</li>
+                            <li>Si notre modèle utilise des patches plus fins de $4\times4$ (comme dans Mono-JEPA
+                                standard), quelle sera la taille de notre grille de scores ?</li>
+                            <li>Quel est l'avantage et l'inconvénient d'avoir des patches plus petits pour la précision
+                                spatiale de notre carte de similarité ?</li>
+                        </ol>
+                    </div>
+
+                    <div class="article-footer-nav">
+                        <a href="article_10_partie_3.html" class="footer-nav-link prev">
+                            <span class="footer-nav-label">← Précédent</span>
+                            <span class="footer-nav-title">De la Similarité Pixel à la Sémantique Latente - Partie
+                                3</span>
+                        </a>
+                        <a href="article_11_partie_2.html" class="footer-nav-link next">
+                            <span class="footer-nav-label">Suivant →</span>
+                            <span class="footer-nav-title">Cartographie Locale & Algorithme BFS - Partie 2</span>
+                        </a>
+                    </div>
+                </article>
+
+                <div class="toc-sidebar">
+                    <div class="toc-title">Sur cette page</div>
+                    <ul class="toc-list">
+                        <li class=""><a href="#tape-1-diviser-pour-analyser">🔍 Étape 1 : Diviser pour analyser</a></li>
+                        <li class=""><a href="#tape-2-le-scan-conceptuel-produit-matriciel">⚡ Étape 2 : Le Scan
+                                Conceptuel (Produit Matriciel)</a></li>
+                        <li class=""><a href="#tape-3-du-vecteur-lin-aire-la-grille-2d">📈 Étape 3 : Du vecteur linéaire
+                                à la grille 2D</a></li>
+                        <li class=""><a href="#dans-les-entrailles-du-code-g-n-rer-la-carte-locale">🛠️ Dans les
+                                entrailles du code : Générer la carte locale</a></li>
+                        <li class=""><a href="#conclusion-amp-transition">🧠 Conclusion &amp; Transition</a></li>
+                        <li class="toc-indent"><a href="#d-fi-de-curiosit-n-4">🛠️ Défi de curiosité n°4</a></li>
+                    </ul>
+                </div>
+            </div>
+        </main>
+    </div>
+
+    <!-- Scripts -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.8.0/highlight.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/mermaid/dist/mermaid.min.js"></script>
+
+    <script>
+        // Initialize Highlight.js
+        hljs.highlightAll();
+
+        // Initialize Mermaid
+        mermaid.initialize({
+            theme: 'dark',
+            startOnLoad: false,
+            securityLevel: 'loose'
+        });
+
+        document.addEventListener("DOMContentLoaded", function () {
+            // 1. Convert Markdown pre-code blocks for Mermaid to actual divs
+            document.querySelectorAll("pre code.language-mermaid").forEach(function (el) {
+                const pre = el.parentElement;
+                const div = document.createElement("div");
+                div.className = "mermaid";
+                div.textContent = el.textContent;
+                pre.parentElement.replaceChild(div, pre);
+            });
+
+            // Run Mermaid rendering
+            mermaid.run();
+
+            // 2. Reading Progress Bar Logic
+            window.addEventListener('scroll', function () {
+                const winScroll = document.documentElement.scrollTop || document.body.scrollTop;
+                const height = document.documentElement.scrollHeight - document.documentElement.clientHeight;
+                const scrolled = (winScroll / height) * 100;
+                document.getElementById("reading-progress").style.width = scrolled + "%";
+            });
+
+
+        });
+    </script>
+</body>
+
+</html>

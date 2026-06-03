@@ -1,0 +1,491 @@
+<!DOCTYPE html>
+<html lang="fr">
+
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Saccadic-JEPA face aux Baselines — Partie 4 : Saccadic-JEPA vs Meta I-JEPA | JEPA-Lab Explorer</title>
+
+  <!-- Stylesheets -->
+  <link rel="stylesheet" href="../css/style.css">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.8.0/styles/github-dark.min.css">
+
+  <!-- Fonts -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+
+  <!-- MathJax Configuration -->
+  <script>
+    window.MathJax = {
+      tex: {
+        inlineMath: [['$', '$'], ['\\(', '\\)']],
+        displayMath: [['$$', '$$'], ['\\[', '\\]']],
+        processEscapes: true
+      },
+      options: {
+        ignoreHtmlClass: 'tex2jax_ignore',
+        processHtmlClass: 'tex2jax_process'
+      }
+    };
+  </script>
+  <script id="MathJax-script" async src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
+  <script src="../js/sidebar.js" defer></script>
+</head>
+
+<body class="tex2jax_process">
+
+  <!-- Reading Progress Bar -->
+  <div class="progress-bar-container">
+    <div class="progress-bar" id="reading-progress"></div>
+  </div>
+
+  <div class="app-container">
+
+    <!-- Mobile Navigation Header -->
+    <header class="mobile-header">
+      <button class="menu-toggle" id="menu-open-btn">
+        <svg width="24" height="24" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" d="M4 6h16M4 12h16M4 18h16" />
+        </svg>
+      </button>
+      <div class="sidebar-title">JEPA-Lab</div>
+      <div></div> <!-- spacer -->
+    </header>
+
+    <!-- Persistent Sidebar -->
+    <aside class="sidebar" id="app-sidebar"></aside>
+
+    <!-- Main Content -->
+    <main class="main-content">
+      <div class="article-layout">
+        <article class="article-container">
+          <header class="article-header">
+            <span class="article-category unsupervised-search-10-12">Série Recherche Visuelle</span>
+            <h1>Saccadic-JEPA face aux Baselines — Partie 4 : Saccadic-JEPA vs Meta I-JEPA</h1>
+            <p class="article-subtitle">Résolution, Acuité Visuelle et Pratique</p>
+          </header>
+
+          <div class="article-body">
+            <blockquote>
+              <p><strong>Série Recherche Visuelle &amp; Localisation d'Objets sans Supervision</strong>
+                <em>Dans cette quatrième et dernière partie de notre douzième article, nous dressons le bilan pratique
+                  et chiffré de nos expérimentations réelles. Nous confrontons notre modèle local Saccadic-JEPA
+                  (entraîné sur CIFAR-10) et le modèle géant officiel Meta I-JEPA (pré-entraîné sur ImageNet). En
+                  analysant les commandes exécutées, les journaux de sortie et les images générées pour localiser un
+                  chat gris dans une rue, nous décrypterons comment l'échelle et la nature du pré-entraînement se
+                  traduisent concrètement sur le terrain.</em>
+              </p>
+            </blockquote>
+            <hr />
+            <h2 id="le-protocole-exp-rimental">🔬 Le Protocole Expérimental</h2>
+            <p>Pour évaluer la précision et la structure de l'espace latent de chaque modèle, nous avons exécuté une
+              suite de tests comparatifs sur l'image cible <strong><code>raw/img/chat-street-2.png</code></strong>
+              (résolution $1024 \times 683$). </p>
+            <p>Notre objectif est de localiser le chat gris présent dans la scène en utilisant différents types de
+              requêtes (crops) et d'analyser la sensibilité de chaque modèle.</p>
+            <hr />
+            <h2 id="s-rie-1-les-exp-rimentations-saccadic-jepa-cifar-10">🎨 Série 1 : Les Expérimentations Saccadic-JEPA
+              (CIFAR-10)</h2>
+            <p>Notre modèle local <strong>Saccadic-JEPA</strong> ($128 \times 128$ pixels d'entrée, patchs de $16 \times
+              16$) a été mis à l'épreuve à travers cinq configurations distinctes avec un seuil fixe $\tau = 0.35$ et
+              <code>--min-patches 1</code>.
+            </p>
+            <h3 id="cas-1-crop-du-chat-entier-en-couleur">Cas 1 : Crop du chat entier en couleur</h3>
+            <ul>
+              <li><strong>Commande</strong> :
+                <pre><code class="language-text">bash
+  python3 jepa_lab/unsupervised_search.py --model-type saccadic --model-weights jepa_lab/runs/saccadic_jepa_cifar10.pth --query-crop raw/crops/chat.png --target-image raw/img/chat-street-2.png --threshold 0.35 --save-path jepa_lab/runs/demo_search_result_saccadic_chat.png --min-patches 1</code></pre>
+              </li>
+              <li><strong>Résultat de la console</strong> :
+                <pre><code class="language-text">
+Found 2 potential occurrences of the query concept:
+    BBox 1: [768, 85, 1024, 256] | Confidence (Mean Sim): 0.3847 | Max Sim: 0.4079 | Size: 2 patches
+    BBox 2: [0, 85, 512, 683] | Confidence (Mean Sim): 0.3680 | Max Sim: 0.4001 | Size: 10 patches</code></pre>
+              </li>
+              <li><strong>Rendu visuel</strong> :
+                <img alt="Chat entier couleur" src="../images/demo_search_result_saccadic_chat.png" />
+                <em>La boîte englobante cible vaguement le chat mais reste très imprécise et englobe beaucoup
+                  d'arrière-plan.</em>
+              </li>
+            </ul>
+            <h3 id="cas-2-crop-cibl-sur-la-t-te-du-chat">Cas 2 : Crop ciblé sur la tête du chat</h3>
+            <ul>
+              <li><strong>Commande</strong> :
+                <pre><code class="language-text">bash
+  python3 jepa_lab/unsupervised_search.py --model-type saccadic --model-weights jepa_lab/runs/saccadic_jepa_cifar10.pth --query-crop raw/crops/chat-tete.png --target-image raw/img/chat-street-2.png --threshold 0.35 --save-path jepa_lab/runs/demo_search_result_saccadic_crop_tete.png --min-patches 1</code></pre>
+              </li>
+              <li><strong>Résultat de la console</strong> :
+                <pre><code class="language-text">Found 3 potential occurrences of the query concept:
+    BBox 1: [0, 256, 512, 683] | Confidence (Mean Sim): 0.3925 | Max Sim: 0.4174 | Size: 9 patches
+    BBox 2: [640, 341, 1024, 683] | Confidence (Mean Sim): 0.3790 | Max Sim: 0.4142 | Size: 7 patches
+    BBox 3: [768, 170, 896, 256] | Confidence (Mean Sim): 0.3738 | Max Sim: 0.3738 | Size: 1 patches</code></pre>
+              </li>
+              <li><strong>Rendu visuel</strong> :
+                <img alt="Tête de chat Saccadic" src="../images/demo_search_result_saccadic_crop_tete.png" />
+                <em>Le ciblage s'améliore légèrement sur la zone avant, mais l'encadrement demeure trop large à cause
+                  des similarités de contours avec le décor.</em>
+              </li>
+            </ul>
+            <h3 id="cas-3-crop-sur-le-corps-du-chat-gris">Cas 3 : Crop sur le corps du chat gris</h3>
+            <ul>
+              <li><strong>Commande</strong> :
+                <pre><code class="language-text">bash
+  python3 jepa_lab/unsupervised_search.py --model-type saccadic --model-weights jepa_lab/runs/saccadic_jepa_cifar10.pth --query-crop raw/crops/chat-entier-gris.png --target-image raw/img/chat-street-2.png --threshold 0.35 --save-path jepa_lab/runs/demo_search_result_saccadic_chat_only_crop_gris.png --min-patches 1</code></pre>
+              </li>
+              <li><strong>Résultat de la console</strong> :
+                <pre><code class="language-text">Found 4 potential occurrences of the query concept:
+    BBox 1: [0, 256, 512, 597] | Confidence (Mean Sim): 0.4296 | Max Sim: 0.5184 | Size: 9 patches
+    BBox 2: [640, 85, 896, 256] | Confidence (Mean Sim): 0.4071 | Max Sim: 0.4313 | Size: 2 patches
+    BBox 3: [512, 341, 1024, 683] | Confidence (Mean Sim): 0.4042 | Max Sim: 0.4210 | Size: 10 patches
+    BBox 4: [0, 597, 128, 683] | Confidence (Mean Sim): 0.3554 | Max Sim: 0.3554 | Size: 1 patches</code></pre>
+              </li>
+              <li><strong>Rendu visuel</strong> :
+                <img alt="Chat entier gris Saccadic"
+                  src="../images/demo_search_result_saccadic_chat_only_crop_gris.png" />
+              </li>
+            </ul>
+            <h3 id="cas-4-requ-te-consolid-e-multi-crops-t-te-chat-entier-gris">Cas 4 : Requête consolidée multi-crops
+              (Tête + Chat entier gris)</h3>
+            <ul>
+              <li><strong>Commande</strong> :
+                <pre><code class="language-text">bash
+  python3 jepa_lab/unsupervised_search.py --model-type saccadic --model-weights jepa_lab/runs/saccadic_jepa_cifar10.pth --query-crop raw/crops/chat-tete.png,raw/crops/chat-entier-gris.png --target-image raw/img/chat-street-2.png --threshold 0.35 --save-path jepa_lab/runs/demo_search_result_saccadic_chat_many_crop_gris.png --min-patches 1</code></pre>
+              </li>
+              <li><strong>Résultat de la console</strong> :
+                <pre><code class="language-text">Found 3 potential occurrences of the query concept:
+    BBox 1: [640, 85, 896, 256] | Confidence (Mean Sim): 0.4072 | Max Sim: 0.4304 | Size: 2 patches
+    BBox 2: [0, 170, 512, 683] | Confidence (Mean Sim): 0.4058 | Max Sim: 0.5004 | Size: 15 patches
+    BBox 3: [512, 341, 1024, 683] | Confidence (Mean Sim): 0.3980 | Max Sim: 0.4466 | Size: 13 patches</code></pre>
+              </li>
+              <li><strong>Rendu visuel</strong> :
+                <img alt="Multi-crops gris Saccadic"
+                  src="../images/demo_search_result_saccadic_chat_many_crop_gris.png" />
+              </li>
+            </ul>
+            <h3 id="cas-5-requ-te-consolid-e-multi-crops-t-te-chat-entier-couleur">Cas 5 : Requête consolidée
+              multi-crops (Tête + Chat entier couleur)</h3>
+            <ul>
+              <li><strong>Commande</strong> :
+                <pre><code class="language-text">bash
+  python3 jepa_lab/unsupervised_search.py --model-type saccadic --model-weights jepa_lab/runs/saccadic_jepa_cifar10.pth --query-crop raw/crops/chat-tete.png,raw/crops/chat-entier.png --target-image raw/img/chat-street-2.png --threshold 0.35 --save-path jepa_lab/runs/demo_search_result_saccadic_chat_many_crop.png --min-patches 1</code></pre>
+              </li>
+              <li><strong>Résultat de la console</strong> :
+                <pre><code class="language-text">Found 3 potential occurrences of the query concept:
+    BBox 1: [0, 170, 1024, 683] | Confidence (Mean Sim): 0.4044 | Max Sim: 0.4891 | Size: 25 patches
+    BBox 2: [128, 0, 256, 85] | Confidence (Mean Sim): 0.3843 | Max Sim: 0.3843 | Size: 1 patches
+    BBox 3: [640, 85, 1024, 256] | Confidence (Mean Sim): 0.3679 | Max Sim: 0.3830 | Size: 4 patches</code></pre>
+              </li>
+              <li><strong>Rendu visuel</strong> :
+                <img alt="Multi-crops Saccadic" src="../images/demo_search_result_saccadic_chat_many_crop.png" />
+                <em>Ici, la boîte englobante BBox 1 de 25 patchs fusionne le chat et le fond de l'image de manière trop
+                  globale, en raison du flou d'attraction dans l'espace latent.</em>
+              </li>
+            </ul>
+            <hr />
+            <h2 id="s-rie-2-les-exp-rimentations-meta-i-jepa-imagenet">🏆 Série 2 : Les Expérimentations Meta I-JEPA
+              (ImageNet)</h2>
+            <p>Nous comparons maintenant ces résultats avec le modèle officiel <strong>Meta I-JEPA</strong> (via notre
+              script <code>demo_unsupervised_search_hf.py</code> qui exploite le modèle pré-entraîné
+              <code>facebook/ijepa_vith14_1k</code> à $224 \times 224$ pixels et patchs $14 \times 14$).
+            </p>
+            <h3 id="cas-1-crop-du-chat-entier-en-couleur">Cas 1 : Crop du chat entier en couleur</h3>
+            <ul>
+              <li><strong>Commande</strong> :
+                <pre><code class="language-text">bash
+  python3 demo_unsupervised_search_hf.py --query-crop raw/crops/chat.png --target-image raw/img/chat-street-2.png --threshold 0.35 --save-path jepa_lab/runs/demo_search_result_hf_chat.png --min-patches 1</code></pre>
+              </li>
+              <li><strong>Résultat de la console</strong> :
+                <pre><code class="language-text">Found 11 potential matching region(s):
+    BBox 1: [448, 640, 512, 683] | Confidence: 0.5644 | Size: 1 patches
+    BBox 2: [832, 341, 896, 384] | Confidence: 0.5620 | Size: 1 patches
+    BBox 3: [768, 512, 832, 554] | Confidence: 0.5166 | Size: 1 patches
+    ...
+    BBox 6: [320, 341, 448, 426] | Confidence: 0.4253 | Size: 4 patches</code></pre>
+              </li>
+              <li><strong>Rendu visuel</strong> :
+                <img alt="Chat entier Meta" src="../images/demo_search_result_hf_chat.png" />
+              </li>
+            </ul>
+            <h3 id="cas-2-crop-cibl-sur-la-t-te-du-chat">Cas 2 : Crop ciblé sur la tête du chat</h3>
+            <ul>
+              <li><strong>Commande</strong> :
+                <pre><code class="language-text">bash
+  python3 demo_unsupervised_search_hf.py --query-crop raw/crops/chat-tete.png --target-image raw/img/chat-street-2.png --threshold 0.35 --save-path jepa_lab/runs/demo_search_result_hf_crop_tete.png --min-patches 1</code></pre>
+              </li>
+              <li><strong>Résultat de la console</strong> :
+                <pre><code class="language-text">Found 8 potential matching region(s):
+    BBox 1: [448, 640, 512, 683] | Confidence: 0.5884 | Size: 1 patches
+    BBox 2: [768, 512, 832, 554] | Confidence: 0.5227 | Size: 1 patches
+    BBox 3: [832, 256, 896, 298] | Confidence: 0.5161 | Size: 1 patches
+    ...</code></pre>
+              </li>
+              <li><strong>Rendu visuel</strong> :
+                <img alt="Tête de chat Meta" src="../images/demo_search_result_hf_crop_tete.png" />
+                <em>La BBox 1 cible chirurgicalement la tête du chat avec un score de confiance très élevé (0.58).</em>
+              </li>
+            </ul>
+            <h3 id="cas-3-requ-te-consolid-e-multi-crops-t-te-chat-entier">Cas 3 : Requête consolidée multi-crops (Tête
+              + Chat entier)</h3>
+            <ul>
+              <li><strong>Commande</strong> :
+                <pre><code class="language-text">bash
+  python3 demo_unsupervised_search_hf.py --query-crop raw/crops/chat-tete.png,raw/crops/chat-entier.png --target-image raw/img/chat-street-2.png --threshold 0.35 --save-path jepa_lab/runs/demo_search_result_hf_chat_many_crop.png --min-patches 1</code></pre>
+              </li>
+              <li><strong>Résultat de la console</strong> :
+                <pre><code class="language-text">Found 7 potential matching region(s):
+    BBox 1: [448, 640, 512, 683] | Confidence: 0.5257 | Size: 1 patches
+    BBox 2: [768, 512, 832, 554] | Confidence: 0.4801 | Size: 1 patches
+    ...</code></pre>
+              </li>
+              <li><strong>Rendu visuel</strong> :
+                <img alt="Multi-crops Meta" src="../images/demo_search_result_hf_chat_many_crop.png" />
+              </li>
+            </ul>
+            <h3 id="cas-4-requ-te-consolid-e-multi-crops-t-te-chat-entier-gris">Cas 4 : Requête consolidée multi-crops
+              (Tête + Chat entier gris)</h3>
+            <ul>
+              <li><strong>Commande</strong> :
+                <pre><code class="language-text">bash
+  python3 demo_unsupervised_search_hf.py --query-crop raw/crops/chat-tete.png,raw/crops/chat-entier-gris.png --target-image raw/img/chat-street-2.png --threshold 0.35 --save-path jepa_lab/runs/demo_search_result_hf_chat_many_crop_gris.png --min-patches 1</code></pre>
+              </li>
+              <li><strong>Résultat de la console</strong> :
+                <pre><code class="language-text">Found 12 potential matching region(s):
+    BBox 1: [448, 640, 512, 683] | Confidence: 0.5607 | Size: 1 patches
+    BBox 2: [768, 512, 832, 554] | Confidence: 0.5212 | Size: 1 patches
+    ...</code></pre>
+              </li>
+              <li><strong>Rendu visuel</strong> :
+                <img alt="Multi-crops gris Meta" src="../images/demo_search_result_hf_chat_many_crop_gris.png" />
+              </li>
+            </ul>
+            <h3 id="cas-5-crop-sur-le-corps-du-chat-gris-seul">Cas 5 : Crop sur le corps du chat gris seul</h3>
+            <ul>
+              <li><strong>Commande</strong> :
+                <pre><code class="language-text">bash
+  python3 demo_unsupervised_search_hf.py --query-crop raw/crops/chat-entier-gris.png --target-image raw/img/chat-street-2.png --threshold 0.35 --save-path jepa_lab/runs/demo_search_result_hf_chat_only_crop_gris.png --min-patches 1</code></pre>
+              </li>
+              <li><strong>Résultat de la console</strong> :
+                <pre><code class="language-text">Found 6 potential matching region(s):
+    BBox 1: [320, 384, 384, 469] | Confidence: 0.4030 | Size: 2 patches
+    BBox 2: [832, 298, 896, 384] | Confidence: 0.4017 | Size: 2 patches
+    BBox 3: [832, 85, 960, 128] | Confidence: 0.3992 | Size: 2 patches
+    ...</code></pre>
+              </li>
+              <li><strong>Rendu visuel</strong> :
+                <img alt="Chat entier gris Meta" src="../images/demo_search_result_hf_chat_only_crop_gris.png" />
+                <em>La détection s'égare sur des textures grises environnantes car la structure d'un pelage gris n'est
+                  plus sémantiquement assez discriminante.</em>
+              </li>
+            </ul>
+            <h3 id="cas-bonus-peut-on-d-tecter-un-chat-de-rue-avec-un-tigre">🐯 Cas Bonus : Peut-on détecter un chat de
+              rue... avec un tigre ?</h3>
+            <p>C'est le test d'alignement inter-espèces par excellence ! Nous soumettons au modèle de Meta un crop de
+              tigre (<code>raw/crops/tigre.jpg</code>) pour scanner notre image de chat de rue. Les tigres et les chats
+              partagent une même famille sémantique (les félidés), mais leurs apparences diffèrent grandement.</p>
+            <h4>Sous-Cas A : Les paramètres par défaut ($\tau = 0.35$, <code>--min-patches 1</code>)</h4>
+            <ul>
+              <li><strong>Commande</strong> :
+                <pre><code class="language-text">bash
+  python3 demo_unsupervised_search_hf.py --query-crop raw/crops/tigre.jpg --target-image raw/img/chat-street-2.png --threshold 0.35 --save-path jepa_lab/runs/demo_search_result_hf_crop_tigre.png --min-patches 1</code></pre>
+              </li>
+              <li><strong>Résultat de la console</strong> :
+                <pre><code class="language-text">Found 4 potential matching region(s):
+    BBox 1: [768, 512, 832, 554] | Confidence: 0.3892 | Size: 1 patches
+    BBox 2: [448, 640, 512, 683] | Confidence: 0.3800 | Size: 1 patches
+    BBox 3: [832, 256, 896, 298] | Confidence: 0.3707 | Size: 1 patches
+    BBox 4: [512, 469, 576, 512] | Confidence: 0.3670 | Size: 1 patches</code></pre>
+              </li>
+              <li><strong>Rendu visuel</strong> :
+                <img alt="Tigre par défaut Meta" src="../images/demo_search_result_hf_crop_tigre.png" />
+                <em>Avec le seuil standard de 0.35, le chat n'est pas détecté en tant qu'objet consolidé. Les scores de
+                  similarité sont plus bas (max 0.38) car un tigre n'est pas un chat domestique.</em>
+              </li>
+            </ul>
+            <h4>Sous-Cas B : Calibration adaptative ($\tau = 0.20$, <code>--min-patches 10</code>)</h4>
+            <p>Puisque le chat domestique et le tigre partagent des traits sémantiques sous-jacents mais plus faibles,
+              l'idée est de <strong>baisser le seuil sémantique</strong> ($\tau = 0.20$) pour capturer les activations
+              plus faibles, tout en <strong>augmentant fortement le nombre minimal de patches</strong>
+              (<code>--min-patches 10</code>) pour fusionner la silhouette globale du chat et rejeter le bruit isolé
+              d'arrière-plan.
+              * <strong>Commande</strong> :
+            <pre><code class="language-text">bash
+  python3 demo_unsupervised_search_hf.py --query-crop raw/crops/tigre.jpg --target-image raw/img/chat-street-2.png --threshold 0.20 --save-path jepa_lab/runs/demo_search_result_hf_crop_tigre_opti.png --min-patches 10</code></pre>
+            * <strong>Résultat de la console</strong> :
+            <pre><code class="language-text">Found 1 potential matching region(s):
+    BBox 1: [256, 256, 512, 469] | Confidence: 0.2491 | Size: 14 patches</code></pre>
+            * <strong>Rendu visuel</strong> :
+            <img alt="Tigre optimisé Meta" src="../images/demo_search_result_hf_crop_tigre_opti.png" />
+            <em>Victoire ! En adaptant notre filtrage, le modèle I-JEPA exploite la structure latente commune des
+              félidés pour localiser le chat de rue sous une seule BBox propre de 14 patches, démontrant une
+              incroyable capacité de généralisation sémantique sans supervision.</em>
+            </p>
+            <hr />
+            <h2 id="analyse-comparative-des-espaces-latents">📊 Analyse Comparative des Espaces Latents</h2>
+            <p>Ce match met en évidence trois aspects fondamentaux de l'organisation des espaces latents :</p>
+            <h3 id="1-saccadic-jepa-le-compromis-physique-global">1. Saccadic-JEPA : Le compromis physique global</h3>
+            <ul>
+              <li><strong>Comportement</strong> : Les BBoxes ciblent le chat dans sa globalité physique mais débordent
+                fortement sur les éléments de décor environnants (rues, trottoirs).</li>
+              <li><strong>Pourquoi ?</strong> Entraîné sur CIFAR-10, notre modèle local a appris à regrouper les formes
+                géométriques de manière globale sous forme d'îlots de saillance spatiale continue. Il sait que le chat
+                forme un "objet" physique cohérent avec le sol, mais il n'a pas encore acquis la sélectivité sémantique
+                suffisante pour détacher le pelage gris des motifs minéraux similaires du trottoir.</li>
+            </ul>
+            <h3 id="2-meta-i-jepa-la-s-lectivit-des-parties-d-objets-object-parts">2. Meta I-JEPA : La sélectivité des
+              parties d'objets (Object Parts)</h3>
+            <ul>
+              <li><strong>Comportement</strong> : Une précision chirurgicale sur les concepts riches, mais de graves
+                difficultés à englober le reste du corps.
+                Le corps seul (<code>chat-entier-gris.png</code>) s'égare sur le trottoir.</li>
+              <li><strong>Pourquoi ?</strong> Entraîné sur ImageNet-1k, le modèle de Meta possède un espace latent
+                extrêmement discriminant pour les concepts complexes et structurés. Les yeux, le nez et les oreilles du
+                chat forment une signature unique. En revanche, le corps (simple pelage gris uniforme) ressemble
+                sémantiquement à n'importe quelle texture grise d'ImageNet (laine, béton). Sa signature est donc "noyée"
+                et s'aligne mal avec le reste.</li>
+            </ul>
+            <h3 id="3-meta-i-jepa-la-g-n-ralisation-taxonomique-zero-shot">3. Meta I-JEPA : La généralisation
+              taxonomique (Zero-Shot)</h3>
+            <ul>
+              <li><strong>Comportement</strong> : Le modèle parvient à localiser un chat domestique en utilisant une
+                requête de tigre (<code>tigre.jpg</code>) si l'on adapte notre filtrage.</li>
+              <li><strong>Pourquoi ?</strong> Cela prouve de manière incontestable que l'espace latent de I-JEPA n'est
+                pas un simple "comparateur de pixels" ou de textures identiques. Le modèle a développé des concepts
+                abstraits structurés par catégories (la famille des félidés). Bien que la similarité cosinus brute soit
+                plus faible due à la différence d'aspect (la robe du tigre vs celle du chat), la signature géométrique
+                et sémantique partagée reste exploitable.</li>
+            </ul>
+            <hr />
+            <h2 id="le-ons-cl-s-pour-la-recherche-visuelle">🛠️ Leçons Clés pour la Recherche Visuelle</h2>
+            <ol>
+              <li><strong>La supériorité des concepts structurés</strong> : Pour chercher un objet de manière non
+                supervisée, privilégiez toujours un crop contenant un sous-composant hautement structuré (comme une tête
+                ou une roue) plutôt qu'une texture uniforme.</li>
+              <li><strong>Le filtrage spatial spatialisé</strong> : Par défaut avec <code>--min-patches 1</code>, le
+                modèle trace des BBoxes pour chaque patch isolé qui franchit le seuil. Augmenter ce paramètre à 2 ou 3
+                permet de filtrer instantanément le bruit de fond (les faux positifs) en imposant une cohérence de
+                surface.</li>
+              <li><strong>La calibration dynamique pour le transfert sémantique</strong> : Lors d'une recherche
+                inter-espèces ou de concepts proches mais non identiques (ex: tigre pour chercher un chat), il faut
+                ajuster les deux curseurs :</li>
+              <li><strong>Baisser le seuil $\tau$</strong> (ex: de $0.35$ à $0.20$) pour tolérer la dérive sémantique du
+                concept.</li>
+              <li><strong>Augmenter fortement le <code>--min-patches</code></strong> (ex: à $10$) pour fusionner le
+                signal sémantique plus diffus sur la silhouette complète de l'objet et nettoyer le bruit d'arrière-plan.
+              </li>
+            </ol>
+            <hr />
+            <h3 id="d-fi-de-curiosit-n-11">🛠️ Défi de curiosité n°11</h3>
+            <ol>
+              <li>Pourquoi un modèle entraîné sans étiquettes (en auto-supervisé) parvient-il tout de même à isoler si
+                précisément la tête d'un chat dans l'espace latent ? Quel est le rôle du contexte de masquage dans ce
+                processus ?</li>
+              <li>Si vous deviez concevoir un système de détection de véhicules en milieu urbain avec Meta I-JEPA, quel
+                crop de référence choisiriez-vous comme requête (la carrosserie, le pare-brise, ou une roue) ? Justifiez
+                votre choix d'après les résultats de nos tests.</li>
+              <li>En utilisant la logique du Cas Bonus (tigre $\to$ chat), comment feriez-vous pour localiser un camion
+                dans une rue si vous ne possédez qu'un crop de requête représentant une voiture ? Quels ajustements de
+                paramètres testeriez-vous ?</li>
+            </ol>
+          </div>
+
+          <div class="article-footer-nav">
+            <a href="article_12_partie_3.html" class="footer-nav-link prev">
+              <span class="footer-nav-label">← Précédent</span>
+              <span class="footer-nav-title">Saccadic-JEPA face aux Baselines - Partie 3</span>
+            </a>
+            <a href="article_12_partie_5.html" class="footer-nav-link next">
+              <span class="footer-nav-label">Suivant →</span>
+              <span class="footer-nav-title">Saccadic-JEPA face aux Baselines - Partie 5</span>
+            </a>
+          </div>
+        </article>
+
+        <div class="toc-sidebar">
+          <div class="toc-title">Sur cette page</div>
+          <ul class="toc-list">
+            <li class=""><a href="#le-protocole-exp-rimental">🔬 Le Protocole Expérimental</a></li>
+            <li class=""><a href="#s-rie-1-les-exp-rimentations-saccadic-jepa-cifar-10">🎨 Série 1 : Les
+                Expérimentations Saccadic-JEPA (CIFAR-10)</a></li>
+            <li class="toc-indent"><a href="#cas-1-crop-du-chat-entier-en-couleur">Cas 1 : Crop du chat entier en
+                couleur</a></li>
+            <li class="toc-indent"><a href="#cas-2-crop-cibl-sur-la-t-te-du-chat">Cas 2 : Crop ciblé sur la tête du
+                chat</a></li>
+            <li class="toc-indent"><a href="#cas-3-crop-sur-le-corps-du-chat-gris">Cas 3 : Crop sur le corps du chat
+                gris</a></li>
+            <li class="toc-indent"><a href="#cas-4-requ-te-consolid-e-multi-crops-t-te-chat-entier-gris">Cas 4 : Requête
+                consolidée multi-crops (Tête + Chat entier gris)</a></li>
+            <li class="toc-indent"><a href="#cas-5-requ-te-consolid-e-multi-crops-t-te-chat-entier-couleur">Cas 5 :
+                Requête consolidée multi-crops (Tête + Chat entier couleur)</a></li>
+            <li class=""><a href="#s-rie-2-les-exp-rimentations-meta-i-jepa-imagenet">🏆 Série 2 : Les Expérimentations
+                Meta I-JEPA (ImageNet)</a></li>
+            <li class="toc-indent"><a href="#cas-1-crop-du-chat-entier-en-couleur">Cas 1 : Crop du chat entier en
+                couleur</a></li>
+            <li class="toc-indent"><a href="#cas-2-crop-cibl-sur-la-t-te-du-chat">Cas 2 : Crop ciblé sur la tête du
+                chat</a></li>
+            <li class="toc-indent"><a href="#cas-3-requ-te-consolid-e-multi-crops-t-te-chat-entier">Cas 3 : Requête
+                consolidée multi-crops (Tête + Chat entier)</a></li>
+            <li class="toc-indent"><a href="#cas-4-requ-te-consolid-e-multi-crops-t-te-chat-entier-gris">Cas 4 : Requête
+                consolidée multi-crops (Tête + Chat entier gris)</a></li>
+            <li class="toc-indent"><a href="#cas-5-crop-sur-le-corps-du-chat-gris-seul">Cas 5 : Crop sur le corps du
+                chat gris seul</a></li>
+            <li class="toc-indent"><a href="#cas-bonus-peut-on-d-tecter-un-chat-de-rue-avec-un-tigre">🐯 Cas Bonus :
+                Peut-on détecter un chat de rue... avec un tigre ?</a></li>
+            <li class=""><a href="#analyse-comparative-des-espaces-latents">📊 Analyse Comparative des Espaces
+                Latents</a></li>
+            <li class="toc-indent"><a href="#1-saccadic-jepa-le-compromis-physique-global">1. Saccadic-JEPA : Le
+                compromis physique global</a></li>
+            <li class="toc-indent"><a href="#2-meta-i-jepa-la-s-lectivit-des-parties-d-objets-object-parts">2. Meta
+                I-JEPA : La sélectivité des parties d'objets (Object Parts)</a></li>
+            <li class="toc-indent"><a href="#3-meta-i-jepa-la-g-n-ralisation-taxonomique-zero-shot">3. Meta I-JEPA : La
+                généralisation taxonomique (Zero-Shot)</a></li>
+            <li class=""><a href="#le-ons-cl-s-pour-la-recherche-visuelle">🛠️ Leçons Clés pour la Recherche
+                Visuelle</a></li>
+            <li class="toc-indent"><a href="#d-fi-de-curiosit-n-11">🛠️ Défi de curiosité n°11</a></li>
+          </ul>
+        </div>
+      </div>
+    </main>
+  </div>
+
+  <!-- Scripts -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.8.0/highlight.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/mermaid/dist/mermaid.min.js"></script>
+
+  <script>
+    // Initialize Highlight.js
+    hljs.highlightAll();
+
+    // Initialize Mermaid
+    mermaid.initialize({
+      theme: 'dark',
+      startOnLoad: false,
+      securityLevel: 'loose'
+    });
+
+    document.addEventListener("DOMContentLoaded", function () {
+      // 1. Convert Markdown pre-code blocks for Mermaid to actual divs
+      document.querySelectorAll("pre code.language-mermaid").forEach(function (el) {
+        const pre = el.parentElement;
+        const div = document.createElement("div");
+        div.className = "mermaid";
+        div.textContent = el.textContent;
+        pre.parentElement.replaceChild(div, pre);
+      });
+
+      // Run Mermaid rendering
+      mermaid.run();
+
+      // 2. Reading Progress Bar Logic
+      window.addEventListener('scroll', function () {
+        const winScroll = document.documentElement.scrollTop || document.body.scrollTop;
+        const height = document.documentElement.scrollHeight - document.documentElement.clientHeight;
+        const scrolled = (winScroll / height) * 100;
+        document.getElementById("reading-progress").style.width = scrolled + "%";
+      });
+
+
+    });
+  </script>
+</body>
+
+</html>

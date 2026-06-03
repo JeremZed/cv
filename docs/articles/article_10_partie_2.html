@@ -1,0 +1,292 @@
+<!DOCTYPE html>
+<html lang="fr">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>De la Similarité Pixel à la Sémantique Latente — Partie 2 : Le Vecteur de Concept (q) | JEPA-Lab Explorer
+    </title>
+
+    <!-- Stylesheets -->
+    <link rel="stylesheet" href="../css/style.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.8.0/styles/github-dark.min.css">
+
+    <!-- Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+
+    <!-- MathJax Configuration -->
+    <script>
+        window.MathJax = {
+            tex: {
+                inlineMath: [['$', '$'], ['\\(', '\\)']],
+                displayMath: [['$$', '$$'], ['\\[', '\\]']],
+                processEscapes: true
+            },
+            options: {
+                ignoreHtmlClass: 'tex2jax_ignore',
+                processHtmlClass: 'tex2jax_process'
+            }
+        };
+    </script>
+    <script id="MathJax-script" async src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
+    <script src="../js/sidebar.js" defer></script>
+</head>
+
+<body class="tex2jax_process">
+
+    <!-- Reading Progress Bar -->
+    <div class="progress-bar-container">
+        <div class="progress-bar" id="reading-progress"></div>
+    </div>
+
+    <div class="app-container">
+
+        <!-- Mobile Navigation Header -->
+        <header class="mobile-header">
+            <button class="menu-toggle" id="menu-open-btn">
+                <svg width="24" height="24" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" d="M4 6h16M4 12h16M4 18h16" />
+                </svg>
+            </button>
+            <div class="sidebar-title">JEPA-Lab</div>
+            <div></div> <!-- spacer -->
+        </header>
+
+        <!-- Persistent Sidebar -->
+        <aside class="sidebar" id="app-sidebar"></aside>
+
+        <!-- Main Content -->
+        <main class="main-content">
+            <div class="article-layout">
+                <article class="article-container">
+                    <header class="article-header">
+                        <span class="article-category unsupervised-search-10-12">Série Recherche Visuelle</span>
+                        <h1>De la Similarité Pixel à la Sémantique Latente — Partie 2 : Le Vecteur de Concept (q)</h1>
+                        <p class="article-subtitle">Comment l'IA comprend les objets sans labels</p>
+                    </header>
+
+                    <div class="article-body">
+                        <blockquote>
+                            <p><strong>Série Recherche Visuelle &amp; Localisation d'Objets sans Supervision</strong>
+                                <em>Dans cette deuxième partie, nous expliquons comment un Vision Transformer (ViT)
+                                    pré-entraîné avec la méthode JEPA convertit une simple image recadrée (crop de
+                                    requête) en une représentation mathématique universelle de l'objet : le Vecteur de
+                                    Concept $q$. Nous verrons comment le mécanisme de Self-Attention propage le contexte
+                                    entre les patches, et comment une simple moyenne globale permet d'extraire la
+                                    substantifique moelle d'un objet en filtrant le bruit haute fréquence.</em>
+                            </p>
+                        </blockquote>
+                        <hr />
+                        <h2 id="tape-1-le-crop-de-requ-te">✂️ Étape 1 : Le "Crop" de Requête</h2>
+                        <p>Pour rechercher un objet dans une base de données sans étiquettes (par exemple, localiser
+                            toutes les roues de voitures dans une série d'images de rue), la première étape consiste à
+                            fournir un exemple visuel à l'algorithme. C'est le <strong>crop de requête</strong> : une
+                            sous-image découpée contenant l'objet d'intérêt.</p>
+                        <p>Cette sous-image de taille variable est d'abord redimensionnée aux dimensions attendues par
+                            notre Vision Transformer (ViT). Comme toute image ingérée par un ViT, elle est ensuite
+                            découpée en une grille de petits carrés appelés <strong>patches</strong> (par exemple, des
+                            patches de $16\times16$ pixels).</p>
+                        <pre><code class="language-text">       Crop Requête (ex: Roue)            Découpage en Patches (Tokens)
+       ┌─────────────────────┐               ┌─────┬─────┬─────┬─────┐
+       │         ███         │               │     │  █  │  █  │     │  -&gt; t_1
+       │       ██   ██       │               ├─────┼─────┼─────┼─────┤
+       │       ██   ██       │     ───&gt;      │  █  │     │     │  █  │  -&gt; t_2
+       │         ███         │               ├─────┼─────┼─────┼─────┤
+       └─────────────────────┘               │  █  │     │     │  █  │  -&gt; ...
+                                             ├─────┼─────┼─────┼─────┤
+                                             │     │  █  │  █  │     │  -&gt; t_N
+                                             └─────┴─────┴─────┴─────┘
+</code></pre>
+                        <p>Chaque patch est projeté linéairement pour former un vecteur de départ, appelé
+                            <strong>token</strong> (jeton de patch). À ce stade, chaque jeton ne contient que des
+                            informations très locales et isolées (par exemple, "un morceau de courbe noire"). Il n'a
+                            aucune idée de l'image globale.</p>
+                        <hr />
+                        <h2 id="tape-2-le-m-canisme-de-self-attention-le-tisseur-de-contexte">🕸️ Étape 2 : Le mécanisme
+                            de Self-Attention : Le tisseur de contexte</h2>
+                        <p>C'est ici qu'intervient la magie du <strong>Vision Transformer (ViT)</strong> pré-entraîné
+                            par JEPA. Contrairement aux réseaux de neurones convolutifs (CNN) où l'information ne se
+                            propage que très localement couche après couche, le mécanisme de
+                            <strong>Self-Attention</strong> (Auto-Attention) du ViT permet à tous les patches de
+                            communiquer directement entre eux, dès la première couche.</p>
+                        <p>Mathématiquement, pour chaque patch, l'attention calcule une relation entre sa requête ($Q$),
+                            les clés de tous les autres patches ($K$), et pondère leurs valeurs ($V$) :</p>
+                        <p>$$\text{Attention}(Q, K, V) = \text{softmax}\left(\frac{QK^T}{\sqrt{d_k}}\right)V$$</p>
+                        <h3 id="l-analogie-du-puzzle">💡 L'analogie du Puzzle</h3>
+                        <p>Imaginez que vous essayiez de reconstituer un puzzle de 100 pièces.
+                        <ul>
+                            <li>Un modèle classique regarde chaque pièce dans son coin, essayant de deviner ce qu'elle
+                                représente à partir de sa seule texture locale.</li>
+                            <li>Le mécanisme de <strong>Self-Attention</strong> est comparable à une réunion où toutes
+                                les pièces discuteraient ensemble en même temps. La pièce $A$ ("caoutchouc noir courbé")
+                                demande à la pièce $B$ ("jante en métal argenté") : <em>"Es-tu située à ma droite
+                                    ?"</em>. $B$ répond positivement. Ensemble, elles communiquent avec les autres
+                                pièces courbées et en déduisent : <em>"Nous formons une structure circulaire fermée.
+                                    Nous sommes une roue."</em></li>
+                        </ul>
+                        </p>
+                        <p>Grâce à ce tissage de relations, après quelques couches d'attention, <strong>chaque vecteur
+                                de patch est contextualisé</strong>. Le vecteur du patch contenant "du caoutchouc noir"
+                            a intégré la présence des patches voisins de "jante en métal" et "d'asphalte". Il ne code
+                            plus un simple motif de couleur, mais sa participation au concept global de "roue".</p>
+                        <hr />
+                        <h2 id="tape-3-le-vecteur-de-concept-q-comme-moyenne-globale">📊 Étape 3 : Le Vecteur de Concept
+                            ($q$) comme Moyenne Globale</h2>
+                        <p>Une fois que l'image de requête a traversé l'encodeur ViT
+                            (<code>model.context_encoder</code>), nous obtenons une liste de $N$ vecteurs contextualisés
+                            (un par patch) :</p>
+                        <p>$$Z = \{z_1, z_2, \dots, z_N\} \quad \text{où } z_i \in \mathbb{R}^D$$</p>
+                        <p>Chaque $z_i$ exprime la sémantique de l'objet vue depuis la perspective du patch $i$. Pour
+                            obtenir une représentation mathématique unique et stable de l'ensemble de l'objet, on
+                            effectue un <strong>Global Average Pooling</strong> (une moyenne arithmétique simple de tous
+                            les jetons de patches) :</p>
+                        <p>$$q = \frac{1}{N} \sum_{i=1}^N z_i$$</p>
+                        <p>Ce vecteur résultant $q \in \mathbb{R}^D$ est notre <strong>Vecteur de Concept</strong>.</p>
+                        <hr />
+                        <h2 id="pourquoi-la-moyenne-filtre-t-elle-le-bruit-haute-fr-quence">🛡️ Pourquoi la moyenne
+                            filtre-t-elle le bruit haute fréquence ?</h2>
+                        <p>Pourquoi faire une simple moyenne fonctionne-t-il si bien ? En traitement du signal, faire la
+                            moyenne de plusieurs mesures permet de réduire le bruit aléatoire. Il en va de même dans
+                            l'espace sémantique latent :</p>
+                        <ol>
+                            <li><strong>Annulation du bruit haute fréquence</strong> : Les détails très spécifiques de
+                                texture locale (le grain du pneu, une poussière sur la jante, un reflet lumineux
+                                parasite sur un pixel précis) varient de manière chaotique d'un patch à l'autre. Lors de
+                                la sommation, ces variations locales (haute fréquence) s'annulent mutuellement.</li>
+                            <li><strong>Amplification du signal sémantique (basse fréquence)</strong> : Le point commun
+                                partagé par tous ces patches est leur appartenance à la structure globale de l'objet. Ce
+                                signal sémantique persistant (la structure géométrique circulaire, le contraste
+                                roue/sol) est renforcé par la moyenne.</li>
+                        </ol>
+                        <p>Le vecteur $q$ qui en résulte capture ainsi la structure abstraite et robuste de l'objet, le
+                            rendant insensible aux micro-variations.</p>
+                        <hr />
+                        <h2 id="dans-les-entrailles-du-code-l-extraction-de-q">🛠️ Dans les entrailles du code :
+                            L'extraction de $q$</h2>
+                        <p>Voici comment cette extraction se traduit concrètement en PyTorch dans notre pipeline de
+                            recherche d'objets :</p>
+                        <pre><code class="language-python">import torch
+import torch.nn.functional as F
+
+def extract_concept_vector(model, crop_image):
+    &quot;&quot;&quot;
+    Extrait le vecteur de concept q à partir d'une image de requête (crop).
+
+    Arguments:
+        model: Le modèle JEPA pré-entraîné (contenant le context_encoder)
+        crop_image: Tenseur PyTorch de la requête de forme (1, 3, H, W)
+    &quot;&quot;&quot;
+    model.eval()
+    with torch.no_grad():
+        # 1. Passage dans l'encodeur de contexte du ViT
+        # Renvoie les embeddings de patches : (1, N_patches, D)
+        patch_embeddings = model.context_encoder(crop_image)
+
+        # 2. Moyenne globale sur la dimension des patches (dim=1)
+        # Renvoie un vecteur unique : (1, D)
+        q = patch_embeddings.mean(dim=1)
+
+        # 3. Normalisation L2 (essentielle pour la similarité cosinus)
+        q = F.normalize(q, p=2, dim=-1)
+
+    return q
+</code></pre>
+                        <hr />
+                        <h2 id="conclusion-amp-transition">🧠 Conclusion &amp; Transition</h2>
+                        <p>En combinant le mécanisme de <strong>Self-Attention</strong> (qui contextualise les patches)
+                            et la <strong>moyenne globale</strong> (qui élimine les détails superflus), nous avons
+                            obtenu un vecteur unique $q$ qui encapsule proprement le concept de l'objet recherché.</p>
+                        <p>Mais une fois ce vecteur de concept $q$ en main, comment l'utiliser pour scanner une nouvelle
+                            image test et y repérer nos objets ? Comment mesure-t-on la proximité entre $q$ et les
+                            patches de l'image cible ?</p>
+                        <p>C'est ce que nous allons explorer dans la troisième partie de notre étude : <strong>L'Espace
+                                Latent et l'Alignement Vectoriel</strong> !</p>
+                        <hr />
+                        <h3 id="d-fi-de-curiosit-n-2">🛠️ Défi de curiosité n°2</h3>
+                        <p>Certains modèles de Vision Transformers utilisent un jeton spécial appelé <code>[CLS]</code>
+                            (Class Token), placé au début de la séquence, pour capturer la représentation globale de
+                            l'image lors des tâches de classification supervisée.</p>
+                        <p><em>D'après vous, pourquoi dans le cas de la recherche d'objets sans supervision (Zero-Shot)
+                                sur des crops de taille variable, est-il souvent plus robuste de calculer la moyenne des
+                                embeddings de patches (<code>mean(dim=1)</code>) plutôt que de se fier uniquement au
+                                jeton <code>[CLS]</code> ?</em></p>
+                    </div>
+
+                    <div class="article-footer-nav">
+                        <a href="article_10_partie_1.html" class="footer-nav-link prev">
+                            <span class="footer-nav-label">← Précédent</span>
+                            <span class="footer-nav-title">De la Similarité Pixel à la Sémantique Latente - Partie
+                                1</span>
+                        </a>
+                        <a href="article_10_partie_3.html" class="footer-nav-link next">
+                            <span class="footer-nav-label">Suivant →</span>
+                            <span class="footer-nav-title">De la Similarité Pixel à la Sémantique Latente - Partie
+                                3</span>
+                        </a>
+                    </div>
+                </article>
+
+                <div class="toc-sidebar">
+                    <div class="toc-title">Sur cette page</div>
+                    <ul class="toc-list">
+                        <li class=""><a href="#tape-1-le-crop-de-requ-te">✂️ Étape 1 : Le "Crop" de Requête</a></li>
+                        <li class=""><a href="#tape-2-le-m-canisme-de-self-attention-le-tisseur-de-contexte">🕸️ Étape 2
+                                : Le mécanisme de Self-Attention : Le tisseur de contexte</a></li>
+                        <li class="toc-indent"><a href="#l-analogie-du-puzzle">💡 L'analogie du Puzzle</a></li>
+                        <li class=""><a href="#tape-3-le-vecteur-de-concept-q-comme-moyenne-globale">📊 Étape 3 : Le
+                                Vecteur de Concept ($q$) comme Moyenne Globale</a></li>
+                        <li class=""><a href="#pourquoi-la-moyenne-filtre-t-elle-le-bruit-haute-fr-quence">🛡️ Pourquoi
+                                la moyenne filtre-t-elle le bruit haute fréquence ?</a></li>
+                        <li class=""><a href="#dans-les-entrailles-du-code-l-extraction-de-q">🛠️ Dans les entrailles du
+                                code : L'extraction de $q$</a></li>
+                        <li class=""><a href="#conclusion-amp-transition">🧠 Conclusion &amp; Transition</a></li>
+                        <li class="toc-indent"><a href="#d-fi-de-curiosit-n-2">🛠️ Défi de curiosité n°2</a></li>
+                    </ul>
+                </div>
+            </div>
+        </main>
+    </div>
+
+    <!-- Scripts -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.8.0/highlight.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/mermaid/dist/mermaid.min.js"></script>
+
+    <script>
+        // Initialize Highlight.js
+        hljs.highlightAll();
+
+        // Initialize Mermaid
+        mermaid.initialize({
+            theme: 'dark',
+            startOnLoad: false,
+            securityLevel: 'loose'
+        });
+
+        document.addEventListener("DOMContentLoaded", function () {
+            // 1. Convert Markdown pre-code blocks for Mermaid to actual divs
+            document.querySelectorAll("pre code.language-mermaid").forEach(function (el) {
+                const pre = el.parentElement;
+                const div = document.createElement("div");
+                div.className = "mermaid";
+                div.textContent = el.textContent;
+                pre.parentElement.replaceChild(div, pre);
+            });
+
+            // Run Mermaid rendering
+            mermaid.run();
+
+            // 2. Reading Progress Bar Logic
+            window.addEventListener('scroll', function () {
+                const winScroll = document.documentElement.scrollTop || document.body.scrollTop;
+                const height = document.documentElement.scrollHeight - document.documentElement.clientHeight;
+                const scrolled = (winScroll / height) * 100;
+                document.getElementById("reading-progress").style.width = scrolled + "%";
+            });
+
+
+        });
+    </script>
+</body>
+
+</html>
