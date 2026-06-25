@@ -469,19 +469,19 @@
                 fond)</h3>
               <p>C'est la préparation de votre base de connaissances.</p>
               <pre><code class="language-mermaid">graph LR
-    Docs[Documents bruts: PDF, Word, TXT] --&gt; Parse[1. Parser: Extraction du texte brut]
-    Parse --&gt; Chunk[2. Chunking: Découpage en segments cohérents + Overlap]
-    Chunk --&gt; Embed[3. Embedding: Transformation des segments en vecteurs]
-    Embed --&gt; Index[4. Indexation: Stockage dans la Base Vectorielle]
+    Docs["Documents bruts:<br>PDF, Word, TXT"] --> Parse["1. Parser:<br>Extraction du texte brut"]
+    Parse --> Chunk["2. Chunking:<br>Découpage en segments<br>cohérents + Overlap"]
+    Chunk --> Embed["3. Embedding:<br>Transformation des<br>segments en vecteurs"]
+    Embed --> Index["4. Indexation:<br>Stockage dans la<br>Base Vectorielle"]
 </code></pre>
               <h3 id="phase-b-la-requ-te-temps-r-el">Phase B : La Requête (Temps réel)</h3>
               <p>C'est l'interaction de l'utilisateur avec le système.</p>
               <pre><code class="language-mermaid">graph LR
-    Query[Question de l'utilisateur] --&gt; EmbedQuery[1. Vectorisation de la question]
-    EmbedQuery --&gt; Search[2. Recherche de similitude Cosinus dans la DB]
-    Search --&gt; Chunks[3. Récupération des K meilleurs Chunks]
-    Chunks --&gt; Prompt[4. Contextualisation: Construction du prompt enrichi]
-    Prompt --&gt; LLM[5. Génération: Le LLM formule la réponse finale]
+    Query["Question de<br>l'utilisateur"] --> EmbedQuery["1. Vectorisation<br>de la question"]
+    EmbedQuery --> Search["2. Recherche de<br>similitude Cosinus<br>dans la DB"]
+    Search --> Chunks["3. Récupération des<br>K meilleurs Chunks"]
+    Chunks --> Prompt["4. Contextualisation:<br>Construction du<br>prompt enrichi"]
+    Prompt --> LLM["5. Génération:<br>Le LLM formule la<br>réponse finale"]
 </code></pre>
               <hr />
               <h2 id="synth-se-rag-vs-fine-tuning">💡 Synthèse : RAG vs Fine-Tuning</h2>
