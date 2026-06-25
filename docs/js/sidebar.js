@@ -85,6 +85,12 @@ const MENU_CONFIG = [
             { text: "12.6 L'Auto-Calibration Dimensionnelle", link: "articles/article_12_partie_6.html" }
         ]
     },
+    {
+        title: "Série RAG",
+        items: [
+            { text: "Module 1 : Fondations du RAG", link: "articles/fondations_theoriques.html" }
+        ]
+    },
 
     {
         title: "Crédits",

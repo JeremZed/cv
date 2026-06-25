@@ -18,6 +18,8 @@
     /* Urgent alert red */
     --accent-amber: #f59e0b;
     /* Warning amber */
+    --accent-pink: #ec4899;
+    /* RAG pink */
 
     --font-sans: 'Inter', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
     --font-headers: 'Outfit', sans-serif;
@@ -391,6 +393,12 @@ img {
     border: 1px solid rgba(59, 130, 246, 0.3);
 }
 
+.article-category.rag {
+    background-color: rgba(236, 72, 153, 0.15);
+    color: var(--accent-pink);
+    border: 1px solid rgba(236, 72, 153, 0.3);
+}
+
 
 h1 {
     font-family: var(--font-headers);
@@ -678,14 +686,17 @@ pre:not([class]) {
     border-radius: 12px;
     padding: 28px;
     margin: 32px 0;
-    display: flex;
-    justify-content: center;
+    display: block;
+    overflow-x: auto;
     box-shadow: var(--shadow-lg);
 }
 
 /* Custom premium overrides for Mermaid SVG diagrams */
 .mermaid svg {
-    max-width: 100% !important;
+    display: block;
+    margin: 0 auto;
+    max-width: 100%;
+    min-width: 600px; /* Garantit la lisibilité du texte même sur mobile ou en zoom */
     height: auto !important;
 }
 
@@ -735,7 +746,25 @@ pre:not([class]) {
 .mermaid .edgeLabel span {
     color: #94a3b8 !important; /* Muted silver text */
     fill: #94a3b8 !important;
-    font-size: 13px !important;
+}
+
+/* --- Math Formulas Scrollable on Mobile --- */
+.math-container {
+    overflow-x: auto;
+    overflow-y: hidden;
+    max-width: 100%;
+    padding: 12px 0;
+    margin: 12px 0;
+    -webkit-overflow-scrolling: touch;
+}
+
+.math-container::-webkit-scrollbar {
+    height: 4px;
+}
+
+.math-container::-webkit-scrollbar-thumb {
+    background-color: var(--border-color);
+    border-radius: 4px;
 }
 
 /* --- Footer Navigation --- */
@@ -933,6 +962,11 @@ pre:not([class]) {
 .card-badge.unsupervised-search-10-12 {
     background-color: rgba(59, 130, 246, 0.1);
     color: var(--accent-blue);
+}
+
+.card-badge.rag {
+    background-color: rgba(236, 72, 153, 0.1);
+    color: var(--accent-pink);
 }
 
 .card-num {

@@ -1,0 +1,622 @@
+<!DOCTYPE html>
+<html lang="fr">
+
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Module 1 : Fondations du RAG | JEPA-Lab Explorer</title>
+
+  <!-- Stylesheets -->
+  <link rel="stylesheet" href="../css/style.css">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.8.0/styles/github-dark.min.css">
+
+  <!-- Fonts -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+
+  <!-- MathJax Configuration -->
+  <script>
+    window.MathJax = {
+      tex: {
+        inlineMath: [['$', '$'], ['\\(', '\\)']],
+        displayMath: [['$$', '$$'], ['\\[', '\\]']],
+        processEscapes: true
+      },
+      options: {
+        ignoreHtmlClass: 'tex2jax_ignore',
+        processHtmlClass: 'tex2jax_process'
+      }
+    };
+  </script>
+  <script id="MathJax-script" async src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
+  <script src="../js/sidebar.js" defer></script>
+</head>
+
+<body class="tex2jax_process">
+
+  <!-- Reading Progress Bar -->
+  <div class="progress-bar-container">
+    <div class="progress-bar" id="reading-progress"></div>
+  </div>
+
+  <div class="app-container">
+
+    <!-- Mobile Navigation Header -->
+    <header class="mobile-header">
+      <button class="menu-toggle" id="menu-open-btn">
+        <svg width="24" height="24" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" d="M4 6h16M4 12h16M4 18h16" />
+        </svg>
+      </button>
+      <div class="sidebar-title">JEPA-Lab</div>
+      <div></div> <!-- spacer -->
+    </header>
+
+    <!-- Persistent Sidebar -->
+    <aside class="sidebar" id="app-sidebar"></aside>
+
+    <!-- Main Content -->
+    <main class="main-content">
+      <div class="article-layout">
+        <article class="article-container">
+          <header class="article-header">
+            <span class="article-category rag">Série RAG</span>
+            <h1>Module 1 : Fondations du RAG</h1>
+            <p class="article-subtitle">Présentation théorique et lexique détaillé</p>
+          </header>
+
+          <div class="article-body">
+            <blockquote>
+              <p><strong>Série RAG — Fondations du RAG</strong>
+                <em>Dans cette première partie, nous explorons les concepts théoriques du RAG (Retrieval-Augmented
+                  Generation) afin de comprendre comment dépasser les limites intrinsèques des LLMs (connaissances
+                  figées, hallucinations, données privées). Nous posons les bases mathématiques et sémantiques
+                  indispensables pour appréhender la recherche vectorielle, le découpage intelligent des données et les
+                  architectures de production.</em>
+              </p>
+            </blockquote>
+            <hr />
+            <h2 id="1-le-probl-me-d-origine-et-la-solution-rag">🧠 1. Le Problème d'Origine et la Solution RAG</h2>
+            <p>Les grands modèles de langage (LLMs) excellent dans la manipulation de la langue et le raisonnement
+              logique, mais ils font face à des limites fondamentales :</p>
+            <ol>
+              <li><strong>La Limite Temporelle (Knowledge Cutoff)</strong> : Les modèles ne connaissent que les
+                informations présentes dans leurs données d'entraînement à une date T. Ils ignorent l'actualité récente.
+              </li>
+              <li><strong>L'Absence de Données Privées</strong> : Un modèle public (comme GPT-4 ou Claude) ne connaît
+                pas vos rapports internes, vos bases de données ou votre code propriétaire.</li>
+              <li><strong>Les Hallucinations</strong> : En l'absence d'informations précises, un LLM tend à générer des
+                réponses plausibles mais factuellement fausses.</li>
+            </ol>
+            <h3 id="la-solution-le-rag">La Solution : Le RAG</h3>
+            <p>Plutôt que de modifier le cerveau du modèle (ce qui est coûteux et complexe), le RAG lui fournit un
+              <strong>livre ouvert</strong> contenant les documents pertinents au moment exact où on lui pose une
+              question. Le modèle n'a plus besoin de "se souvenir" de l'information ; il lui suffit de <strong>lire le
+                contexte fourni et de le synthétiser</strong>.
+            </p>
+            <pre><code class="language-mermaid">sequenceDiagram
+    autonumber
+    actor User as Utilisateur
+    participant API as RAG Orchestrator
+    participant DB as Vector DB
+    participant LLM as LLM (Generator)
+
+    User->>API: Soumet une question ("Comment...")
+    API->>API: Convertit la question en vecteur (Embedding)
+    API->>DB: Recherche les K morceaux de texte les plus proches
+    DB-->>API: Retourne les K documents / chunks pertinents
+    API->>API: Construit le Prompt (Question + Chunks injectés)
+    API->>LLM: Envoie le Prompt enrichi
+    LLM-->>API: Génère la réponse basée uniquement sur les faits fournis
+    API-->>User: Retourne la réponse finale sourcée
+</code></pre>
+            <hr />
+            <h2 id="2-lexique-complet-du-rag">📖 2. Lexique Complet du RAG</h2>
+            <p>Pour concevoir un RAG, il est indispensable de maîtriser le vocabulaire technique suivant :</p>
+            <h3 id="a-les-donn-es-et-leur-pr-paration">A. Les Données et leur Préparation</h3>
+            <ul>
+              <li><strong>Document Parsing (Extraction)</strong> : L'action de convertir un fichier dans son format
+                d'origine (PDF, Word, HTML, Image) en texte brut exploitable par la machine.</li>
+              <li><strong>Chunk (Morceau / Segment)</strong> : La plus petite unité de texte découpée à partir d'un
+                document. Un document de 10 pages est découpé en plusieurs dizaines de chunks afin de cibler précisément
+                l'information.</li>
+              <li><strong>Chunking Strategy (Stratégie de découpage)</strong> : Algorithme utilisé pour découper le
+                texte. Il existe plusieurs stratégies clés :</li>
+              <li><em>Découpage Lexical (Fixed-size)</em> : Découpage strict par nombre de caractères ou de tokens (ex:
+                tous les 500 caractères).</li>
+              <li><em>Découpage Récursif (Recursive Character)</em> : Algorithme recommandé par défaut. Il tente de
+                diviser le texte en utilisant une liste ordonnée de séparateurs (paragraphes <code>\n\n</code>, sauts de
+                ligne <code>\n</code>, espaces <code></code>), de sorte que le découpage respecte la structure naturelle
+                des phrases et évite de les couper arbitrairement en plein milieu d'un mot.</li>
+              <li><em>Découpage Sémantique</em> : Calcule la ressemblance vectorielle (embedding) entre phrases
+                successives. Une coupure (frontière de chunk) est créée lorsque la transition sémantique entre deux
+                phrases dépasse un certain seuil.</li>
+              <li><strong>Overlap (Chevauchement)</strong> : Quantité de texte (caractères ou tokens) dupliquée entre un
+                chunk et le suivant. Cette notion est cruciale pour <strong>conserver le contexte</strong>.</li>
+            </ul>
+            <hr />
+            <h4>💡 Exemple Concret de Découpage et Chevauchement</h4>
+            <p>Soit le texte d'origine suivant (160 caractères) :</p>
+            <blockquote>
+              <p><em>"Le RAG est une technique puissante. Elle permet d'optimiser les réponses d'un LLM en y injectant
+                  des données. De ce fait, on réduit fortement les hallucinations."</em></p>
+            </blockquote>
+            <p>Supposons que nous voulons des <strong>chunks d'environ 60 caractères</strong>.</p>
+            <h5>❌ Scénario 1 : Sans Overlap (Taille = 60, Chevauchement = 0)</h5>
+            <ul>
+              <li><strong>Chunk 1</strong> : <code>"Le RAG est une technique puissante. Elle permet d'optimiser "</code>
+                (60 car.)</li>
+              <li><strong>Chunk 2</strong> : <code>"les réponses d'un LLM en y injectant des données. De ce fai"</code>
+                (60 car.)</li>
+              <li><strong>Chunk 3</strong> : <code>"t, on réduit fortement les hallucinations."</code> (40 car.)</li>
+            </ul>
+            <div class="callout callout-warning">
+              <div class="callout-title"><svg width="18" height="18" fill="none" stroke="currentColor" stroke-width="2"
+                  viewBox="0 0 24 24" style="flex-shrink:0;">
+                  <path stroke-linecap="round" stroke-linejoin="round"
+                    d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+                </svg>Attention</div>
+              <p><strong>Le problème :</strong> La phrase <em>"Elle permet d'optimiser les réponses..."</em> est coupée
+                en deux entre le Chunk 1 et le Chunk 2. Le terme <em>"De ce fait"</em> est également tronqué. Si
+                l'utilisateur pose la question <em>"Comment optimiser les réponses d'un LLM ?"</em>, aucun des chunks ne
+                contient la phrase complète, ce qui dégrade la qualité des embeddings et de la génération.</p>
+            </div>
+            <h5>🟩 Scénario 2 : Avec Overlap (Taille = 60, Chevauchement = 20)</h5>
+            <p>Ici, les 20 derniers caractères de chaque chunk sont répétés au début du chunk suivant :</p>
+            <ul>
+              <li><strong>Chunk 1</strong> : <code>"Le RAG est une technique puissante. Elle permet d'optimiser "</code>
+              </li>
+              <li><strong>Chunk 2</strong> :
+                <code>"[Elle permet d'optimiser] les réponses d'un LLM en y injectant des données."</code> <em>(Les mots
+                  entre crochets proviennent du Chunk 1)</em>
+              </li>
+              <li><strong>Chunk 3</strong> :
+                <code>"[ectant des données.] De ce fait, on réduit fortement les hallucinations."</code> <em>(Les mots
+                  entre crochets proviennent du Chunk 2)</em>
+              </li>
+            </ul>
+            <div class="callout callout-tip">
+              <div class="callout-title"><svg width="18" height="18" fill="none" stroke="currentColor" stroke-width="2"
+                  viewBox="0 0 24 24" style="flex-shrink:0;">
+                  <path stroke-linecap="round" stroke-linejoin="round"
+                    d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z" />
+                </svg>Astuce</div>
+              <p><strong>Le bénéfice :</strong> L'overlap garantit que les concepts clés situés aux frontières de
+                découpage ne soient pas perdus. Lors de la recherche vectorielle, le Chunk 2 sera extrait avec une
+                pertinence maximale pour la question sur l'optimisation des LLMs.</p>
+            </div>
+            <hr />
+            <h3 id="a-1-les-strat-gies-avanc-es-le-chunking-enrichi">A.1. Les Stratégies Avancées : Le Chunking Enrichi
+            </h3>
+            <p>Dans les systèmes de production réels, découper simplement un document par blocs de taille fixe avec un
+              overlap n'est souvent pas suffisant. On risque de faire face au <strong>problème de l'asymétrie
+                sémantique</strong> : la question posée par l'utilisateur ne ressemble pas du tout à la formulation
+              technique du document.</p>
+            <p>Pour résoudre ce problème, on utilise des techniques de <strong>chunking enrichi (ou "Metadata/Document
+                Expansion")</strong>.</p>
+            <h4>🙋‍♂️ 1. Le Format Question / Réponse (Q&amp;A Generation)</h4>
+            <p>Si le but principal du RAG est de répondre à des questions utilisateur, il est judicieux de transformer
+              le texte brut en paires Question/Réponse <strong>lors de l'ingestion</strong>, à l'aide d'un LLM
+              hors-ligne (ex: Llama3 ou GPT-4o).</p>
+            <ul>
+              <li><strong>Pourquoi ?</strong> Une question posée par un utilisateur (ex: <em>"Comment faire
+                  pour..."</em>) ressemble beaucoup plus sémantiquement (dans l'espace vectoriel) à une autre question
+                générée qu'à un long paragraphe explicatif aride.</li>
+              <li><strong>Le Processus :</strong>
+                <code>[Paragraphe Brut] ──► [LLM Ingestion] ──► [Génération de 3 Questions associées] ──► [Embedding
+                  des Questions]</code>
+              </li>
+              <li><strong>Exemple :</strong>
+                <ul>
+                  <li><em>Texte d'origine (dans le manuel)</em> : <em>"Pour réinitialiser le routeur X-200,
+                      maintenez
+                      enfoncé le bouton reset à l'arrière pendant 10 secondes jusqu'à ce que la LED clignote en
+                      orange."</em></li>
+
+
+                  <li><em>Questions générées associées</em> :<ol>
+                      <li><em>"Comment réinitialiser mon routeur X-200 ?"</em></li>
+                      <li><em>"Que faire si le routeur X-200 ne répond plus ?"</em></li>
+                      <li><em>"Que signifie la LED orange clignotante sur le X-200 ?"</em></li>
+                    </ol>
+                  </li>
+                  <li>
+                    <p><em>Stockage en DB (Le mécanisme Parent-Child)</em> :
+                      On vectorise uniquement le texte des questions générées (ce qui crée plusieurs points/vecteurs
+                      "enfants" distincts en base). Le vecteur en lui-même ne contient que des coordonnées géométriques.
+                      C'est l'<strong>occurrence en base (Record / Point)</strong> qui dispose d'une partie appelée
+                      <strong>Payload (ou Métadonnées)</strong>. Dans ces métadonnées, on y insère :
+                    </p>
+                    <ul>
+                      <li>L'identifiant unique du paragraphe d'origine (<code>parent_id</code>).</li>
+                      <li>Ou directement la copie complète du texte d'origine (<code>parent_text</code>).</li>
+                    </ul>
+                    <div class="callout callout-important">
+                      <div class="callout-title"><svg width="18" height="18" fill="none" stroke="currentColor"
+                          stroke-width="2" viewBox="0 0 24 24" style="flex-shrink:0;">
+                          <path stroke-linecap="round" stroke-linejoin="round"
+                            d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+                        </svg>Important</div>
+                      <p><strong>Comment se fait la reconstruction ? (Le rôle de l'Orchestrateur)</strong>
+                        Les bases de données vectorielles ne font pas de "Jointure" relationnelle magique. C'est le code
+                        de
+                        l'<strong>orchestrateur (développé par vos soins, en Python par exemple)</strong> qui gère la
+                        reconstruction :
+                      <ul>
+                        <li><strong>Option A (Copie directe)</strong> : Si vous avez stocké le
+                          <code>parent_text</code>
+                          dans
+                          le payload de la question enfant, la base de données renvoie le point contenant ce texte. Le
+                          développeur n'a qu'à extraire le champ <code>parent_text</code> du résultat de la requête
+                          pour
+                          l'injecter dans le prompt du LLM.
+                        </li>
+                        <li><strong>Option B (Référence par ID)</strong> : Si vous n'avez stocké que le
+                          <code>parent_id</code>
+                          (pour économiser de l'espace en base vectorielle), l'orchestrateur reçoit
+                          <code>{"parent_id": 42}</code>. Le développeur doit alors écrire une deuxième ligne de code
+                          dans sa fonction de recherche pour exécuter une requête de récupération
+                          (<code>retrieve(id=42)</code>) afin d'obtenir le texte d'origine (depuis la base vectorielle
+                          ou une base de données SQL/NoSQL
+                          externe).
+                        </li>
+                      </ul>
+                    </div>
+                  </li>
+                </ul>
+              </li>
+
+              <hr />
+              <h4>🛠️ 2. Le Cas Pratique : Diagnostic Technique (Symptômes ──► Causes ──► Procédures)</h4>
+              <p>Dans un système d'assistance (support informatique, dépannage automobile, diagnostic médical),
+                l'utilisateur exprime un <strong>symptôme</strong> ("ma voiture fait un sifflement aigu", "l'écran reste
+                noir"), alors que la documentation technique décrit une <strong>procédure de réparation</strong>
+                ("Remplacement de l'alternateur", "Vérification des condensateurs d'alimentation").</p>
+              <p>Si on fait du chunking classique, le sifflement n'aura pas une grande similarité vectorielle avec la
+                procédure de réparation de l'alternateur.</p>
+              <h5>La Solution : Le Chunk Structuré (Enrichi)</h5>
+              <p>Au lieu d'insérer le manuel de réparation brut, on utilise un LLM ou des scripts pour découper et
+                structurer chaque fiche d'intervention sous forme de <strong>métadonnées enrichies</strong> :</p>
+              <pre><code class="language-json">{
+  &quot;titre_procedure&quot;: &quot;Remplacement de la courroie d'alternateur&quot;,
+  &quot;symptomes_associes&quot;: [
+    &quot;Sifflement ou couinement aigu provenant du moteur&quot;,
+    &quot;Voyant de batterie allumé sur le tableau de bord&quot;,
+    &quot;Bruit métallique à l'accélération&quot;
+  ],
+  &quot;cause_probable&quot;: &quot;Usure ou perte de tension de la courroie d'accessoires.&quot;,
+  &quot;procedure_resolution&quot;: [
+    &quot;1. Couper le contact et laisser refroidir le moteur.&quot;,
+    &quot;2. Desserrer le galet tendeur.&quot;,
+    &quot;3. Retirer la courroie usagée...&quot;
+  ]
+}
+</code></pre>
+              <h5>🔍 Comment s'effectue la recherche ? (Et le piège de la vectorisation "naïve")</h5>
+              <div class="callout callout-warning">
+                <div class="callout-title"><svg width="18" height="18" fill="none" stroke="currentColor"
+                    stroke-width="2" viewBox="0 0 24 24" style="flex-shrink:0;">
+                    <path stroke-linecap="round" stroke-linejoin="round"
+                      d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+                  </svg>Attention</div>
+                <p><strong>Le piège de la vectorisation naïve :</strong>
+                  Si vous vectorisez le fichier JSON complet en une seule chaîne de caractères brute, l'embedding
+                  mélangera les symptômes, le titre et la procédure de résolution. La recherche vectorielle sera confuse
+                  et moins précise car la description technique de la procédure (les outils, les étapes de démontage) va
+                  "diluer" le signal des symptômes recherchés par l'utilisateur.</p>
+              </div>
+              <p>Pour que la recherche se fasse <strong>uniquement sur les symptômes</strong> (comme dans un filtre
+                <code>WHERE</code> conceptuel), le développeur doit employer l'une de ces deux méthodes lors de
+                l'ingestion :
+              </p>
+              <ul>
+                <li><strong>Méthode A (Vecteurs Nommés / Named Vectors)</strong> : De nombreuses bases vectorielles
+                  (comme
+                  Qdrant ou Milvus) permettent d'associer plusieurs vecteurs nommés à un seul enregistrement. Durant
+                  l'ingestion, le développeur calcule l'embedding <strong>uniquement du texte des symptômes</strong>
+                  (par
+                  exemple en fusionnant la liste de symptômes en une seule chaîne : <em>"Symptômes : Sifflement... Bruit
+                    métallique..."</em>) et associe ce vecteur au champ <code>"vecteur_symptomes"</code> du point. Lors
+                  de
+                  la requête, il cherche spécifiquement dans cet index.</li>
+                <li><strong>Méthode B (Points Enfants Séparés)</strong> : On crée en base un point vectoriel individuel
+                  par symptôme (ex: un point pour <em>"Sifflement ou couinement..."</em>, un autre pour <em>"Voyant de
+                    batterie..."</em>). Chaque point possède dans ses métadonnées (Payload) la fiche de réparation ou
+                  son
+                  identifiant.</li>
+              </ul>
+              <p><strong>Déroulement de la recherche (Méthode A) :</strong>
+              <ol>
+                <li>L'utilisateur pose sa question : <em>"Mon moteur siffle de façon aiguë quand j'accélère."</em></li>
+                <li>Le code de l'orchestrateur calcule l'embedding de cette question.</li>
+                <li>La recherche vectorielle compare cet embedding <strong>uniquement avec l'index des vecteurs de
+                    symptômes</strong> (<code>vecteur_symptomes</code>) configuré en base de données.</li>
+                <li>Le sifflement aigu de l'utilisateur correspond sémantiquement au symptôme <em>"Sifflement ou
+                    couinement
+                    aigu provenant du moteur"</em>.
+                <li>Grâce à la correspondance géométrique, la base vectorielle renvoie le point associé.</li>
+                <li>Le code de l'orchestrateur extrait les métadonnées (le Payload) de ce point, qui contiennent la
+                  <code>cause_probable</code> et la <code>procedure_resolution</code>.
+                </li>
+                <li>Le LLM génère la réponse finale en exploitant ces données structurées.</li>
+              </ol>
+              </p>
+              <hr />
+              <h3 id="b-la-vectorisation-et-la-g-om-trie">B. La Vectorisation et la Géométrie</h3>
+              <ul>
+                <li><strong>Embedding (Plongement Vectoriel)</strong> : Représentation mathématique d'un texte sous la
+                  forme d'une liste de nombres (un vecteur) de dimension fixe (ex: 384 ou 1536). Deux textes ayant le
+                  même
+                  sens sémantique seront proches géométriquement dans cet espace vectoriel.</li>
+                <li><strong>Embedding Model (Modèle d'Embedding)</strong> : Réseau de neurones spécialisé (ex:
+                  <code>all-MiniLM-L6-v2</code>, <code>bge-large</code>, <code>text-embedding-3-small</code>) entraîné
+                  spécifiquement pour transformer du texte en vecteurs pertinents.
+                </li>
+                <li><strong>Vector Store / Vector Database (Base de Données Vectorielle)</strong> : Système de stockage
+                  optimisé pour stocker les chunks de texte accompagnés de leurs embeddings vectoriels. Elle permet de
+                  faire des recherches de similarité ultra-rapides parmi des millions de vecteurs.</li>
+                <li><strong>Cosine Similarity (Similarité Cosinus)</strong> : Mesure de similarité entre deux vecteurs
+                  $\vec{u}$ et $\vec{v}$. Elle calcule le cosinus de l'angle entre ces deux vecteurs dans l'espace
+                  multidimensionnel.</li>
+                <li><strong>Échelle</strong> : Entre $-1$ et $1$ (souvent entre $0$ et $1$ dans les faits pour les
+                  textes).</li>
+                <li><strong>Interprétation</strong> : Plus la valeur est <strong>proche de 1</strong>, plus les textes
+                  ont
+                  le <strong>même sens</strong> (vecteurs colinéaires de même sens). Plus elle est proche de $0$, plus
+                  ils
+                  sont indépendants sémantiquement (vecteurs orthogonaux).
+                  <div class="math-container">
+                    $$\text{Cosine Similarity}(\vec{u}, \vec{v}) = \frac{\vec{u} \cdot \vec{v}}{\|\vec{u}\| \|\vec{v}\|}
+                    =
+                    \frac{\sum_{i=1}^{D} u_i v_i}{\sqrt{\sum_{i=1}^{D} u_i^2} \sqrt{\sum_{i=1}^{D} v_i^2}}$$
+                  </div>
+                </li>
+              </ul>
+              <div class="callout callout-note">
+                <div class="callout-title"><svg width="18" height="18" fill="none" stroke="currentColor"
+                    stroke-width="2" viewBox="0 0 24 24" style="flex-shrink:0;">
+                    <path stroke-linecap="round" stroke-linejoin="round"
+                      d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                  </svg>Note</div>
+                <p><strong>⚠️ Distinguer Similarité et Distance</strong>
+                <ul>
+                  <li><strong>Une Similarité</strong> mesure à quel point deux objets se ressemblent. <strong>Max =
+                      1</strong> (très proche), <strong>Min = 0 ou -1</strong> (très éloigné).</li>
+                  <li><strong>Une Distance</strong> mesure l'écart entre deux objets. <strong>Min = 0</strong> (objets
+                    identiques / très proche), <strong>Max = $\infty$ ou 2</strong> (très éloigné).</li>
+                </ul>
+                </p>
+                <p>Les moteurs de bases de données vectorielles permettent de choisir entre :
+                <ol>
+                  <li><strong>Cosine Distance (Distance Cosinus)</strong> : Définie par $1 - \text{Cosine Similarity}$.
+                    Ici, <strong>0</strong> signifie que les vecteurs sont identiques, et <strong>1</strong> (ou 2)
+                    qu'ils
+                    sont éloignés.</li>
+                  <li><strong>Euclidean Distance (Distance L2)</strong> : Distance géométrique en ligne droite. Plus la
+                    distance est <strong>proche de 0</strong>, plus les textes sont <strong>identiques</strong>.</li>
+                  <li><strong>Dot Product (Produit Scalaire)</strong> : Si les vecteurs sont normalisés (de longueur 1),
+                    le
+                    produit scalaire est égal à la similarité cosinus. Plus la valeur est élevée (proche de 1), plus ils
+                    sont proches.</li>
+                </ol>
+                </p>
+              </div>
+              <h3 id="c-la-r-cup-ration-retrieval">C. La Récupération (Retrieval)</h3>
+              <ul>
+                <li><strong>Top-K</strong> : Le nombre $K$ de morceaux de documents les plus pertinents que l'on décide
+                  de
+                  récupérer dans la base vectorielle pour les injecter dans le prompt du LLM.</li>
+                <li><strong>Dense Retrieval (Recherche Dense)</strong> : Recherche basée sur la ressemblance sémantique
+                  générale (via les embeddings). Permet de trouver des correspondances même si les mots exacts sont
+                  différents (ex: chercher "automobile" et trouver des textes sur les "voitures").</li>
+                <li><strong>Sparse Retrieval (Recherche Creuse / Lexicale)</strong> : Recherche basée sur la présence de
+                  mots-clés exacts (ex: algorithme <strong>BM25</strong>). Elle est très précise pour trouver des
+                  références, des numéros de modèle ou des noms propres.</li>
+                <li><strong>Hybrid Search (Recherche Hybride)</strong> : Combinaison de la recherche dense (sens) et de
+                  la
+                  recherche creuse (mots-clés) pour obtenir les meilleurs résultats de recherche possibles.</li>
+                <li><strong>Re-ranking (Ré-ordonnancement)</strong> : Étape post-recherche où un modèle de Deep Learning
+                  distinct (le <em>Cross-Encoder</em>) réévalue de manière très fine le score de pertinence des $N$
+                  premiers documents renvoyés, afin de s'assurer que les informations les plus cruciales se retrouvent
+                  tout en haut de la liste envoyée au LLM.</li>
+              </ul>
+              <hr />
+              <h2 id="3-fonctionnement-math-matique-de-l-espace-vectoriel">⚙️ 3. Fonctionnement Mathématique de l'Espace
+                Vectoriel</h2>
+              <p>Pour comprendre le RAG, il faut visualiser comment l'information est représentée.</p>
+              <p>Imaginons un espace simplifié à 2 dimensions (2D) avec deux axes représentant les concepts de
+                <strong>"Technologie"</strong> et <strong>"Nature"</strong>. Chaque mot ou phrase est un point dans cet
+                espace :
+              </p>
+              <pre><code>          Axe Nature (y)
+               ▲
+               │
+               │   🌳 (Forêt) [0.1, 0.9]
+               │
+               │         🦆 (Canard) [0.3, 0.7]
+               │
+               │
+               │                              💻 (Ordinateur) [0.8, 0.1]
+               │
+               └────────────────────────────────────────────────► Axe Technologie (x)
+</code></pre>
+              <ol>
+                <li><strong>Embedding</strong> : </li>
+                <li>Le mot "Forêt" est traduit par le vecteur $\vec{u} = [0.1, 0.9]$.</li>
+                <li>Le mot "Canard" est traduit par le vecteur $\vec{v} = [0.3, 0.7]$.</li>
+                <li>Le mot "Ordinateur" est traduit par le vecteur $\vec{w} = [0.8, 0.1]$.</li>
+                <li><strong>Recherche de Proximité</strong> :</li>
+                <li>Si l'utilisateur cherche <em>"Un animal sauvage au bord d'un lac"</em>, le modèle d'embedding va
+                  projeter cette requête très près de "Canard" et "Forêt", mais très loin d' "Ordinateur".</li>
+                <li>Le système calcule les distances géométriques (produits scalaires ou similitudes cosinus) et extrait
+                  les éléments les plus proches.</li>
+              </ol>
+              <div class="callout callout-important">
+                <div class="callout-title"><svg width="18" height="18" fill="none" stroke="currentColor"
+                    stroke-width="2" viewBox="0 0 24 24" style="flex-shrink:0;">
+                    <path stroke-linecap="round" stroke-linejoin="round"
+                      d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+                  </svg>Important</div>
+                <p>Dans la réalité, l'espace vectoriel d'un modèle d'embedding n'a pas 2 dimensions, mais entre
+                  <strong>384 et 1536 dimensions</strong> pour capturer la complexité et les nuances du langage humain.
+                </p>
+              </div>
+              <hr />
+              <h2 id="4-les-diff-rentes-tapes-du-pipeline-technique">🛠️ 4. Les Différentes Étapes du Pipeline Technique
+              </h2>
+              <h3 id="phase-a-l-ingestion-hors-ligne-ou-en-t-che-de-fond">Phase A : L'Ingestion (Hors-ligne ou en tâche
+                de
+                fond)</h3>
+              <p>C'est la préparation de votre base de connaissances.</p>
+              <pre><code class="language-mermaid">graph LR
+    Docs[Documents bruts: PDF, Word, TXT] --&gt; Parse[1. Parser: Extraction du texte brut]
+    Parse --&gt; Chunk[2. Chunking: Découpage en segments cohérents + Overlap]
+    Chunk --&gt; Embed[3. Embedding: Transformation des segments en vecteurs]
+    Embed --&gt; Index[4. Indexation: Stockage dans la Base Vectorielle]
+</code></pre>
+              <h3 id="phase-b-la-requ-te-temps-r-el">Phase B : La Requête (Temps réel)</h3>
+              <p>C'est l'interaction de l'utilisateur avec le système.</p>
+              <pre><code class="language-mermaid">graph LR
+    Query[Question de l'utilisateur] --&gt; EmbedQuery[1. Vectorisation de la question]
+    EmbedQuery --&gt; Search[2. Recherche de similitude Cosinus dans la DB]
+    Search --&gt; Chunks[3. Récupération des K meilleurs Chunks]
+    Chunks --&gt; Prompt[4. Contextualisation: Construction du prompt enrichi]
+    Prompt --&gt; LLM[5. Génération: Le LLM formule la réponse finale]
+</code></pre>
+              <hr />
+              <h2 id="synth-se-rag-vs-fine-tuning">💡 Synthèse : RAG vs Fine-Tuning</h2>
+              <table>
+                <thead>
+                  <tr>
+                    <th style="text-align: left;">Caractéristique</th>
+                    <th style="text-align: left;">RAG (Génération Augmentée)</th>
+                    <th style="text-align: left;">Fine-Tuning (Ajustement des poids)</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <tr>
+                    <td style="text-align: left;"><strong>Source de connaissance</strong></td>
+                    <td style="text-align: left;">Externe, dynamique et facilement modifiable.</td>
+                    <td style="text-align: left;">Interne, figée dans les paramètres du réseau.</td>
+                  </tr>
+                  <tr>
+                    <td style="text-align: left;"><strong>Coût d'implémentation</strong></td>
+                    <td style="text-align: left;">Faible à moyen (infrastructure d'indexation).</td>
+                    <td style="text-align: left;">Élevé (entraînement GPU, dataset propre).</td>
+                  </tr>
+                  <tr>
+                    <td style="text-align: left;"><strong>Mise à jour des faits</strong></td>
+                    <td style="text-align: left;">Immédiate (il suffit de remplacer un fichier).</td>
+                    <td style="text-align: left;">Nécessite un réentraînement complet.</td>
+                  </tr>
+                  <tr>
+                    <td style="text-align: left;"><strong>Traçabilité des sources</strong></td>
+                    <td style="text-align: left;"><strong>Excellente</strong> (on peut afficher le document source).
+                    </td>
+                    <td style="text-align: left;"><strong>Nulle</strong> (effet boîte noire).</td>
+                  </tr>
+                  <tr>
+                    <td style="text-align: left;"><strong>Adaptation du comportement</strong></td>
+                    <td style="text-align: left;">Faible (dépend du Prompt Engineering).</td>
+                    <td style="text-align: left;"><strong>Excellente</strong> (le modèle apprend à parler différemment).
+                    </td>
+                  </tr>
+                </tbody>
+              </table>
+              <hr />
+          </div>
+
+          <div class="article-footer-nav">
+            <a href="article_12_partie_6.html" class="footer-nav-link prev">
+              <span class="footer-nav-label">← Précédent</span>
+              <span class="footer-nav-title">Recherche Visuelle : Tuning & Benchmarks - Partie 6</span>
+            </a>
+            <div></div>
+          </div>
+        </article>
+
+        <div class="toc-sidebar">
+          <div class="toc-title">Sur cette page</div>
+          <ul class="toc-list">
+            <li class=""><a href="#1-le-probl-me-d-origine-et-la-solution-rag">🧠 1. Le Problème d'Origine et la
+                Solution RAG</a></li>
+            <li class="toc-indent"><a href="#la-solution-le-rag">La Solution : Le RAG</a></li>
+            <li class=""><a href="#2-lexique-complet-du-rag">📖 2. Lexique Complet du RAG</a></li>
+            <li class="toc-indent"><a href="#a-les-donn-es-et-leur-pr-paration">A. Les Données et leur Préparation</a>
+            </li>
+            <li class="toc-indent"><a href="#a-1-les-strat-gies-avanc-es-le-chunking-enrichi">A.1. Les Stratégies
+                Avancées : Le Chunking Enrichi</a></li>
+            <li class="toc-indent"><a href="#b-la-vectorisation-et-la-g-om-trie">B. La Vectorisation et la Géométrie</a>
+            </li>
+            <li class="toc-indent"><a href="#c-la-r-cup-ration-retrieval">C. La Récupération (Retrieval)</a></li>
+            <li class=""><a href="#3-fonctionnement-math-matique-de-l-espace-vectoriel">⚙️ 3. Fonctionnement
+                Mathématique de l'Espace Vectoriel</a></li>
+            <li class=""><a href="#4-les-diff-rentes-tapes-du-pipeline-technique">🛠️ 4. Les Différentes Étapes du
+                Pipeline Technique</a></li>
+            <li class="toc-indent"><a href="#phase-a-l-ingestion-hors-ligne-ou-en-t-che-de-fond">Phase A : L'Ingestion
+                (Hors-ligne ou en tâche de fond)</a></li>
+            <li class="toc-indent"><a href="#phase-b-la-requ-te-temps-r-el">Phase B : La Requête (Temps réel)</a></li>
+            <li class=""><a href="#synth-se-rag-vs-fine-tuning">💡 Synthèse : RAG vs Fine-Tuning</a></li>
+          </ul>
+        </div>
+      </div>
+    </main>
+  </div>
+
+  <!-- Scripts -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.8.0/highlight.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/mermaid/dist/mermaid.min.js"></script>
+
+  <script>
+    // Initialize Highlight.js
+    hljs.highlightAll();
+
+    // Initialize Mermaid
+    mermaid.initialize({
+      theme: 'dark',
+      startOnLoad: false,
+      securityLevel: 'loose'
+    });
+
+    document.addEventListener("DOMContentLoaded", function () {
+      // 1. Convert Markdown pre-code blocks for Mermaid to actual divs
+      document.querySelectorAll("pre code.language-mermaid").forEach(function (el) {
+        const pre = el.parentElement;
+        const div = document.createElement("div");
+        div.className = "mermaid";
+        div.textContent = el.textContent;
+        pre.parentElement.replaceChild(div, pre);
+      });
+
+      // Run Mermaid rendering
+      mermaid.run();
+
+      // 2. Reading Progress Bar Logic
+      window.addEventListener('scroll', function () {
+        const winScroll = document.documentElement.scrollTop || document.body.scrollTop;
+        const height = document.documentElement.scrollHeight - document.documentElement.clientHeight;
+        const scrolled = (winScroll / height) * 100;
+        document.getElementById("reading-progress").style.width = scrolled + "%";
+      });
+
+      // 3. Mobile Sidebar Toggle Logic
+      const sidebar = document.getElementById("app-sidebar");
+      const openBtn = document.getElementById("menu-open-btn");
+      const closeBtn = document.getElementById("menu-close-btn");
+
+      if (openBtn && sidebar) {
+        openBtn.addEventListener('click', function () {
+          sidebar.classList.add('open');
+        });
+      }
+
+      if (closeBtn && sidebar) {
+        closeBtn.addEventListener('click', function () {
+          sidebar.classList.remove('open');
+        });
+      }
+    });
+  </script>
+</body>
+
+</html>
